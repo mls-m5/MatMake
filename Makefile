@@ -3,12 +3,18 @@ TESTSRC = $(wildcard src/*.cpp)
 TESTOBJ = $(TESTSRC:.cpp=.o)
 CXXFLAGS = -std=c++11
 
-all: matdep .depend $(TESTOBJ) 
+all: matdep
+
+tests: all .depend $(TESTOBJ) 
+	./matdep $(TESTSRC) > .depend #testing
+	./matdep $(TESTSRC) ##For visible output
 
 matdep: matdep.cpp
 
-.depend: matdep Makefile $(TESTSRC)
-	./matdep $(TESTSRC) > .depend
-	./matdep $(TESTSRC) ##For visible output
+.depend: Makefile $(TESTSRC)
 
 include .depend
+
+clean:
+	rm -f matdep
+	rm -f $(TESTOBJ)
