@@ -1,0 +1,6 @@
+.depend
+*.o
+*.swp
+
+matdep
+matmake
