@@ -16,7 +16,7 @@ LIBS = #libs like -lGL
 #TARGET = name_of_program  #uncomment this line
 
 #make sure to call the rule
-all: ${TARGET}
+all: ${TARGET} .depend
 
 ${TARGET}: ${OBJECTS}
 	${CXX} ${CXXFLAGS} -o ${TARGET} ${OBJECTS} ${LIBS}
