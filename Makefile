@@ -13,8 +13,6 @@ matdep: matdep.cpp
 
 .depend: Makefile $(TESTSRC)
 
-include .depend
-
 clean:
 	rm -f matdep
 	rm -f $(TESTOBJ)
