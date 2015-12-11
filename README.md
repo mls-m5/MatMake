@@ -1,33 +1,22 @@
 Matmake
 ======================
-A simple dependency calculating system for makefiles
+A simple dependency calculating system for makefiles (in linux)
 
 In the example below the variable CPP_FILES contains names to all source files that you want to include in the project
 
 in the script above all the source files is located in a folder named "src"
 
-Add the following to your makefile:
+An example of content of makefile can be found in Makefile-example.txt
 
-#automatically find files from wildcards
-CPP_FILES+= $(wildcard src/*.cpp)
-OBJECTS = $(CPP_FILES:.cpp=.o)  #find the associated o-filenames
-CXXFLAGS = #flags like -std=c++11 or -Iinclude/
-LIBS = #libs like -lGL
-#TARGET = name_of_program  #uncomment this line
+or just run ```make init-project``` to get a standard project setup.
 
-#make sure to call the rule
-all: ${TARGET} .depend
 
-${TARGET}: ${OBJECTS}
-	${CXX} ${CXXFLAGS} -o ${TARGET} ${OBJECTS} ${LIBS}
+If you are reading this from a web browser
 
-#rule for calculate dependencies
-.depend: ${CPP_FILES} Makefile
-	git submodule update --init #pull all submodules from server
-	make -C matmake/
-	@echo
-	@echo Calculating dependencies
-	matmake/matdep ${CPP_FILES} ${CXXFLAGS} > .depend
-	
-#include the dependencies
-include .depend
+```sh
+git init
+git submodule add https://github.com/mls-m5/matmake.git
+make -C matmake/ init-project
+```
+
+And matmake will create a simple matmake project for you. You never have to change anything inside the matmake folder, all the other files belongs to your project.

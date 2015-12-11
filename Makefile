@@ -16,3 +16,12 @@ matdep: matdep.cpp
 clean:
 	rm -f matdep
 	rm -f $(TESTOBJ)
+
+init-project:
+	mkdir -p ../src
+	mkdir -p ../include
+	cp -i examples/Makefile-example.txt ../Makefile
+	cp -i examples/main.cpp ../src/
+	cp -i examples/common.h ../include/
+	cp -i examples/gitignore ../.gitignore
+	make -C ../
