@@ -24,4 +24,6 @@ init-project:
 	cp -i examples/main.cpp ../src/
 	cp -i examples/common.h ../include/
 	cp -i examples/gitignore ../.gitignore
-	make -C ../
+	@echo successfully created project
+	@echo now, configure your makefile and run make to build new project
+

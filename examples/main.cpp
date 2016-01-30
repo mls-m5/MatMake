@@ -8,5 +8,5 @@ int main(int argc, char **arv) {
 	
 	cout << "Hello world!" << endl;
 	
-	cout << "pi is " << pi;
+	cout << "pi is " << pi << endl;
 }
