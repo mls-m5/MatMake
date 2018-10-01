@@ -27,3 +27,19 @@ init-project:
 	@echo successfully created project
 	@echo now, configure your makefile and run make to build new project
 
+init-cmake-project:
+	mkdir -p ../src
+	mkdir -p ../include
+	mkdir -p ../build-debug
+	mkdir -p ../build-release
+	cp -i examples/main.cpp ../src/
+	cp -i examples/common.h ../include/
+	cp -i examples/gitignore ../.gitignore
+	cp -i examples/CMakeLists-root.txt ../CMakeLists.txt
+	(cd ../build-debug && cmake -DCMAKE_BUILD_TYPE=Debug ..)
+	(cd ../build-release && cmake -DCMAKE_BUILD_TYPE=Release ..)
+	
+refresh-cmake-files:
+	(cd ../build-debug && cmake -DCMAKE_BUILD_TYPE=Debug ..)
+	(cd ../build-release && cmake -DCMAKE_BUILD_TYPE=Release ..)
+	

@@ -1,0 +1,52 @@
+# Project created with matmake
+# https://github.com/mls-m5/matmake
+
+# CMakeLists files in this project can
+# Root source directory can be refered to as ${MAIN_SOURCE_DIR}
+# and binary directory as ${MAIN_BINARY_DIR}.
+cmake_minimum_required (VERSION 2.8.11)
+
+set (PROJECT_NAME MAIN)
+set (EXEC_NAME main)
+
+project (${PROJECT_NAME})
+
+# Use this command to add directory:
+# add_subdirectory (dirname)
+
+# Set c++ standard to c++11
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+# Add all files in this directory
+AUX_SOURCE_DIRECTORY(src SRC_FILES)
+
+# This creates the main executable
+add_executable (${EXEC_NAME} ${SRC_FILES})
+
+# Add include library to executable
+target_include_directories (${EXEC_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Examples how to set flags depending on which version that is compiled
+#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
+
+# Example on how to link to different libraries
+# Uncomment to use
+
+# find_package(OpenGL REQUIRED)
+# include_directories( ${OPENGL_INCLUDE_DIRS} )
+# target_link_libraries(${EXEC_NAME} ${OPENGL_LIBRARIES} )
+
+# find_package(SDL2 REQUIRED)
+# include_directories(${SDL2_INCLUDE_DIRS})
+# target_link_libraries(${EXEC_NAME} ${SDL2_LIBRARIES})
+
+# find_package(PNG REQUIRED)
+# include_directories(${PNG_INCLUDE_DIR})
+# target_link_libraries(${EXEC_NAME} ${PNG_LIBRARY})
+
+# find_package(SDL2_image REQUIRED) #this needs some more configuration to work
+# target_link_libraries(${SDL2_IMAGE_INCLUDE_DIRS})
+# target_link_libraries(${EXEC_NAME} ${SDL2_IMAGE_LIBRARIES})
+
+
