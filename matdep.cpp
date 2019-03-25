@@ -1,5 +1,5 @@
 
-//MatDep: A wrapper around the g++ -MM that does not strip the file paths
+//MatDep: A wrapper around the g++ -MM command
 //Part of he MatMake build system
 
 #include <iostream>
@@ -17,16 +17,6 @@ string changeToOEnding(string text) {
 	return text.substr(0, f) + ".o";
 }
 
-string fixBegining(string text, string actualBeginning) {
-	auto f = text.find(':');
-	if (f == string::npos) {
-		return text;
-	}
-
-	text = text.substr(f, text.size() - f);
-	return changeToOEnding(actualBeginning) + " " + text; //stripping cpp ending
-}
-
 int main(int argc, char **argv) {
 	cout << "# MatDep 0.0" << endl;
 	
@@ -35,7 +25,7 @@ int main(int argc, char **argv) {
 
 	for (int i = 1; i < argc; ++i) {
 		string arg = argv[i];
-		if (arg.find(".cpp") != string::npos or arg.find(".o") != string::npos) {
+		if (arg.find(".cpp") != string::npos || arg.find(".o") != string::npos) {
 			files.push_back(arg);
 		}
 		else {
@@ -49,7 +39,7 @@ int main(int argc, char **argv) {
 	}
 
 	for (auto it: files) {
-		auto runString = "g++ -MM " + it + flagstring;
+		auto runString = "g++ -MM " + it + " -MT " + changeToOEnding(it) + flagstring;
 		cout << "# " << runString << endl;
 		FILE *fp = popen(runString.c_str(), "r");
 		char buf[8];
@@ -59,7 +49,7 @@ int main(int argc, char **argv) {
 			returnString += buf;
 		}
 
-		cout << fixBegining(returnString, it) << endl;
+		cout << returnString << endl;
 
 		fclose(fp);
 	}
