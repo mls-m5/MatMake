@@ -118,7 +118,7 @@ vector<string> findFiles(string pattern) {
 		}
 	}
 	else {
-		return listFiles(pattern);
+		return {pattern};
 	}
 	return ret;
 }
@@ -242,6 +242,8 @@ public:
 	virtual string targetPath() = 0;
 
 	virtual void clean() = 0;
+
+	virtual bool includeInBinary() { return true; };
 };
 
 struct StaticFile: public Dependency {
@@ -271,6 +273,7 @@ struct BuildTarget: public Dependency {
 		}
 		else {
 			set("exe", Token("program"));
+			set("cpp", Token("c++"));
 		}
 	};
 
@@ -320,6 +323,20 @@ struct BuildTarget: public Dependency {
 		}
 	}
 
+	Tokens getGroups(const Token &memberName) {
+		auto sourceString = get(memberName);
+
+		auto groups = sourceString.groups();
+
+		Tokens ret;
+		for (auto g: groups) {
+			auto sourceFiles = findFiles(g.concat());
+			ret.insert(ret.end(), sourceFiles.begin(), sourceFiles.end());
+		}
+
+		return ret;
+	}
+
 	BuildTarget *getParent() ;
 
 	void print() {
@@ -330,13 +347,16 @@ struct BuildTarget: public Dependency {
 		vout << endl;
 	}
 
-//	bool needsUpdate(time_t dependingTime) override;
+	string getCpp() {
+		return get("cpp").concat();
+	}
+
 
 	time_t build() override {
 		dirty = false;
 		auto exe = targetPath();
 		if (exe.empty() || name == "root") {
-			return getTimeChanged();
+			return 0;
 		}
 
 		vout << endl;
@@ -362,10 +382,12 @@ struct BuildTarget: public Dependency {
 			string fileList;
 
 			for (auto f: dependencies) {
-				fileList += (f->targetPath() + " ");
+				if (f->includeInBinary()) {
+					fileList += (f->targetPath() + " ");
+				}
 			}
 
-			string command = "g++ -o " + exe + " " + fileList + " " + get("flags").concat();
+			string command = getCpp() + " -o " + exe + " " + fileList + " " + get("flags").concat();
 			cout << command << endl;
 			system (command.c_str());
 			dirty = false;
@@ -384,6 +406,7 @@ struct BuildTarget: public Dependency {
 		remove(targetPath().c_str());
 	}
 
+
 	string targetPath() override {
 		auto dir = get("dir").concat();
 		if (!dir.empty()) {
@@ -393,6 +416,59 @@ struct BuildTarget: public Dependency {
 	}
 };
 
+class CopyFile: public Dependency {
+public:
+	CopyFile(const CopyFile &) = default;
+	CopyFile(CopyFile &&) = default;
+	CopyFile(string source, string output, BuildTarget *parent):
+		source(source),
+		output(output),
+		parent(parent) {}
+
+	string source;
+	string output;
+	BuildTarget *parent;
+
+	time_t getSourceChangedTime() {
+		return ::getTimeChanged(source);
+	}
+
+	time_t build() override {
+		if (output == source) {
+			vout << "file " << output << " source and target is on same place. skipping" << endl;
+		}
+		auto timeChanged = getTimeChanged();
+
+		if (getSourceChangedTime() > timeChanged) {
+			ifstream src(source);
+			if (!src.is_open()) {
+				cout << "could not open file " << source << " for copy for target " << parent->name << endl;
+			}
+
+			ofstream dst(output);
+			if (!dst) {
+				cout << "could not open file " << output << " for copy for target " << parent->name << endl;
+			}
+
+			vout << "copy " << source << " --> " << output << endl;
+			dst << src.rdbuf();
+		}
+		return timeChanged;
+	}
+
+	void clean() override {
+		vout << "removing file " << output << endl;
+		remove(output.c_str());
+	}
+
+	string targetPath() override {
+		return output;
+	}
+
+	bool includeInBinary() override {
+		return false;
+	}
+};
 
 class BuildFile: public Dependency {
 public:
@@ -411,11 +487,6 @@ public:
 
 	BuildTarget *parent;
 	vector<string> dependencies;
-
-	enum Status {
-		Fresh,
-		NeedsRebuild
-	};
 
 	string fixObjectEnding(string filename) {
 		if (filename.find(".cpp") == filename.size() - 4) {
@@ -462,7 +533,7 @@ public:
 	time_t build() override {
 		auto flags = parent->get("flags").concat();
 		if (getInputChangedTime() > getDepFileChangedTime()) {
-			string command = "g++ -MT " + output + " -MM " + filename + " " + flags + " > " + depFile;
+			string command = parent->getCpp() + " -MT " + output + " -MM " + filename + " " + flags + " > " + depFile;
 			vout << command << endl;
 			system(command.c_str());
 		}
@@ -478,7 +549,7 @@ public:
 		}
 
 		if (dirty) {
-			string command = "g++ -c -o " + output + " " + filename + " " + flags;
+			string command = parent->getCpp() + " -c -o " + output + " " + filename + " " + flags;
 			cout << command << endl;
 			system (command.c_str());
 			dirty = false;
@@ -497,15 +568,13 @@ public:
 		vout << "removing file " << targetPath() << endl;
 		remove(targetPath().c_str());
 	}
-
-	Status status = Fresh;
 };
 
 
 class Environment {
 public:
 	vector<unique_ptr<BuildTarget>> targets;
-	vector<unique_ptr<BuildFile>> files;
+	vector<unique_ptr<Dependency>> files;
 	set<string> directories;
 
 	Environment () {
@@ -569,23 +638,7 @@ public:
 		}
 	}
 
-	std::vector<string> getSourcePaths(Token target) {
-		NameDescriptor nd(target, "src");
 
-		auto sourceString = getValue(nd);
-
-		auto groups = sourceString.groups();
-
-		vector<string> ret;
-		for (auto g: groups) {
-//			ret.push_back(g.concat());
-			auto sourceFiles = findFiles(g.concat());
-			ret.insert(ret.end(), sourceFiles.begin(), sourceFiles.end());
-		}
-
-
-		return ret;
-	}
 
 	std::string getOutputPath(Token target) {
 		auto value = getValue({target, "dir"});
@@ -597,8 +650,12 @@ public:
 		files.clear();
 		for (auto &target: targets) {
 			auto outputPath = getOutputPath(target->name);
-			for (auto &file: getSourcePaths(target->name)) {
+			for (auto &file: target->getGroups("src")) {
 				files.emplace_back(new BuildFile(file, outputPath + "/" + file, target.get()));
+				target->addDependency(files.back().get());
+			}
+			for (auto &file: target->getGroups("copy")) {
+				files.emplace_back(new CopyFile(file, outputPath + "/" + file, target.get()));
 				target->addDependency(files.back().get());
 			}
 		}
@@ -610,7 +667,7 @@ public:
 		calculateDependencies();
 
 		for (auto &file: files) {
-			directories.emplace(getDirectory(file->output));
+			directories.emplace(getDirectory(file->targetPath()));
 		}
 
 		for (auto dir: directories) {
@@ -630,6 +687,9 @@ public:
 				if (target) {
 					target->build();
 				}
+				else {
+					cout << "target '" << t << "' does not exist" << endl;
+				}
 			}
 		}
 	}
@@ -639,6 +699,16 @@ public:
 		for (auto &t: targets) {
 			t->clean();
 		}
+	}
+
+	void list() {
+		for (auto &t: targets) {
+			if (t->name != "root") {
+				cout << t->name << " ";
+			}
+		}
+		cout << "clean";
+		cout << endl;
 	}
 };
 
@@ -731,9 +801,10 @@ Matmake
 
 arguments:
 clean             remove all target files
-local             do not build external dependencies (other folders)
 [target]          build only specified target eg. debug or release
+--local           do not build external dependencies (other folders)
 -v or --verbose   print more information on what is happening
+--list -l         print a list of available targets
 )_";
 
 int main(int argc, char **argv) {
@@ -755,11 +826,17 @@ int main(int argc, char **argv) {
 		if (arg == "clean") {
 			operation = "clean";
 		}
-		else if(arg == "local") {
+		else if(arg == "--local") {
 			localOnly = true;
 		}
 		else if (arg == "-v" || arg == "--verbose") {
 			verbose = true;
+		}
+		else if (arg == "--list" || arg == "-l") {
+			operation = "list";
+		}
+		else if (arg == "all") {
+			//Do nothing. Default is te build all
 		}
 		else {
 			targets.push_back(arg);
@@ -817,7 +894,10 @@ int main(int argc, char **argv) {
 	if (operation == "build") {
 		environment.compile(targets);
 	}
-	else {
+	else if (operation == "list") {
+		environment.list();
+	}
+	else if (operation == "clean") {
 		environment.clean();
 	}
 

@@ -1,0 +1,17 @@
+# make script for calling matmake
+# you can also call matmake directly
+m = matmake/matmake
+all: $m
+	$m
+	
+clean: $m
+	$m clean
+
+release: $m
+	$m main
+
+debug: $m
+	$m main_debug
+
+$m: $m.cpp
+	make -C matmake matmake

@@ -22,9 +22,20 @@ matmake: matmake.cpp
 
 clean:
 	rm -f matdep
+	rm -f matmake
 	rm -f $(TESTOBJ)
-
+	
 init-project:
+	mkdir -p ../src
+	mkdir -p ../include
+	cp -i examples/Matmake-makefile.txt ../Makefile
+	cp -i examples/Matmakefile.txt ../Matmakefile
+	cp -i examples/main.cpp ../src/
+	cp -i examples/common.h ../include/
+	@echo successfully created project
+	@echo now, configure your Matmakefile and run 'make' or 'matmake/matmake' to build project
+
+init-matdep-project:
 	mkdir -p ../src
 	mkdir -p ../include
 	cp -i examples/Makefile-example.txt ../Makefile
@@ -32,7 +43,7 @@ init-project:
 	cp -i examples/common.h ../include/
 	cp -i examples/gitignore ../.gitignore
 	@echo successfully created project
-	@echo now, configure your makefile and run make to build new project
+	@echo now, configure your makefile and run make to build project
 
 init-cmake-project:
 	mkdir -p ../src

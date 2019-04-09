@@ -8,7 +8,7 @@ in the script above all the source files is located in a folder named "src"
 
 An example of content of makefile can be found in Makefile-example.txt
 
-or just run ```make init-project``` to get a standard project setup.
+or just run ```make -C matmake/ init-project``` to get a standard project setup.
 
 
 If you are reading this from a web browser
@@ -17,6 +17,15 @@ If you are reading this from a web browser
 git init
 git submodule add https://github.com/mls-m5/matmake.git
 make -C matmake/ init-project
+```
+
+
+To use the older more tested build system "matdep"
+----------------------------------------------
+```sh
+git init
+git submodule add https://github.com/mls-m5/matmake.git
+make -C matmake/ init-matdep-project
 ```
 
 And matmake will create a simple matmake project for you. You never have to change anything inside the matmake folder, all the other files belongs to your project.
