@@ -2,7 +2,7 @@
 #automatically find files from wildcards:
 CPP_FILES+= $(wildcard src/*.cpp)
 OBJECTS = $(CPP_FILES:.cpp=.o)  #find the associated o-filenames
-CXXFLAGS = -std=c++11 -Iinclude/ #add own flags here
+CXXFLAGS = -std=c++11 -Iinclude/ -W -Wall -Wno-unused-parameter -Wno-sign-compare #add own flags here
 LIBS = #libs like -lGL
 TARGET = program #name of the program
 
