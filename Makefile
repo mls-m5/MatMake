@@ -1,15 +1,22 @@
 
+CXX = c++
 TESTSRC = $(wildcard src/*.cpp)
 TESTOBJ = $(TESTSRC:.cpp=.o)
-CXXFLAGS = -std=c++11
+CXXFLAGS = -std=c++11 -W -Wall -Wno-unused-parameter -Wno-sign-compare
 
-all: matdep
+all: matdep matmake
+
+debug: CXXFLAGS+= -g -O0
+debug: all
+	@echo Debugging enabled
 
 tests: all .depend $(TESTOBJ) 
 	./matdep $(TESTSRC) > .depend #testing
 	./matdep $(TESTSRC) ##For visible output
 
 matdep: matdep.cpp
+
+matmake: matmake.cpp
 
 .depend: Makefile $(TESTSRC)
 
