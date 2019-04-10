@@ -51,7 +51,6 @@ time_t getTimeChanged(const string &path) {
 	struct stat file_stat;
 	int err = stat(path.c_str(), &file_stat);
     if (err != 0) {
-//        throw runtime_error(" [file_is_modified] stat");
     	vout << "file does not exist: " << path << endl;
     	return 0;
     }
@@ -59,6 +58,15 @@ time_t getTimeChanged(const string &path) {
 }
 
 #endif
+
+bool isDirectory(const string &path) {
+	struct stat file_stat;
+	int err = stat(path.c_str(), &file_stat);
+    if (err != 0) {
+    	vout << "file or directory " << path << " does not exist" << endl;
+    }
+    return file_stat.st_mode & S_IFDIR;
+}
 
 
 // adapted from https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
@@ -109,7 +117,15 @@ string getDirectory(string filename) {
 	if (directoryFound != string::npos) {
 		return string(filename.begin(), filename.begin() + directoryFound);
 	}
-	return filename;
+	else {
+		return "";
+//		if (isDirectory(filename)) {
+//			return filename;
+//		}
+//		else {
+//			return "";
+//		}
+	}
 }
 
 vector<string> findFiles(string pattern) {
@@ -363,6 +379,11 @@ struct BuildTarget: public Dependency {
 				inherit(*parent);
 			}
 		}
+		if (memberName == "exe") {
+			if (trim(value.concat()) == "%") {
+				members[memberName] = name;
+			}
+		}
 	}
 
 	void append(Token memberName, Tokens value) {
@@ -418,7 +439,7 @@ struct BuildTarget: public Dependency {
 			return 0;
 		}
 
-		auto changedTime = getTimeChanged();
+//		auto changedTime = getTimeChanged();
 
 		vout << endl;
 		vout << "  target " << name << "..." << endl;
@@ -426,7 +447,7 @@ struct BuildTarget: public Dependency {
 		auto lastDependency = 0;
 		for (auto &d: dependencies) {
 			auto t = d->build();
-			if (t > changedTime) {
+			if (d->dirty) {
 				d->addSubscriber(this);
 				accessMutex.lock();
 				waitList.insert(d);
@@ -457,7 +478,7 @@ struct BuildTarget: public Dependency {
 				}
 			}
 
-			command = getCpp() + " -o " + exe + " " + fileList + " " + get("libs").concat() + " " + get("flags").concat();
+			command = getCpp() + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
 
 			if (waitList.empty()) {
 				queue();
@@ -535,6 +556,7 @@ public:
 
 		if (getSourceChangedTime() > timeChanged) {
 			queue();
+			dirty = true;
 
 			return time(0);
 		}
@@ -582,7 +604,6 @@ public:
 		output(fixObjectEnding(output)),
 		depFile(fixDepEnding(output)),
 		parent(parent) {
-
 	}
 	string filename; //The source of the file
 	string output; //The target of the file
@@ -606,7 +627,6 @@ public:
 		}
 		return {};
 	}
-
 
 	time_t getInputChangedTime() {
 		return ::getTimeChanged(filename);
@@ -662,6 +682,7 @@ public:
 
 		if (shouldQueue || dirty) {
 			queue();
+			dirty = true;
 		}
 
 		if (dirty) {
@@ -851,12 +872,24 @@ public:
 		calculateDependencies();
 
 		for (auto &file: files) {
-			directories.emplace(getDirectory(file->targetPath()));
+			auto dir = getDirectory(file->targetPath());
+			if (dir.empty()) {
+				continue;
+			}
+			directories.emplace(dir);
 		}
 
 		for (auto dir: directories) {
 			if (verbose) cout << "output dir: " << dir << endl;
-			system(("mkdir -p " + dir).c_str());
+			if (dir.empty()) {
+				continue;
+			}
+			if (isDirectory(dir)) {
+				continue; //Skip if already created
+			}
+			if (system(("mkdir -p " + dir).c_str())) {
+				runtime_error("could not create directory " + dir);
+			}
 		}
 
 
@@ -1084,7 +1117,12 @@ int main(int argc, char **argv) {
 	if (!matmakefile.is_open()) {
 		if (getTimeChanged("Makefile") || getTimeChanged("makefile")) {
 			cout << "makefile in " << getCurrentWorkingDirectory() << endl;
-			system("make");
+			string arguments = "make";
+			for (int i = 1; i < argc; ++i) {
+				arguments += (string(" ") + argv[i]);
+			}
+			arguments += " -j";
+			system(arguments.c_str());
 			cout << endl;
 		}
 		else {
@@ -1172,6 +1210,7 @@ int main(int argc, char **argv) {
 
 				if (!chdir(words[1].c_str())) {
 					main(argc, argv);
+					cout << endl;
 				}
 				else {
 					cerr << "could not open directory " << words[1] << endl;

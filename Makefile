@@ -35,6 +35,13 @@ init-project:
 	@echo successfully created project
 	@echo now, configure your Matmakefile and run 'make' or 'matmake/matmake' to build project
 
+
+install: matmake
+	sudo cp -i matmake  /usr/local/bin
+	
+remove: matmake
+	sudo cp -i /usr/local/bin
+
 init-matdep-project:
 	mkdir -p ../src
 	mkdir -p ../include
