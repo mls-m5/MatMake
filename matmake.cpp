@@ -1082,7 +1082,14 @@ int main(int argc, char **argv) {
 	auto startTime = time(0);
 	ifstream matmakefile("Matmakefile");
 	if (!matmakefile.is_open()) {
-		cout << "matmake: could not find Matmakefile in " << getCurrentWorkingDirectory() << endl;
+		if (getTimeChanged("Makefile") || getTimeChanged("makefile")) {
+			cout << "makefile in " << getCurrentWorkingDirectory() << endl;
+			system("make");
+			cout << endl;
+		}
+		else {
+			cout << "matmake: could not find Matmakefile in " << getCurrentWorkingDirectory() << endl;
+		}
 		return -1;
 	}
 
@@ -1158,7 +1165,7 @@ int main(int argc, char **argv) {
 					environment.appendVariable(variableName, value);
 				}
 			}
-			else if (!localOnly && words.size() > 2 && words.front() == "external") {
+			else if (!localOnly && words.size() >= 2 && words.front() == "external") {
 				cout << "external dependency to " << words[1] << endl;
 
 				auto currentDirectory = getCurrentWorkingDirectory();
