@@ -64,6 +64,18 @@ string getCurrentWorkingDirectory() {
 	return currentPath;
 }
 
+// trim from both ends (copying)
+static inline std::string trim(std::string s) {
+	auto front = find_if(s.begin(), s.end(), [] (int ch) {
+		return !isspace(ch);
+	});
+	auto back = find_if(s.rbegin(), s.rend(), [] (int ch) {
+		return !isspace(ch);
+	}).base();
+
+    return string(front, back);
+}
+
 
 
 vector<string> listFiles(string directory) {
@@ -95,6 +107,7 @@ string getDirectory(string filename) {
 }
 
 vector<string> findFiles(string pattern) {
+	pattern = trim(pattern);
 	auto found = pattern.find('*');
 
 	vector<string> ret;
@@ -111,9 +124,19 @@ vector<string> findFiles(string pattern) {
 
 		auto fileList = listFiles(beginning);
 		for (auto &file: fileList) {
-			if (file.find(ending) == file.size() - ending.size() &&
-					file.find(fileNameBeginning) == 0) {
-				ret.push_back(directory + "/" + file);
+			auto endingPos = file.find(ending);
+			if (endingPos == string::npos) {
+				if (ending.empty()) {
+					if (file.find(fileNameBeginning) == 0) {
+						ret.push_back(directory + "/" + file);
+					}
+				}
+			}
+			else {
+				if (endingPos == file.size() - ending.size() &&
+						file.find(fileNameBeginning) == 0) {
+					ret.push_back(directory + "/" + file);
+				}
 			}
 		}
 	}
@@ -368,12 +391,16 @@ struct BuildTarget: public Dependency {
 			if (t > lastDependency) {
 				lastDependency = t;
 			}
+			if (t == 0) {
+				dirty = true;
+				break;
+			}
 		}
 
 		if (lastDependency > getTimeChanged()) {
 			dirty = true;
 		}
-		else {
+		else if (!dirty) {
 			cout << "nothing needs to be done for " << name << endl;
 		}
 
@@ -387,9 +414,11 @@ struct BuildTarget: public Dependency {
 				}
 			}
 
-			string command = getCpp() + " -o " + exe + " " + fileList + " " + get("flags").concat();
+			string command = getCpp() + " -o " + exe + " " + fileList + " " + get("libs").concat() + " " + get("flags").concat();
 			cout << command << endl;
-			system (command.c_str());
+			if (system (command.c_str())) {
+				throw runtime_error("linking failed with\n" + command);
+			}
 			dirty = false;
 			cout << endl;
 			return time(0);
@@ -520,7 +549,9 @@ public:
 			string d;
 			file >> d; //The first is the target path
 			while (file >> d) {
-				ret.push_back(d);
+				if (d != "\\") {
+					ret.push_back(d);
+				}
 			}
 			return ret;
 		}
@@ -532,10 +563,14 @@ public:
 
 	time_t build() override {
 		auto flags = parent->get("flags").concat();
-		if (getInputChangedTime() > getDepFileChangedTime()) {
+		auto depChangedTime = getDepFileChangedTime();
+		auto inputChangedTime = getInputChangedTime();
+		if (depChangedTime == 0 || inputChangedTime > depChangedTime) {
 			string command = parent->getCpp() + " -MT " + output + " -MM " + filename + " " + flags + " > " + depFile;
 			vout << command << endl;
-			system(command.c_str());
+			if (system(command.c_str())) {
+				throw runtime_error("could not build dependencies with command\n\t" + command);
+			}
 		}
 
 		auto timeChanged = getTimeChanged();
@@ -543,7 +578,8 @@ public:
 		auto dependencyFiles = parseDepFile();
 
 		for (auto &d: dependencyFiles) {
-			if (::getTimeChanged(d) > timeChanged) {
+			auto dependencyTimeChanged = ::getTimeChanged(d);
+			if (dependencyTimeChanged == 0 || dependencyTimeChanged > timeChanged) {
 				dirty = true;
 			}
 		}
@@ -650,8 +686,11 @@ public:
 		files.clear();
 		for (auto &target: targets) {
 			auto outputPath = getOutputPath(target->name);
+			if (!outputPath.empty()) {
+				outputPath += "/";
+			}
 			for (auto &file: target->getGroups("src")) {
-				files.emplace_back(new BuildFile(file, outputPath + "/" + file, target.get()));
+				files.emplace_back(new BuildFile(file, outputPath + file, target.get()));
 				target->addDependency(files.back().get());
 			}
 			for (auto &file: target->getGroups("copy")) {
