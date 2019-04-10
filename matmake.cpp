@@ -291,6 +291,7 @@ public:
 		for (auto s: subscribers) {
 			s->notice(this);
 		}
+		lock_guard<mutex> guard(accessMutex);
 		subscribers.clear();
 	}
 
@@ -300,6 +301,7 @@ public:
 	virtual void notice(Dependency *d) {};
 
 	vector <Dependency*> subscribers;
+	mutex accessMutex;
 };
 
 struct StaticFile: public Dependency {
@@ -326,20 +328,20 @@ struct BuildTarget: public Dependency {
 
 	BuildTarget(Token name, class Environment *env): Dependency(env), name(name) {
 		if (name != "root") {
-			set("inherit", Token("root"));
+			assign("inherit", Token("root"));
 		}
 		else {
-			set("exe", Token("program"));
-			set("cpp", Token("c++"));
+			assign("exe", Token("program"));
+			assign("cpp", Token("c++"));
 		}
 	};
 
 	BuildTarget(class Environment *env): Dependency(env){
-		set("inherit", Token("root"));
+		assign("inherit", Token("root"));
 	};
 
 	BuildTarget(NameDescriptor n, Tokens v, Environment *env): BuildTarget(n.rootName, env) {
-		set(n.memberName, v);
+		assign(n.memberName, v);
 	}
 
 	void inherit(const BuildTarget &parent) {
@@ -347,12 +349,12 @@ struct BuildTarget: public Dependency {
 			if (v.first == "inherit") {
 				continue;
 			}
-			set(v.first, v.second);
+			assign(v.first, v.second);
 		}
 	}
 
 
-	void set(Token memberName, Tokens value) {
+	void assign(Token memberName, Tokens value) {
 		members[memberName] = value;
 
 		if (memberName == "inherit") {
@@ -426,7 +428,9 @@ struct BuildTarget: public Dependency {
 			auto t = d->build();
 			if (t > changedTime) {
 				d->addSubscriber(this);
+				accessMutex.lock();
 				waitList.insert(d);
+				accessMutex.unlock();
 			}
 			if (t > lastDependency) {
 				lastDependency = t;
@@ -441,7 +445,7 @@ struct BuildTarget: public Dependency {
 			dirty = true;
 		}
 		else if (!dirty) {
-			cout << "nothing needs to be done for " << name << endl;
+			cout << name << " is fresh " << endl;
 		}
 
 		if (dirty) {
@@ -466,7 +470,9 @@ struct BuildTarget: public Dependency {
 	}
 
 	void notice(Dependency * d) override {
+		accessMutex.lock();
 		waitList.erase(waitList.find(d));
+		accessMutex.unlock();
 		vout << d->targetPath() << " removed from wating list from " << name << " " << waitList.size() << " to go" << endl;
 		if (waitList.empty()) {
 			queue();
@@ -475,14 +481,14 @@ struct BuildTarget: public Dependency {
 
 	// This is called when all dependencies are built
 	void work() override {
-		cout << "linking " << name << endl;
+		vout << "linking " << name << endl;
 		vout << command << endl;
 		if (system (command.c_str())) {
 			throw runtime_error("linking failed with\n" + command);
 		}
 		dirty = false;
 		sendSubscribersNotice();
-		cout << endl;
+		vout << endl;
 	}
 
 	void clean() override {
@@ -634,13 +640,13 @@ public:
 
 	time_t build() override {
 		auto flags = parent->get("flags").concat();
-		queue();
+		bool shouldQueue = false;
 
 		auto depChangedTime = getDepFileChangedTime();
 		auto inputChangedTime = getInputChangedTime();
 		if (depChangedTime == 0 || inputChangedTime > depChangedTime) {
 			depCommand = parent->getCpp() + " -MT " + output + " -MM " + filename + " " + flags + " > " + depFile;
-
+			shouldQueue = true;
 		}
 
 		auto timeChanged = getTimeChanged();
@@ -652,6 +658,10 @@ public:
 			if (dependencyTimeChanged == 0 || dependencyTimeChanged > timeChanged) {
 				dirty = true;
 			}
+		}
+
+		if (shouldQueue || dirty) {
+			queue();
 		}
 
 		if (dirty) {
@@ -701,6 +711,8 @@ public:
 	mutex workMutex;
 	mutex workAssignMutex;
 	int maxTasks = 0;
+	int lastProgress = 0;
+	bool finished = false;
 
 	void addTask(Dependency *t) {
 		workAssignMutex.lock();
@@ -762,7 +774,7 @@ public:
 	}
 
 	void setVariable(NameDescriptor name, Tokens value) {
-		(*this) [name.rootName].set(name.memberName, value) ;
+		(*this) [name.rootName].assign(name.memberName, value) ;
 	}
 
 	void print() {
@@ -772,20 +784,39 @@ public:
 	}
 
 	void printProgress() {
+		if (!maxTasks) {
+			return;
+		}
 		int amount = (100 - tasks.size() * 100 / maxTasks);
+
+		if (amount == lastProgress) {
+			return;
+		}
+		lastProgress = amount;
+
 		stringstream ss;
 
-		ss << "[";
-		for (int i = 0; i < amount / 4; ++i) {
-			ss << "-";
+		if (!debugOutput && !verbose) {
+			ss << "[";
+			for (int i = 0; i < amount / 4; ++i) {
+				ss << "-";
+			}
+			if (amount < 100) {
+				ss << ">";
+			}
+			else {
+				ss << "-";
+			}
+			for (int i = amount / 4; i < 100 / 4; ++i) {
+				ss << " ";
+			}
+			ss << "] " << amount << "%  \r";
 		}
-		ss << ">";
-		for (int i = amount / 4; i < 100 / 4; ++i) {
-			ss << " ";
+		else {
+			ss << "[" << amount << "%] ";
 		}
-		ss << "] " << amount << "%";
 
-		cout << ss.str() << "\r";
+		cout << ss.str();
 		cout.flush();
 	}
 
@@ -849,11 +880,10 @@ public:
 		work();
 	}
 
-
 	void work() {
 		vector<thread> threads;
 		vector<bool> status;
-		bool finished = false;
+
 
 		if (numberOfThreads < 2) {
 			numberOfThreads = 1;
@@ -873,7 +903,6 @@ public:
 					while (!finished) {
 						workAssignMutex.lock();
 						status[i] = true;
-						printProgress();
 						if (tasks.empty()) {
 							status[i] = false;
 
@@ -901,6 +930,7 @@ public:
 							tasks.pop();
 							workAssignMutex.unlock();
 							t->work();
+							printProgress();
 						}
 					}
 
@@ -1031,6 +1061,7 @@ string concatTokens(const vector<Token>::iterator begin, const vector<Token>::it
 }
 
 
+
 const char * helpText = R"_(
 Matmake
 
@@ -1144,7 +1175,7 @@ int main(int argc, char **argv) {
 				}
 				else {
 					vout << "returning to " << currentDirectory << endl;
-					cout << endl;
+					vout << endl;
 				}
 			}
 		}
