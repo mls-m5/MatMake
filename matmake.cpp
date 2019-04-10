@@ -1048,6 +1048,7 @@ Matmake defaults to use optimal number of threads for the computer to match the 
 )_";
 
 int main(int argc, char **argv) {
+	auto startTime = time(0);
 	ifstream matmakefile("Matmakefile");
 	if (!matmakefile.is_open()) {
 		cout << "matmake: could not find Matmakefile in " << getCurrentWorkingDirectory() << endl;
@@ -1159,9 +1160,14 @@ int main(int argc, char **argv) {
 		environment.clean();
 	}
 
+	auto endTime = time(0);
+
+	auto duration = endTime - startTime;
+	auto m = duration / 60;
+	auto s = duration - m * 60;
 
 	cout << endl;
-	cout << "done..." << endl;
+	cout << "done... " << m << "m " << s << "s" << endl;
 }
 
 
