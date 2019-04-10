@@ -91,6 +91,26 @@ static inline std::string trim(std::string s) {
 }
 
 
+static std::pair<string, string> stripFileEnding(string filename) {
+	filename = trim(filename);
+	if (filename.find(".cpp") == filename.size() - 4) {
+		filename = string(filename.begin(), filename.end() - 4);
+		return {filename, "cpp"};
+	}
+	else if (filename.find(".c") == filename.size() - 2) {
+		filename = string(filename.begin(), filename.end() - 2);
+		return {filename, "c"};
+	}
+	else if (filename.find(".so") == filename.size() - 3) {
+		filename = string(filename.begin(), filename.end() - 3);
+		return {filename, "so"};
+	}
+	else {
+		runtime_error("unknown filetype " + filename);
+		return {};
+	}
+}
+
 
 vector<string> listFiles(string directory) {
 	vector<string> ret;
@@ -164,6 +184,9 @@ vector<string> findFiles(string pattern) {
 	}
 	else {
 		return {pattern};
+	}
+	if (ret.empty()) {
+		vout << "warning: pattern " << pattern << " does not match any file" << endl;
 	}
 	return ret;
 }
@@ -347,8 +370,9 @@ struct BuildTarget: public Dependency {
 			assign("inherit", Token("root"));
 		}
 		else {
-			assign("exe", Token("program"));
+//			assign("exe", Token("program"));
 			assign("cpp", Token("c++"));
+			assign("cc", Token("cc"));
 		}
 	};
 
@@ -379,9 +403,22 @@ struct BuildTarget: public Dependency {
 				inherit(*parent);
 			}
 		}
-		if (memberName == "exe") {
+		else if (memberName == "exe" || memberName == "dll") {
 			if (trim(value.concat()) == "%") {
 				members[memberName] = name;
+			}
+		}
+
+		if (memberName == "dll") {
+			auto n = members[memberName];
+			if (!n.empty()) {
+				auto ending = stripFileEnding(n.concat());
+				if (!ending.second.empty()) {
+					members[memberName] = Token(ending.first + ".so");
+				}
+				else {
+					members[memberName] = Token(n.concat() + ".so");
+				}
 			}
 		}
 	}
@@ -414,6 +451,12 @@ struct BuildTarget: public Dependency {
 			ret.insert(ret.end(), sourceFiles.begin(), sourceFiles.end());
 		}
 
+		if (ret.size() == 1) {
+			if (ret.front().empty()) {
+				vout << " no pattern matching for " << memberName << endl;
+			}
+		}
+
 		return ret;
 	}
 
@@ -427,8 +470,16 @@ struct BuildTarget: public Dependency {
 		vout << endl;
 	}
 
-	string getCpp() {
-		return get("cpp").concat();
+	string getCpp(string filetype) {
+		if (filetype == "cpp") {
+			return get("cpp").concat();
+		}
+		else if (filetype == "c") {
+			return get("cc").concat();
+		}
+		else {
+			return "echo";
+		}
 	}
 
 
@@ -478,7 +529,12 @@ struct BuildTarget: public Dependency {
 				}
 			}
 
-			command = getCpp() + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+			if (!get("dll").empty()) {
+				command = getCpp("cpp") + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+			}
+			else {
+				command = getCpp("cpp") + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+			}
 
 			if (waitList.empty()) {
 				queue();
@@ -526,7 +582,13 @@ struct BuildTarget: public Dependency {
 		if (!dir.empty()) {
 			dir += "/";
 		}
-		return dir + get("exe").concat();
+		auto exe = get("exe");
+		if (exe.empty()) {
+			return dir + get("dll").concat();
+		}
+		else {
+			return dir + get("exe").concat();
+		}
 	}
 };
 
@@ -603,11 +665,16 @@ public:
 		filename(filename),
 		output(fixObjectEnding(output)),
 		depFile(fixDepEnding(output)),
+		filetype(stripFileEnding(filename).second),
 		parent(parent) {
+		if (filename.empty()) {
+			throw runtime_error("empty buildfile added");
+		}
 	}
 	string filename; //The source of the file
 	string output; //The target of the file
 	string depFile; //File that summarizes dependencies for file
+	string filetype; //The ending of the filename
 
 	string command;
 	string depCommand;
@@ -615,17 +682,12 @@ public:
 	BuildTarget *parent;
 	vector<string> dependencies;
 
-	string fixObjectEnding(string filename) {
-		if (filename.find(".cpp") == filename.size() - 4) {
-			filename = string(filename.begin(), filename.end() - 4) + ".o";
-		}
-		return filename;
+
+	static string fixObjectEnding(string filename) {
+		return stripFileEnding(filename).first + ".o";
 	}
-	string fixDepEnding(string filename) {
-		if (filename.find(".cpp") == filename.size() - 4) {
-			return string(filename.begin(), filename.end() - 4) + ".d";
-		}
-		return {};
+	static string fixDepEnding(string filename) {
+		return stripFileEnding(filename).first + ".d";
 	}
 
 	time_t getInputChangedTime() {
@@ -653,7 +715,7 @@ public:
 			return ret;
 		}
 		else {
-			cout << "could not find .d file for " << output << endl;
+			dout << "could not find .d file for " << output << " --> " << depFile << endl;
 			return {};
 		}
 	}
@@ -664,29 +726,32 @@ public:
 
 		auto depChangedTime = getDepFileChangedTime();
 		auto inputChangedTime = getInputChangedTime();
-		if (depChangedTime == 0 || inputChangedTime > depChangedTime) {
-			depCommand = parent->getCpp() + " -MT " + output + " -MM " + filename + " " + flags + " > " + depFile;
+
+		auto dependencyFiles = parseDepFile();
+
+		if (depChangedTime == 0 || inputChangedTime > depChangedTime || dependencyFiles.empty()) {
+			depCommand = parent->getCpp(filetype) + " -MT " + output + " -MM " + filename + " " + flags + " > " + depFile;
 			shouldQueue = true;
 		}
 
 		auto timeChanged = getTimeChanged();
 
-		auto dependencyFiles = parseDepFile();
 
 		for (auto &d: dependencyFiles) {
 			auto dependencyTimeChanged = ::getTimeChanged(d);
 			if (dependencyTimeChanged == 0 || dependencyTimeChanged > timeChanged) {
 				dirty = true;
+				break;
 			}
 		}
 
 		if (shouldQueue || dirty) {
-			queue();
 			dirty = true;
+			queue();
 		}
 
 		if (dirty) {
-			command = parent->getCpp() + " -c -o " + output + " " + filename + " " + flags;
+			command = parent->getCpp(filetype) + " -c -o " + output + " " + filename + " " + flags;
 
 			return time(0);
 		}
@@ -705,7 +770,9 @@ public:
 
 		if (!command.empty()) {
 			vout << command << endl;
-			system (command.c_str());
+			if (system (command.c_str())) {
+				throw runtime_error("could not build object with command\n\t" + command);
+			}
 			dirty = false;
 			sendSubscribersNotice();
 		}
@@ -719,6 +786,10 @@ public:
 	void clean() override {
 		vout << "removing file " << targetPath() << endl;
 		remove(targetPath().c_str());
+		if (!depFile.empty()) {
+			vout << "removing file " << depFile << endl;
+			remove(depFile.c_str());
+		}
 	}
 };
 
@@ -855,11 +926,19 @@ public:
 			if (!outputPath.empty()) {
 				outputPath += "/";
 			}
+			target->print();
+			dout << "target " << target->name << " src " << target->get("src").concat() << endl;
 			for (auto &file: target->getGroups("src")) {
+				if (file.empty()) {
+					continue;
+				}
 				files.emplace_back(new BuildFile(file, outputPath + file, target.get(), this));
 				target->addDependency(files.back().get());
 			}
 			for (auto &file: target->getGroups("copy")) {
+				if (file.empty()) {
+					continue;
+				}
 				files.emplace_back(new CopyFile(file, outputPath + "/" + file, target.get(), this));
 				target->addDependency(files.back().get());
 			}
@@ -880,7 +959,7 @@ public:
 		}
 
 		for (auto dir: directories) {
-			if (verbose) cout << "output dir: " << dir << endl;
+			dout << "output dir: " << dir << endl;
 			if (dir.empty()) {
 				continue;
 			}
@@ -987,11 +1066,26 @@ public:
 		}
 	}
 
-	void clean() {
+	void clean(vector<string> targetArguments) {
 		calculateDependencies();
-		for (auto &t: targets) {
-			t->clean();
+
+		if (targetArguments.empty()) {
+			for (auto &target: targets) {
+				target->clean();
+			}
 		}
+		else {
+			for (auto t: targetArguments) {
+				auto target = findTarget(t);
+				if (target) {
+					target->clean();
+				}
+				else {
+					cout << "target '" << t << "' does not exist" << endl;
+				}
+			}
+		}
+
 	}
 
 	void list() {
@@ -1234,7 +1328,7 @@ int main(int argc, char **argv) {
 		environment.list();
 	}
 	else if (operation == "clean") {
-		environment.clean();
+		environment.clean(targets);
 	}
 
 	auto endTime = time(0);
