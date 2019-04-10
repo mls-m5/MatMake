@@ -6,7 +6,7 @@ CXXFLAGS = -std=c++11 -W -Wall -Wno-unused-parameter -Wno-sign-compare
 
 all: matdep matmake
 
-debug: CXXFLAGS+= -g -O0 -D_GLIBCXX_DEBUG
+debug: CXXFLAGS+= -g -O0 -D_GLIBCXX_DEBUG -pthread
 debug: all
 	@echo Debugging enabled
 
