@@ -131,7 +131,6 @@ vector <string> listRecursive(string directory) {
 
 	for (auto &f: list) {
 		if (isDirectory(directory + "/" + f)) {
-//			dout << "is directory" << endl;
 			auto subList = listRecursive(directory + "/" + f);
 			for (auto &s: subList) {
 				s = f + "/" + s;
@@ -139,10 +138,6 @@ vector <string> listRecursive(string directory) {
 			ret.insert(ret.end(), subList.begin(), subList.end());
 		}
 	}
-
-//	for (auto &f: ret) {
-//		dout << "recursive result " << f << endl;
-//	}
 
 	return ret;
 }
@@ -252,13 +247,7 @@ public:
 		token = t;
 	}
 
-//    const char*
-//    what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_USE_NOEXCEPT override {
-//		return errorString.c_str();
-//	}
-
     Token token;
-//    string errorString;
 };
 
 
@@ -344,6 +333,7 @@ struct Tokens: public vector<Token> {
 	}
 };
 
+
 struct NameDescriptor {
 	NameDescriptor(std::vector<Token> name) {
 		if (name.size() == 1) {
@@ -364,6 +354,7 @@ struct NameDescriptor {
 	Token rootName = "root";
 	Token memberName = "";
 };
+
 
 class Dependency {
 public:
@@ -419,21 +410,6 @@ public:
 	mutex accessMutex;
 };
 
-struct StaticFile: public Dependency {
-	string filename;
-
-	Token targetPath() override {
-		return filename;
-	}
-
-	time_t build() override {
-		return getTimeChanged();
-	}
-
-	void clean() override {
-	}
-
-};
 
 struct BuildTarget: public Dependency {
 	Token name;
@@ -531,13 +507,6 @@ struct BuildTarget: public Dependency {
 				vout << " no pattern matching for " << memberName << endl;
 			}
 		}
-
-
-//		if (!ret.empty()) {
-//			dout << "grouping " << ret.front().getLocationDescription() << endl;
-//			dout << "from source beginning with " << sourceString.front().getLocationDescription() << endl;
-//		}
-
 		return ret;
 	}
 
@@ -570,8 +539,6 @@ struct BuildTarget: public Dependency {
 		if (exe.empty() || name == "root") {
 			return 0;
 		}
-
-//		auto changedTime = getTimeChanged();
 
 		vout << endl;
 		vout << "  target " << name << "..." << endl;
@@ -695,6 +662,7 @@ struct BuildTarget: public Dependency {
 	}
 };
 
+
 class CopyFile: public Dependency {
 public:
 	CopyFile(const CopyFile &) = default;
@@ -758,6 +726,7 @@ public:
 		return false;
 	}
 };
+
 
 class BuildFile: public Dependency {
 public:
@@ -1315,6 +1284,7 @@ Tokens tokenize(string line, int lineNumber) {
 	}
 	return ret;
 }
+
 
 Token concatTokens(const vector<Token>::iterator begin, const vector<Token>::iterator end) {
 	Token ret;
