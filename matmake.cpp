@@ -139,13 +139,30 @@ string getDirectory(string filename) {
 	}
 	else {
 		return "";
-//		if (isDirectory(filename)) {
-//			return filename;
-//		}
-//		else {
-//			return "";
-//		}
 	}
+}
+
+vector <string> listRecursive(string directory) {
+
+	auto list = listFiles(directory);
+	auto ret = list;
+
+	for (auto &f: list) {
+		if (isDirectory(directory + "/" + f)) {
+//			dout << "is directory" << endl;
+			auto subList = listRecursive(directory + "/" + f);
+			for (auto &s: subList) {
+				s = f + "/" + s;
+			}
+			ret.insert(ret.end(), subList.begin(), subList.end());
+		}
+	}
+
+//	for (auto &f: ret) {
+//		dout << "recursive result " << f << endl;
+//	}
+
+	return ret;
 }
 
 vector<string> findFiles(string pattern) {
@@ -155,7 +172,7 @@ vector<string> findFiles(string pattern) {
 	vector<string> ret;
 	if (found != string::npos) {
 		string beginning(pattern.begin(), pattern.begin() + found);
-		string ending(pattern.begin() + found + 1, pattern.end());
+		string ending;
 		string directory = beginning;
 		string fileNameBeginning;
 		auto directoryEnding = directory.rfind('/');
@@ -164,7 +181,15 @@ vector<string> findFiles(string pattern) {
 			directory = string(directory.begin(), directory.begin() + directoryEnding);
 		}
 
-		auto fileList = listFiles(beginning);
+		vector<string> fileList;
+		if (found + 1 < pattern.size() && pattern[found + 1]) {
+			fileList = listRecursive(directory);
+			ending = string(pattern.begin() + found + 2, pattern.end());
+		}
+		else {
+			fileList = listFiles(directory);
+			ending = string(pattern.begin() + found + 1, pattern.end());
+		}
 		for (auto &file: fileList) {
 			auto endingPos = file.find(ending);
 			if (endingPos == string::npos) {
@@ -187,6 +212,12 @@ vector<string> findFiles(string pattern) {
 	}
 	if (ret.empty()) {
 		vout << "warning: pattern " << pattern << " does not match any file" << endl;
+	}
+	if (debugOutput && !ret.empty()) {
+		dout << "recursively added:" << endl;
+		for (auto &f: ret) {
+			dout << f << " " << endl;
+		}
 	}
 	return ret;
 }
