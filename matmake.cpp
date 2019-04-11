@@ -42,6 +42,7 @@ using namespace std;
 bool verbose = false;
 bool debugOutput = false;
 int numberOfThreads = thread::hardware_concurrency(); //Get the maximal number of threads
+bool bailout = false;
 
 //verbose output
 #define vout if(verbose) cout
@@ -51,7 +52,7 @@ time_t getTimeChanged(const string &path) {
 	struct stat file_stat;
 	int err = stat(path.c_str(), &file_stat);
     if (err != 0) {
-    	vout << "file does not exist: " << path << endl;
+    	dout << "notice: file does not exist: " << path << endl;
     	return 0;
     }
     return file_stat.st_mtime;
@@ -63,7 +64,8 @@ bool isDirectory(const string &path) {
 	struct stat file_stat;
 	int err = stat(path.c_str(), &file_stat);
     if (err != 0) {
-    	vout << "file or directory " << path << " does not exist" << endl;
+    	dout << "file or directory " << path << " does not exist" << endl;
+    	return false;
     }
     return file_stat.st_mode & S_IFDIR;
 }
@@ -90,26 +92,6 @@ static inline std::string trim(std::string s) {
     return string(front, back);
 }
 
-
-static std::pair<string, string> stripFileEnding(string filename) {
-	filename = trim(filename);
-	if (filename.find(".cpp") == filename.size() - 4) {
-		filename = string(filename.begin(), filename.end() - 4);
-		return {filename, "cpp"};
-	}
-	else if (filename.find(".c") == filename.size() - 2) {
-		filename = string(filename.begin(), filename.end() - 2);
-		return {filename, "c"};
-	}
-	else if (filename.find(".so") == filename.size() - 3) {
-		filename = string(filename.begin(), filename.end() - 3);
-		return {filename, "so"};
-	}
-	else {
-		runtime_error("unknown filetype " + filename);
-		return {};
-	}
-}
 
 
 vector<string> listFiles(string directory) {
@@ -165,11 +147,51 @@ vector <string> listRecursive(string directory) {
 	return ret;
 }
 
-vector<string> findFiles(string pattern) {
-	pattern = trim(pattern);
+
+struct Token: public string {
+	string trailingSpace;
+	struct Location {
+		Location() = default;
+		Location (long line, long col): line(line), col(col) {}
+		long line = 0;
+		long col = 0;
+	} location;
+
+	Token(const Token &t) = default;
+	Token() = default;
+	Token(Token && t) = default;
+	Token &operator = (const Token &) = default;
+	Token(const string str, Location l = {0, 0}): string(str), location(l) {}
+	Token(const char* c, Location l = {0,0 }): string(c), location(l) {}
+	Token(string::iterator begin, string::iterator end, Location l = {0,0 }): string(begin, end), location(l) {}
+
+	friend std::ostream &operator << (std::ostream &s, const Token &t) {
+		if (t.empty()) {
+			s << "empty ";
+		}
+		s << (string)t << t.trailingSpace;
+		return s;
+	}
+
+	string str() {
+		return (string) *this;
+	}
+
+	string getLocationDescription() {
+		stringstream ss;
+		ss << "Matmakefile:" << location.line << ":" << location.col;
+		return ss.str();
+	}
+
+
+};
+
+
+vector<Token> findFiles(Token pattern) {
+	pattern = Token(trim(pattern), pattern.location);
 	auto found = pattern.find('*');
 
-	vector<string> ret;
+	vector<Token> ret;
 	if (found != string::npos) {
 		string beginning(pattern.begin(), pattern.begin() + found);
 		string ending;
@@ -182,11 +204,13 @@ vector<string> findFiles(string pattern) {
 		}
 
 		vector<string> fileList;
-		if (found + 1 < pattern.size() && pattern[found + 1]) {
+		if (found + 1 < pattern.size() && pattern[found + 1] == '*') {
+			// ** means recursive wildcard search
 			fileList = listRecursive(directory);
 			ending = string(pattern.begin() + found + 2, pattern.end());
 		}
 		else {
+			// * means wildcard search
 			fileList = listFiles(directory);
 			ending = string(pattern.begin() + found + 1, pattern.end());
 		}
@@ -195,14 +219,14 @@ vector<string> findFiles(string pattern) {
 			if (endingPos == string::npos) {
 				if (ending.empty()) {
 					if (file.find(fileNameBeginning) == 0) {
-						ret.push_back(directory + "/" + file);
+						ret.emplace_back(directory + "/" + file, pattern.location);
 					}
 				}
 			}
 			else {
 				if (endingPos == file.size() - ending.size() &&
 						file.find(fileNameBeginning) == 0) {
-					ret.push_back(directory + "/" + file);
+					ret.emplace_back(directory + "/" + file, pattern.location);
 				}
 			}
 		}
@@ -222,29 +246,46 @@ vector<string> findFiles(string pattern) {
 	return ret;
 }
 
-struct Token: public string {
-	Token(const Token &t) = default;
-	Token() = default;
-	Token(Token && t) = default;
-	Token &operator = (const Token &) = default;
-	Token(const string str): string(str) {}
-	Token(const char* c): string(c) {}
-
-
-	friend std::ostream &operator << (std::ostream &s, const Token &t) {
-		if (t.empty()) {
-			s << "empty ";
-		}
-		s << (string)t << t.trailingSpace;
-		return s;
+class MatmakeError: public runtime_error {
+public:
+	MatmakeError(Token t, string str): runtime_error(t.getLocationDescription() + ": error " + str  + "\n") {
+		token = t;
 	}
 
-	string str() {
-		return (string) *this;
-	}
+//    const char*
+//    what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_USE_NOEXCEPT override {
+//		return errorString.c_str();
+//	}
 
-	string trailingSpace;
+    Token token;
+//    string errorString;
 };
+
+
+static std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch = false) {
+	filename = trim(filename);
+	if (filename.find(".cpp") == filename.size() - 4) {
+		filename = Token(filename.begin(), filename.end() - 4, filename.location);
+		return {filename, "cpp"};
+	}
+	else if (filename.find(".c") == filename.size() - 2) {
+		filename = Token(filename.begin(), filename.end() - 2, filename.location);
+		return {filename, "c"};
+	}
+	else if (filename.find(".so") == filename.size() - 3) {
+		filename = Token(filename.begin(), filename.end() - 3, filename.location);
+		return {filename, "so"};
+	}
+	else {
+		if (allowNoMatch) {
+			return {filename, Token("", filename.location)};
+		}
+		else {
+			throw MatmakeError(filename, "unknown filetype in file " + filename);
+		}
+	}
+}
+
 
 struct Tokens: public vector<Token> {
 	Tokens() = default;
@@ -279,13 +320,17 @@ struct Tokens: public vector<Token> {
 				ret.emplace_back();
 			}
 		}
+
 		return ret;
 	}
 
-	string concat() {
-		string ret;
+	Token concat() {
+		Token ret;
 		for (auto it = begin(); it != end(); ++it) {
 			ret += ((*it) + it->trailingSpace);
+		}
+		if (!empty()) {
+			ret.location = front().location;
 		}
 		return ret;
 	}
@@ -344,7 +389,7 @@ public:
 	//Add task to list of tasks to be executed
 	void queue();
 
-	virtual string targetPath() = 0;
+	virtual Token targetPath() = 0;
 
 	virtual void clean() = 0;
 
@@ -377,7 +422,7 @@ public:
 struct StaticFile: public Dependency {
 	string filename;
 
-	string targetPath() override {
+	Token targetPath() override {
 		return filename;
 	}
 
@@ -394,7 +439,7 @@ struct BuildTarget: public Dependency {
 	Token name;
 	map<Token, Tokens> members;
 	set<Dependency *> waitList;
-	string command;
+	Token command;
 
 	BuildTarget(Token name, class Environment *env): Dependency(env), name(name) {
 		if (name != "root") {
@@ -424,7 +469,6 @@ struct BuildTarget: public Dependency {
 		}
 	}
 
-
 	void assign(Token memberName, Tokens value) {
 		members[memberName] = value;
 
@@ -443,7 +487,7 @@ struct BuildTarget: public Dependency {
 		if (memberName == "dll") {
 			auto n = members[memberName];
 			if (!n.empty()) {
-				auto ending = stripFileEnding(n.concat());
+				auto ending = stripFileEnding(n.concat(), true);
 				if (!ending.second.empty()) {
 					members[memberName] = Token(ending.first + ".so");
 				}
@@ -488,6 +532,12 @@ struct BuildTarget: public Dependency {
 			}
 		}
 
+
+//		if (!ret.empty()) {
+//			dout << "grouping " << ret.front().getLocationDescription() << endl;
+//			dout << "from source beginning with " << sourceString.front().getLocationDescription() << endl;
+//		}
+
 		return ret;
 	}
 
@@ -501,7 +551,7 @@ struct BuildTarget: public Dependency {
 		vout << endl;
 	}
 
-	string getCpp(string filetype) {
+	Token getCpp(Token filetype) {
 		if (filetype == "cpp") {
 			return get("cpp").concat();
 		}
@@ -552,7 +602,7 @@ struct BuildTarget: public Dependency {
 		}
 
 		if (dirty) {
-			string fileList;
+			Token fileList;
 
 			for (auto f: dependencies) {
 				if (f->includeInBinary()) {
@@ -560,12 +610,14 @@ struct BuildTarget: public Dependency {
 				}
 			}
 
+			auto cpp = getCpp("cpp");
 			if (!get("dll").empty()) {
-				command = getCpp("cpp") + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+				command = cpp + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
 			}
 			else {
-				command = getCpp("cpp") + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+				command = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
 			}
+			command.location = cpp.location;
 
 			if (waitList.empty()) {
 				queue();
@@ -592,7 +644,7 @@ struct BuildTarget: public Dependency {
 		vout << "linking " << name << endl;
 		vout << command << endl;
 		if (system (command.c_str())) {
-			throw runtime_error("linking failed with\n" + command);
+			throw MatmakeError(command, "linking failed with\n" + command);
 		}
 		dirty = false;
 		sendSubscribersNotice();
@@ -608,7 +660,7 @@ struct BuildTarget: public Dependency {
 	}
 
 
-	string targetPath() override {
+	Token targetPath() override {
 		auto dir = get("dir").concat();
 		if (!dir.empty()) {
 			dir += "/";
@@ -621,20 +673,40 @@ struct BuildTarget: public Dependency {
 			return dir + get("exe").concat();
 		}
 	}
+
+	Token getOutputDir() {
+		auto outputPath = get("dir").concat();
+		if (!outputPath.empty()) {
+			outputPath += "/";
+		}
+		return outputPath;
+	}
+
+	//If set, where the obj-files is placed
+	Token getObjDir() {
+		auto outputPath = get("objdir").concat();
+		if (!outputPath.empty()) {
+			outputPath += "/";
+		}
+		else {
+			return getOutputDir();
+		}
+		return outputPath;
+	}
 };
 
 class CopyFile: public Dependency {
 public:
 	CopyFile(const CopyFile &) = default;
 	CopyFile(CopyFile &&) = default;
-	CopyFile(string source, string output, BuildTarget *parent, Environment *env):
+	CopyFile(Token source, Token output, BuildTarget *parent, Environment *env):
 		Dependency(env),
 		source(source),
 		output(output),
 		parent(parent) {}
 
-	string source;
-	string output;
+	Token source;
+	Token output;
 	BuildTarget *parent;
 
 	time_t getSourceChangedTime() {
@@ -678,7 +750,7 @@ public:
 		remove(output.c_str());
 	}
 
-	string targetPath() override {
+	Token targetPath() override {
 		return output;
 	}
 
@@ -691,33 +763,44 @@ class BuildFile: public Dependency {
 public:
 	BuildFile(const BuildFile &) = default;
 	BuildFile(BuildFile &&) = default;
-	BuildFile(string filename, string output, BuildTarget *parent, class Environment *env):
+	BuildFile(Token filename, BuildTarget *parent, class Environment *env):
 		Dependency(env),
 		filename(filename),
-		output(fixObjectEnding(output)),
-		depFile(fixDepEnding(output)),
+		output(fixObjectEnding(parent->getObjDir() + filename)),
+		depFile(fixDepEnding(parent->getObjDir() + filename)),
 		filetype(stripFileEnding(filename).second),
 		parent(parent) {
+		auto withoutEnding = stripFileEnding(parent->getObjDir() + filename);
+		if (withoutEnding.first.empty()) {
+			throw MatmakeError(filename, "could not figure out source file type '" + parent->getObjDir() + filename +
+					"' . Is the file ending right?");
+		}
 		if (filename.empty()) {
-			throw runtime_error("empty buildfile added");
+			throw MatmakeError(filename, "empty buildfile added");
+		}
+		if (output.empty()) {
+			throw MatmakeError(filename, "could not find target name");
+		}
+		if (depFile.empty()) {
+			throw MatmakeError(filename, "could not find dep filename");
 		}
 	}
-	string filename; //The source of the file
-	string output; //The target of the file
-	string depFile; //File that summarizes dependencies for file
-	string filetype; //The ending of the filename
+	Token filename; //The source of the file
+	Token output; //The target of the file
+	Token depFile; //File that summarizes dependencies for file
+	Token filetype; //The ending of the filename
 
-	string command;
-	string depCommand;
+	Token command;
+	Token depCommand;
 
 	BuildTarget *parent;
 	vector<string> dependencies;
 
 
-	static string fixObjectEnding(string filename) {
+	static Token fixObjectEnding(Token filename) {
 		return stripFileEnding(filename).first + ".o";
 	}
-	static string fixDepEnding(string filename) {
+	static Token fixDepEnding(Token filename) {
 		return stripFileEnding(filename).first + ".d";
 	}
 
@@ -753,6 +836,12 @@ public:
 
 	time_t build() override {
 		auto flags = parent->get("flags").concat();
+		if (filetype == "cpp") {
+			auto cppflags = parent->get("cppflags");
+			if (!cppflags.empty()) {
+				flags += (" " + cppflags.concat());
+			}
+		}
 		bool shouldQueue = false;
 
 		auto depChangedTime = getDepFileChangedTime();
@@ -783,6 +872,7 @@ public:
 
 		if (dirty) {
 			command = parent->getCpp(filetype) + " -c -o " + output + " " + filename + " " + flags;
+			command.location = filename.location;
 
 			return time(0);
 		}
@@ -795,14 +885,14 @@ public:
 		if (!depCommand.empty()) {
 			vout << depCommand << endl;
 			if (system(depCommand.c_str())) {
-				throw runtime_error("could not build dependencies with command\n\t" + command);
+				throw MatmakeError(command, "could not build dependencies with command\n\t" + command);
 			}
 		}
 
 		if (!command.empty()) {
 			vout << command << endl;
 			if (system (command.c_str())) {
-				throw runtime_error("could not build object with command\n\t" + command);
+				throw MatmakeError(command, "could not build object with command\n\t" + command);
 			}
 			dirty = false;
 			sendSubscribersNotice();
@@ -810,7 +900,7 @@ public:
 
 	}
 
-	string targetPath() override {
+	Token targetPath() override {
 		return output;
 	}
 
@@ -944,26 +1034,18 @@ public:
 	}
 
 
-	std::string getOutputPath(Token target) {
-		auto value = getValue({target, "dir"});
-
-		return value.concat();
-	}
-
 	void calculateDependencies() {
 		files.clear();
 		for (auto &target: targets) {
-			auto outputPath = getOutputPath(target->name);
-			if (!outputPath.empty()) {
-				outputPath += "/";
-			}
+			auto outputPath = target->getOutputDir();
+
 			target->print();
 			dout << "target " << target->name << " src " << target->get("src").concat() << endl;
-			for (auto &file: target->getGroups("src")) {
-				if (file.empty()) {
+			for (auto &filename: target->getGroups("src")) {
+				if (filename.empty()) {
 					continue;
 				}
-				files.emplace_back(new BuildFile(file, outputPath + file, target.get(), this));
+				files.emplace_back(new BuildFile(filename, target.get(), this));
 				target->addDependency(files.back().get());
 			}
 			for (auto &file: target->getGroups("copy")) {
@@ -1041,7 +1123,7 @@ public:
 			for (int i = 0 ;i < numberOfThreads; ++i) {
 				status.push_back(true);
 				threads.emplace_back([&, i] () {
-					vout << "starting thread " << endl;
+					dout << "starting thread " << endl;
 
 					while (!finished) {
 						workAssignMutex.lock();
@@ -1072,7 +1154,14 @@ public:
 							auto t = tasks.front();
 							tasks.pop();
 							workAssignMutex.unlock();
-							t->work();
+							try {
+								t->work();
+							}
+							catch (MatmakeError &e) {
+								cerr << e.what() << endl;
+								finished = true;
+								bailout = true;
+							}
 							printProgress();
 						}
 					}
@@ -1088,7 +1177,13 @@ public:
 			while(!tasks.empty()) {
 				auto t = tasks.front();
 				tasks.pop();
-				t->work();
+				try {
+					t->work();
+				}
+				catch (MatmakeError &e) {
+					dout << e.what() << endl;
+					bailout = true;
+				}
 			}
 		}
 
@@ -1148,7 +1243,7 @@ void Dependency::queue() {
 	env->addTask(this);
 }
 
-bool isOperator(string op) {
+bool isOperator(string &op) {
 	vector<string> opList = {
 		"=",
 		"+=",
@@ -1158,26 +1253,37 @@ bool isOperator(string op) {
 }
 
 
-Tokens tokenize(string line) {
+Tokens tokenize(string line, int lineNumber) {
 	istringstream ss(line);
 	Tokens ret;
-	ret.emplace_back();
+
+	// The column index for the current character
+	int col = 1;
+
+	auto get = [&] () {
+		++col;
+		return ss.get();
+	};
 
 	auto newWord = [&] () {
-		if (!ret.back().empty()) {
+		if (ret.empty() || !ret.back().empty()) {
 			ret.emplace_back();
+			ret.back().location.line = lineNumber;
+			ret.back().location.col = col;
 		}
 	};
 
+	newWord();
+
 	while (ss) {
-		auto c = ss.get();
+		auto c = get();
 		if (c == -1) {
 			continue;
 		}
 		if (isspace(c)) {
 			ret.back().trailingSpace.push_back(c);
 			while (isspace(ss.peek())) {
-				ret.back().trailingSpace.push_back(ss.get());
+				ret.back().trailingSpace.push_back(get());
 			}
 			newWord();
 			continue;
@@ -1186,7 +1292,7 @@ Tokens tokenize(string line) {
 			newWord();
 			ret.back().push_back(c);
 			while (isSpecialChar(ss.peek())) {
-				ret.back().push_back(ss.get());
+				ret.back().push_back(get());
 				if (ret.back().back() == '=') {
 					break;
 				}
@@ -1210,10 +1316,13 @@ Tokens tokenize(string line) {
 	return ret;
 }
 
-string concatTokens(const vector<Token>::iterator begin, const vector<Token>::iterator end) {
-	string ret;
+Token concatTokens(const vector<Token>::iterator begin, const vector<Token>::iterator end) {
+	Token ret;
 	for (auto it = begin; it != end; ++it) {
 		ret += ((*it) + it->trailingSpace);
+	}
+	if (begin != end) {
+		ret.location = begin->location;
 	}
 	return ret;
 }
@@ -1303,9 +1412,11 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	int lineNumber = 1;
+
 	while (matmakefile) {
 		getline(matmakefile, line);
-		auto words = tokenize(line);
+		auto words = tokenize(line, lineNumber);
 
 		if (!words.empty()) {
 			auto it = words.begin() + 1;
@@ -1335,6 +1446,9 @@ int main(int argc, char **argv) {
 
 				if (!chdir(words[1].c_str())) {
 					main(argc, argv);
+					if (bailout) {
+						break;
+					}
 					cout << endl;
 				}
 				else {
@@ -1350,18 +1464,25 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
+		++lineNumber;
 	}
 
-	if (operation == "build") {
-		environment.compile(targets);
+	if (!bailout) {
+		try {
+			if (operation == "build") {
+				environment.compile(targets);
+			}
+			else if (operation == "list") {
+				environment.list();
+			}
+			else if (operation == "clean") {
+				environment.clean(targets);
+			}
+		}
+		catch (MatmakeError &e) {
+			cerr << e.what() << endl;
+		}
 	}
-	else if (operation == "list") {
-		environment.list();
-	}
-	else if (operation == "clean") {
-		environment.clean(targets);
-	}
-
 	auto endTime = time(0);
 
 	auto duration = endTime - startTime;
@@ -1369,7 +1490,14 @@ int main(int argc, char **argv) {
 	auto s = duration - m * 60;
 
 	cout << endl;
-	cout << "done... " << m << "m " << s << "s" << endl;
+	if (bailout) {
+		cout << "failed... " << m << "m " << s << "s" << endl;
+		return -1;
+	}
+	else {
+		cout << "done... " << m << "m " << s << "s" << endl;
+		return 0;
+	}
 }
 
 
