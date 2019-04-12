@@ -48,6 +48,15 @@ bool bailout = false;
 #define vout if(verbose) cout
 #define dout if(debugOutput) cout
 
+//Creates a directory if it does not exist
+void createDirectory(string dir) {
+	if (system(("mkdir -p " + dir).c_str())) {
+		runtime_error("could not create directory " + dir);
+	}
+}
+
+#endif
+
 time_t getTimeChanged(const string &path) {
 	struct stat file_stat;
 	int err = stat(path.c_str(), &file_stat);
@@ -57,8 +66,6 @@ time_t getTimeChanged(const string &path) {
     }
     return file_stat.st_mtime;
 }
-
-#endif
 
 bool isDirectory(const string &path) {
 	struct stat file_stat;
@@ -811,6 +818,12 @@ public:
 				flags += (" " + cppflags.concat());
 			}
 		}
+		if (filetype == "c") {
+			auto cflags = parent->get("cflags");
+			if (!cflags.empty()) {
+				flags += (" " + cflags.concat());
+			}
+		}
 		bool shouldQueue = false;
 
 		auto depChangedTime = getDepFileChangedTime();
@@ -1048,9 +1061,7 @@ public:
 			if (isDirectory(dir)) {
 				continue; //Skip if already created
 			}
-			if (system(("mkdir -p " + dir).c_str())) {
-				runtime_error("could not create directory " + dir);
-			}
+			createDirectory(dir);
 		}
 
 
@@ -1060,13 +1071,22 @@ public:
 			}
 		}
 		else {
+			bool matchFailed = true;
 			for (auto t: targetArguments) {
 				auto target = findTarget(t);
 				if (target) {
 					target->build();
+					matchFailed = false;
 				}
 				else {
 					cout << "target '" << t << "' does not exist" << endl;
+				}
+
+				if (matchFailed) {
+					cout << "run matmake --help for help" << endl;
+					cout << "targets: ";
+					list();
+					bailout = true;
 				}
 			}
 		}
@@ -1302,38 +1322,112 @@ Token concatTokens(const vector<Token>::iterator begin, const vector<Token>::ite
 const char * helpText = R"_(
 Matmake
 
+A fast simple build system. It can be installed on the system or included with the source code
+
 arguments:
-clean             remove all target files
 [target]          build only specified target eg. debug or release
+clean             remove all target files
+clean [target]    remove specified target files
 --local           do not build external dependencies (other folders)
 -v or --verbose   print more information on what is happening
 -d or --debug     print debug messages
 --list -l         print a list of available targets
 -j [n]            use [n] number of threads
 -j 1              run in single thread mode
+--help or -h      print this text
+--init            create a cpp project in current directory
+--init [dir]      create a cpp project in the specified directory
+--example         show a example of a Matmakefile
+
 
 Matmake defaults to use optimal number of threads for the computer to match the number of cores.
 )_";
 
+
+const char * exampleMain = R"_(
+#include <iostream>
+
+using namespace std;
+
+int main(int argc, char **argv) {
+	cout << "Hello" << endl;
+	
+	return 0;
+}
+
+)_";
+
+const char *exampleMatmakefile = R"_(
+# Matmake file
+# https://github.com/mls-m5/matmake
+
+cppflags += -std=c++11      # c++ only flags
+cflags +=                  # c only flags 
+flags += -Iinclude         # global flags
+
+## Main target
+main.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
+main.src = src/*.cpp
+main.exe = program         # name of executable
+main.libs += # -lGL -lSDL  # libraries to add at link time
+# main.dir = bin/release   # set build path
+# main.objdir = bin/obj    # separates obj-files from build files
+# main.dll = lib           # use this instead of exe to create so/dll file
+
+## Debug target:
+# main_debug.inherit = main  # copy all settings from main
+# main_debug.flags += -g -O0
+# main_debug.dir = bin/debug
+# main_debug.objdir = bin/debugobj
+
+)_";
+
+
+int createProject(string dir) {
+	if (!dir.empty()) {
+		createDirectory(dir);
+
+		if (chdir(dir.c_str())) {
+			cerr << "could not create directory " << dir << endl;
+			return -1;
+		}
+	}
+
+	if (getTimeChanged("Matmakefile") > 0) {
+		cerr << "Matmake file already exists. Exiting..." << endl;
+		return -1;
+	}
+
+	{
+		ofstream file("Matmakefile");
+		file << exampleMatmakefile;
+	}
+
+	createDirectory("src");
+
+	if (getTimeChanged("src/main.cpp") > 0) {
+		cerr << "src/main.cpp file already exists. Exiting..." << endl;
+		return -1;
+	}
+
+	createDirectory("include");
+
+	{
+		ofstream file("src/main.cpp");
+		file << exampleMain;
+	}
+
+	cout << "project created";
+	if (!dir.empty()) {
+		cout << " in " << dir;
+	}
+	cout << "..." << endl;
+	return -1;
+}
+
 int main(int argc, char **argv) {
 	auto startTime = time(0);
 	ifstream matmakefile("Matmakefile");
-	if (!matmakefile.is_open()) {
-		if (getTimeChanged("Makefile") || getTimeChanged("makefile")) {
-			cout << "makefile in " << getCurrentWorkingDirectory() << endl;
-			string arguments = "make";
-			for (int i = 1; i < argc; ++i) {
-				arguments += (string(" ") + argv[i]);
-			}
-			arguments += " -j";
-			system(arguments.c_str());
-			cout << endl;
-		}
-		else {
-			cout << "matmake: could not find Matmakefile in " << getCurrentWorkingDirectory() << endl;
-		}
-		return -1;
-	}
 
 	string line;
 	Environment environment;
@@ -1360,6 +1454,14 @@ int main(int argc, char **argv) {
 			cout << helpText << endl;
 			return 0;
 		}
+		else if (arg == "--example") {
+			cout << "### Example matmake file (Matmakefile): " << endl;
+			cout << "# means comment" << endl;
+			cout << exampleMatmakefile << endl;
+			cout << "### Example main file (src/main.cpp):" << endl;
+			cout << exampleMain << endl;
+			return 0;
+		}
 		else if (arg == "--debug" || arg == "-d") {
 			debugOutput = true;
 			verbose = true;
@@ -1374,12 +1476,39 @@ int main(int argc, char **argv) {
 				return -1;
 			}
 		}
+		else if (arg == "--init") {
+			++i;
+			if (i < argc) {
+				string arg = argv[i];
+				if (arg[0] != '-') {
+					return createProject(argv[i]);
+				}
+			}
+			return createProject("");
+		}
 		else if (arg == "all") {
 			//Do nothing. Default is te build all
 		}
 		else {
 			targets.push_back(arg);
 		}
+	}
+
+	if (!matmakefile.is_open()) {
+		if (getTimeChanged("Makefile") || getTimeChanged("makefile")) {
+			cout << "makefile in " << getCurrentWorkingDirectory() << endl;
+			string arguments = "make";
+			for (int i = 1; i < argc; ++i) {
+				arguments += (string(" ") + argv[i]);
+			}
+			arguments += " -j";
+			system(arguments.c_str());
+			cout << endl;
+		}
+		else {
+			cout << "matmake: could not find Matmakefile in " << getCurrentWorkingDirectory() << endl;
+		}
+		return -1;
 	}
 
 	int lineNumber = 1;
@@ -1444,6 +1573,7 @@ int main(int argc, char **argv) {
 			}
 			else if (operation == "list") {
 				environment.list();
+				return 0;
 			}
 			else if (operation == "clean") {
 				environment.clean(targets);
@@ -1465,7 +1595,11 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	else {
-		cout << "done... " << m << "m " << s << "s" << endl;
+		string doneMessage = "done...";
+		if (operation == "clean") {
+			doneMessage = "cleaned...";
+		}
+		cout << doneMessage << " " << m << "m " << s << "s" << endl;
 		return 0;
 	}
 }
