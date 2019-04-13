@@ -29,9 +29,10 @@ using namespace std;
 
 #include <stdio.h> //For FILENAME_MAX
 
-#ifdef WINDOWS
+#ifdef _WIN32
 #include <direct.h>
 #define GetCurrentDir _getcwd
+#define _popen popen
 #else
 #include <unistd.h>
 #define GetCurrentDir getcwd
@@ -75,6 +76,26 @@ bool isDirectory(const string &path) {
     	return false;
     }
     return file_stat.st_mode & S_IFDIR;
+}
+
+pair<int, string> popenWithResult(string command) {
+	pair<int, string> ret;
+
+	FILE *file = popen((command + " 2>&1").c_str(), "r");
+
+	if (!file) {
+		return {-1, "failed to execute command " + command};
+	}
+
+	constexpr int size = 50;
+	char buffer[size];
+
+	while (fgets(buffer, size, file)) {
+		ret.second += buffer;
+	}
+
+	ret.first = WEXITSTATUS(pclose(file));
+	return ret;
 }
 
 
@@ -250,7 +271,7 @@ vector<Token> findFiles(Token pattern) {
 
 class MatmakeError: public runtime_error {
 public:
-	MatmakeError(Token t, string str): runtime_error(t.getLocationDescription() + ": error " + str  + "\n") {
+	MatmakeError(Token t, string str): runtime_error(t.getLocationDescription() + ": error: " + str  + "\n") {
 		token = t;
 	}
 
@@ -527,7 +548,7 @@ struct BuildTarget: public Dependency {
 		vout << endl;
 	}
 
-	Token getCpp(Token filetype) {
+	Token getCompiler(Token filetype) {
 		if (filetype == "cpp") {
 			return get("cpp").concat();
 		}
@@ -584,7 +605,7 @@ struct BuildTarget: public Dependency {
 				}
 			}
 
-			auto cpp = getCpp("cpp");
+			auto cpp = getCompiler("cpp");
 			if (!get("dll").empty()) {
 				command = cpp + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
 			}
@@ -617,8 +638,9 @@ struct BuildTarget: public Dependency {
 	void work() override {
 		vout << "linking " << name << endl;
 		vout << command << endl;
-		if (system (command.c_str())) {
-			throw MatmakeError(command, "linking failed with\n" + command);
+		pair <int, string> res = popenWithResult(command);
+		if (res.first) {
+			throw MatmakeError(command, "linking failed with\n" + command + "\n" + res.second);
 		}
 		dirty = false;
 		sendSubscribersNotice();
@@ -832,7 +854,8 @@ public:
 		auto dependencyFiles = parseDepFile();
 
 		if (depChangedTime == 0 || inputChangedTime > depChangedTime || dependencyFiles.empty()) {
-			depCommand = parent->getCpp(filetype) + " -MT " + output + " -MM " + filename + " " + flags + " > " + depFile;
+			depCommand = parent->getCompiler(filetype) + " -MT " + output + " -MM " + filename + " " + flags + " -w";
+			depCommand.location = filename.location;
 			shouldQueue = true;
 		}
 
@@ -853,7 +876,7 @@ public:
 		}
 
 		if (dirty) {
-			command = parent->getCpp(filetype) + " -c -o " + output + " " + filename + " " + flags;
+			command = parent->getCompiler(filetype) + " -c -o " + output + " " + filename + " " + flags;
 			command.location = filename.location;
 
 			return time(0);
@@ -866,15 +889,25 @@ public:
 	void work() override {
 		if (!depCommand.empty()) {
 			vout << depCommand << endl;
-			if (system(depCommand.c_str())) {
-				throw MatmakeError(command, "could not build dependencies with command\n\t" + command);
+			pair <int, string> res = popenWithResult(depCommand);
+			if (res.first) {
+				throw MatmakeError(depCommand, "could not build dependencies:\n" + depCommand + "\n" + res.second);
+			}
+			else {
+				try {
+					ofstream(depFile) << res.second;
+				}
+				catch (runtime_error &e) {
+					throw MatmakeError(depCommand, "could not write to file " + depFile);
+				}
 			}
 		}
 
 		if (!command.empty()) {
 			vout << command << endl;
-			if (system (command.c_str())) {
-				throw MatmakeError(command, "could not build object with command\n\t" + command);
+			pair <int, string> res = popenWithResult(command);
+			if (res.first) {
+				throw MatmakeError(command, "could not build object:\n" + command + "\n" + res.second);
 			}
 			dirty = false;
 			sendSubscribersNotice();
@@ -1425,7 +1458,8 @@ int createProject(string dir) {
 	return -1;
 }
 
-int main(int argc, char **argv) {
+
+int start(vector<string> args) {
 	auto startTime = time(0);
 	ifstream matmakefile("Matmakefile");
 
@@ -1436,8 +1470,9 @@ int main(int argc, char **argv) {
 	string operation = "build";
 	bool localOnly;
 
-	for (int i = 1; i < argc; ++i) {
-		string arg = argv[i];
+	int argc = args.size(); //To support old code
+	for (int i = 0; i < args.size(); ++i) {
+		string arg = args[i];
 		if (arg == "clean") {
 			operation = "clean";
 		}
@@ -1469,7 +1504,7 @@ int main(int argc, char **argv) {
 		else if (arg == "-j") {
 			++i;
 			if (i < argc) {
-				numberOfThreads = atoi(argv[i]);
+				numberOfThreads = atoi(args[i].c_str());
 			}
 			else {
 				cerr << "expected number of threads after -j argument" << endl;
@@ -1479,9 +1514,9 @@ int main(int argc, char **argv) {
 		else if (arg == "--init") {
 			++i;
 			if (i < argc) {
-				string arg = argv[i];
+				string arg = args[i];
 				if (arg[0] != '-') {
-					return createProject(argv[i]);
+					return createProject(args[i]);
 				}
 			}
 			return createProject("");
@@ -1498,8 +1533,8 @@ int main(int argc, char **argv) {
 		if (getTimeChanged("Makefile") || getTimeChanged("makefile")) {
 			cout << "makefile in " << getCurrentWorkingDirectory() << endl;
 			string arguments = "make";
-			for (int i = 1; i < argc; ++i) {
-				arguments += (string(" ") + argv[i]);
+			for (auto arg: args) {
+				arguments += (" " + arg);
 			}
 			arguments += " -j";
 			system(arguments.c_str());
@@ -1544,11 +1579,18 @@ int main(int argc, char **argv) {
 				auto currentDirectory = getCurrentWorkingDirectory();
 
 				if (!chdir(words[1].c_str())) {
-					main(argc, argv);
-					if (bailout) {
-						break;
+					vector <string> newArgs(words.begin() + 2, words.end());
+
+					if (operation == "clean") {
+						start(args);
 					}
-					cout << endl;
+					else {
+						start(newArgs);
+						if (bailout) {
+							break;
+						}
+						cout << endl;
+					}
 				}
 				else {
 					cerr << "could not open directory " << words[1] << endl;
@@ -1604,4 +1646,9 @@ int main(int argc, char **argv) {
 	}
 }
 
+
+int main(int argc, char **argv) {
+	vector<string> args(argv + 1, argv + argc);
+	start(args);
+}
 
