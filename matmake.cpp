@@ -21,6 +21,7 @@
 #include <ctime>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <queue>
 
 
@@ -415,6 +416,7 @@ public:
 	virtual bool includeInBinary() { return true; };
 
 	virtual void addSubscriber(Dependency *s) {
+		lock_guard<mutex> guard(accessMutex);
 		if (find(subscribers.begin(), subscribers.end(), s) == subscribers.end()) {
 			subscribers.push_back(s);
 		}
@@ -422,10 +424,10 @@ public:
 
 	//Send a notice to all subscribers
 	virtual void sendSubscribersNotice() {
+		lock_guard<mutex> guard(accessMutex);
 		for (auto s: subscribers) {
 			s->notice(this);
 		}
-		lock_guard<mutex> guard(accessMutex);
 		subscribers.clear();
 	}
 
@@ -944,6 +946,7 @@ public:
 	queue<Dependency *> tasks;
 	mutex workMutex;
 	mutex workAssignMutex;
+	std::atomic_int numberOfActiveThreads;
 	int maxTasks = 0;
 	int lastProgress = 0;
 	bool finished = false;
@@ -953,6 +956,7 @@ public:
 		tasks.push(t);
 		maxTasks = std::max((int)tasks.size(), maxTasks);
 		workAssignMutex.unlock();
+		workMutex.try_lock();
 		workMutex.unlock();
 	}
 
@@ -1135,8 +1139,6 @@ public:
 
 	void work() {
 		vector<thread> threads;
-		vector<bool> status;
-
 
 		if (numberOfThreads < 2) {
 			numberOfThreads = 1;
@@ -1147,58 +1149,64 @@ public:
 		}
 
 		if (numberOfThreads > 1) {
+			numberOfActiveThreads = 0;
+			auto f = [&] (int i) {
+				dout << "starting thread " << endl;
+
+				workAssignMutex.lock();
+				while (!tasks.empty()) {
+
+					auto t = tasks.front();
+					tasks.pop();
+					workAssignMutex.unlock();
+					try {
+						t->work();
+					}
+					catch (MatmakeError &e) {
+						cerr << e.what() << endl;
+						finished = true;
+						bailout = true;
+					}
+					printProgress();
+
+					workAssignMutex.lock();
+				}
+				workAssignMutex.unlock();
+
+				workMutex.try_lock();
+				workMutex.unlock();
+
+				dout << "thread " << i << " is finished quit" << endl;
+				numberOfActiveThreads -= 1;
+			};
+
 			threads.reserve(numberOfThreads);
-			for (int i = 0 ;i < numberOfThreads; ++i) {
-				status.push_back(true);
-				threads.emplace_back([&, i] () {
-					dout << "starting thread " << endl;
+			auto startTaskNum = tasks.size();
+			for (int i = 0 ;i < numberOfThreads && i < startTaskNum; ++i) {
+				++ numberOfActiveThreads;
+				threads.emplace_back(f, (int)numberOfActiveThreads);
+			}
 
-					while (!finished) {
-						workAssignMutex.lock();
-						status[i] = true;
-						if (tasks.empty()) {
-							status[i] = false;
+			for (auto &t: threads) {
+				t.detach();
+			}
 
-							auto stillWorking = false;
-							for (auto s: status) {
-								if (s) {
-									stillWorking = true;
-									break;
-								}
-							}
-							workAssignMutex.unlock();
-							if (!stillWorking) {
-								finished = true;
-								dout << "thread " << i << ": no more work to do - stopping" << endl;
-								workMutex.unlock();
-							}
-							else {
-								dout << "thread " << i << " is waiting" << endl;
-								workMutex.lock(); //Wait for next work
-								dout << "thread " << i << " is running again" << endl;
-							}
-						}
-						else {
-							auto t = tasks.front();
-							tasks.pop();
-							workAssignMutex.unlock();
-							try {
-								t->work();
-							}
-							catch (MatmakeError &e) {
-								cerr << e.what() << endl;
-								finished = true;
-								bailout = true;
-							}
-							printProgress();
+			while (numberOfActiveThreads > 0) {
+				workMutex.lock();
+				dout << "remaining tasks " << tasks.size() << " tasks" << endl;
+				dout << "number of active threads at this point " << numberOfActiveThreads << endl;
+				if (!tasks.empty()) {
+					std::lock_guard<mutex> guard(workAssignMutex);
+					int numTasks = tasks.size();
+					if (numTasks > numberOfActiveThreads) {
+						for (int i = numberOfActiveThreads; i < numberOfThreads && i < numTasks; ++i) {
+							dout << "Creating new worker thread to manage tasks" << endl;
+							++ numberOfActiveThreads;
+							thread t(f, (int)numberOfActiveThreads);
+							t.detach();
 						}
 					}
-
-					dout << "thread " << i << " is finished" << endl;
-					if (finished) {
-						workMutex.unlock();
-					}
-				});
+				}
 			}
 		}
 		else {
@@ -1215,9 +1223,7 @@ public:
 			}
 		}
 
-		for (auto &t: threads) {
-			t.join();
-		}
+		vout << "finished" << endl;
 	}
 
 	void clean(vector<string> targetArguments) {
@@ -1408,7 +1414,7 @@ flags += -Iinclude         # global flags
 main.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
 main.src = src/*.cpp
 main.exe = program         # name of executable
-main.libs += # -lGL -lSDL  # libraries to add at link time
+main.libs += # -lGL -lSDL2 # libraries to add at link time
 # main.dir = bin/release   # set build path
 # main.objdir = bin/obj    # separates obj-files from build files
 # main.dll = lib           # use this instead of exe to create so/dll file
