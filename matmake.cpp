@@ -406,8 +406,14 @@ public:
 		dependencies.insert(file);
 	}
 
-	//Add task to list of tasks to be executed
-	void queue();
+	// Add task to list of tasks to be executed
+	// the count variable sepcify if the dependency should be counted (true)
+	// if hintStatistic has already been called
+	void queue(bool count);
+
+	// Tell the environment that there will be a dependency added in the future
+	// This is when the dependency is waiting for other files to be made
+	void hintStatistic();
 
 	virtual Token targetPath() = 0;
 
@@ -617,7 +623,10 @@ struct BuildTarget: public Dependency {
 			command.location = cpp.location;
 
 			if (waitList.empty()) {
-				queue();
+				queue(true);
+			}
+			else {
+				hintStatistic();
 			}
 
 			return time(0);
@@ -632,7 +641,7 @@ struct BuildTarget: public Dependency {
 		accessMutex.unlock();
 		vout << d->targetPath() << " removed from wating list from " << name << " " << waitList.size() << " to go" << endl;
 		if (waitList.empty()) {
-			queue();
+			queue(false);
 		}
 	}
 
@@ -722,7 +731,7 @@ public:
 		auto timeChanged = getTimeChanged();
 
 		if (getSourceChangedTime() > timeChanged) {
-			queue();
+			queue(true);
 			dirty = true;
 
 			return time(0);
@@ -877,7 +886,7 @@ public:
 
 		if (shouldQueue || dirty) {
 			dirty = true;
-			queue();
+			queue(true);
 		}
 
 		if (dirty) {
@@ -948,16 +957,24 @@ public:
 	mutex workAssignMutex;
 	std::atomic_int numberOfActiveThreads;
 	int maxTasks = 0;
+	int taskFinished = 0;
 	int lastProgress = 0;
 	bool finished = false;
 
-	void addTask(Dependency *t) {
+	void addTask(Dependency *t, bool count) {
 		workAssignMutex.lock();
 		tasks.push(t);
-		maxTasks = std::max((int)tasks.size(), maxTasks);
+		if (count) {
+			++maxTasks;
+		}
+//		maxTasks = std::max((int)tasks.size(), maxTasks);
 		workAssignMutex.unlock();
 		workMutex.try_lock();
 		workMutex.unlock();
+	}
+
+	void addTaskCount() {
+		++maxTasks;
 	}
 
 	Environment () {
@@ -1025,7 +1042,7 @@ public:
 		if (!maxTasks) {
 			return;
 		}
-		int amount = (100 - tasks.size() * 100 / maxTasks);
+		int amount = (taskFinished * 100 / maxTasks);
 
 		if (amount == lastProgress) {
 			return;
@@ -1161,10 +1178,10 @@ public:
 					workAssignMutex.unlock();
 					try {
 						t->work();
+						++ this->taskFinished;
 					}
 					catch (MatmakeError &e) {
 						cerr << e.what() << endl;
-						finished = true;
 						bailout = true;
 					}
 					printProgress();
@@ -1191,7 +1208,7 @@ public:
 				t.detach();
 			}
 
-			while (numberOfActiveThreads > 0) {
+			while (numberOfActiveThreads > 0 && !bailout) {
 				workMutex.lock();
 				dout << "remaining tasks " << tasks.size() << " tasks" << endl;
 				dout << "number of active threads at this point " << numberOfActiveThreads << endl;
@@ -1273,8 +1290,12 @@ bool isSpecialChar(char c) {
 }
 
 
-void Dependency::queue() {
-	env->addTask(this);
+void Dependency::queue(bool count) {
+	env->addTask(this, count);
+}
+
+void Dependency::hintStatistic() {
+	env->addTaskCount();
 }
 
 bool isOperator(string &op) {
