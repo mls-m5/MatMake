@@ -642,6 +642,9 @@ struct BuildTarget: public Dependency {
 		if (res.first) {
 			throw MatmakeError(command, "linking failed with\n" + command + "\n" + res.second);
 		}
+		else if (!res.second.empty()) {
+			cout << (command + "\n" + res.second + "\n") << flush;
+		}
 		dirty = false;
 		sendSubscribersNotice();
 		vout << endl;
@@ -908,6 +911,9 @@ public:
 			pair <int, string> res = popenWithResult(command);
 			if (res.first) {
 				throw MatmakeError(command, "could not build object:\n" + command + "\n" + res.second);
+			}
+			else if (!res.second.empty()) {
+				cout << (command + "\n" + res.second + "\n") << std::flush;
 			}
 			dirty = false;
 			sendSubscribersNotice();
