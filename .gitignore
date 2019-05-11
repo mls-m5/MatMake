@@ -3,6 +3,11 @@
 *.swp
 *~
 
+.cproject
+.project
+.settings/
+
+
 matdep
 .matdep
 matmake
