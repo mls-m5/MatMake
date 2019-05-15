@@ -675,12 +675,20 @@ struct BuildTarget: public Dependency {
 		if (!dir.empty()) {
 			dir += "/";
 		}
-		auto exe = get("exe");
+		auto exe = get("exe").concat();
 		if (exe.empty()) {
-			return dir + get("dll").concat();
+			auto dll = get("dll").concat();
+			if (dll.empty()) {
+				// Automatically create target name
+				dout << "target missing: automatically sets " << name << " as exe" << endl;
+				return dir + name;
+			}
+			else {
+				return dir + dll;
+			}
 		}
 		else {
-			return dir + get("exe").concat();
+			return dir + exe;
 		}
 	}
 
@@ -1330,6 +1338,10 @@ Tokens tokenize(string line, int lineNumber) {
 
 	newWord();
 
+	while (ss && isspace(ss.peek())) {
+		ss.get(); //Clear spaces in beginning of line
+	}
+
 	while (ss) {
 		auto c = get();
 		if (c == -1) {
@@ -1428,23 +1440,21 @@ const char *exampleMatmakefile = R"_(
 # https://github.com/mls-m5/matmake
 
 cppflags += -std=c++11      # c++ only flags
-cflags +=                  # c only flags 
-flags += -Iinclude         # global flags
+cflags +=                   # c only flags 
+flags += -Iinclude          # global flags
 
 ## Main target
 main.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
-main.src = src/*.cpp
-main.exe = program         # name of executable
+main.src = 
+	src/*.cpp
+	# multi line values starts with whitespace
 main.libs += # -lGL -lSDL2 # libraries to add at link time
+
+# main.exe = main          # name of executable (not required)
 # main.dir = bin/release   # set build path
 # main.objdir = bin/obj    # separates obj-files from build files
 # main.dll = lib           # use this instead of exe to create so/dll file
-
-## Debug target:
-# main_debug.inherit = main  # copy all settings from main
-# main_debug.flags += -g -O0
-# main_debug.dir = bin/debug
-# main_debug.objdir = bin/debugobj
+# external tests           # call matmake or make in another folder
 
 )_";
 
@@ -1606,6 +1616,20 @@ int start(vector<string> args) {
 
 	int lineNumber = 1;
 
+	auto getMultilineArgument = [&]() {
+		Tokens ret;
+		string line;
+		// Continue as long as the line starts with a space character
+		while (matmakefile && isspace(matmakefile.peek())) {
+			getline(matmakefile, line);
+			auto words = tokenize(line, lineNumber);
+			ret.append(words);
+			ret.back().trailingSpace += " ";
+		}
+
+		return ret;
+	};
+
 	while (matmakefile) {
 		getline(matmakefile, line);
 		auto words = tokenize(line, lineNumber);
@@ -1622,7 +1646,10 @@ int start(vector<string> args) {
 				vector<Token> variableName(words.begin(), it);
 				Tokens value(argumentStart, words.end());
 				auto variableNameString = concatTokens(words.begin(), it);
-				auto argumentValue = concatTokens(argumentStart, words.end());
+
+				if (value.empty()) {
+					value = getMultilineArgument();
+				}
 
 				if (*it == "=") {
 					environment.setVariable(variableName, value);

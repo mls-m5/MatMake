@@ -19,8 +19,14 @@ git submodule add https://github.com/mls-m5/matmake.git
 make -C matmake/ init-project
 ```
 
+If you have matmake installed on your system
+----------------------------------------
+```sh
+matmake --init   [optional directory]
+```
 
-To use the older more tested build system "matdep"
+
+To use the older makefile based system "matdep"
 ----------------------------------------------
 ```sh
 git init

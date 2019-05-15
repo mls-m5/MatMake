@@ -1,19 +1,14 @@
 #external tests
 
 #global flags
-flags +=-std=c++14 -W -Wall -Wno-unused-parameter -Wno-sign-compare
+flags +=         -std=c++14 -W -Wall -Wno-unused-parameter -Wno-sign-compare
+flags +=         -g
 
 #release target
-main.flags +=   -Iinclude/
-main.libs +=    -lSDL
+main.flags +=    -Iinclude/
+main.libs +=     -lSDL
 main.src +=      src/*.cpp
 #main.copy +=    data/*.txt #copy files without compiling
 
 main.exe =       program
 main.dir =       build/release
-
-#debug target
-main_debug.inherit = main
-main_debug.flags += -g -O0
-main_debug.dir = build/debug
-
