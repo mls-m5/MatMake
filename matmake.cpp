@@ -1448,6 +1448,20 @@ main.libs += # -lGL -lSDL2 # libraries to add at link time
 
 )_";
 
+const char *exampleMakefile = R"_(
+# build settings is in file 'Matmakefile'
+
+
+all:
+	@echo using Matmake buildsystem
+	@echo for more options use 'matmake -h'
+	matmake
+
+clean:
+	matmake clean
+	
+)_";
+
 
 int createProject(string dir) {
 	if (!dir.empty()) {
@@ -1460,13 +1474,24 @@ int createProject(string dir) {
 	}
 
 	if (getTimeChanged("Matmakefile") > 0) {
-		cerr << "Matmake file already exists. Exiting..." << endl;
+		cerr << "Matmakefile already exists. Exiting..." << endl;
 		return -1;
 	}
 
 	{
 		ofstream file("Matmakefile");
 		file << exampleMatmakefile;
+	}
+
+
+	if (getTimeChanged("Makefile") > 0) {
+		cerr << "Makefile already exists. Exiting..." << endl;
+		return -1;
+	}
+
+	{
+		ofstream file("Makefile");
+		file << exampleMakefile;
 	}
 
 	createDirectory("src");
