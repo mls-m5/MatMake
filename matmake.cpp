@@ -1439,12 +1439,14 @@ const char *exampleMatmakefile = R"_(
 # Matmake file
 # https://github.com/mls-m5/matmake
 
-cppflags += -std=c++11      # c++ only flags
+cppflags += -std=c++14      # c++ only flags
 cflags +=                   # c only flags 
-flags += -Iinclude          # global flags
+
+# global flags:
+flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
 
 ## Main target
-main.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
+main.flags += -Iinclude
 main.src = 
 	src/*.cpp
 	# multi line values starts with whitespace
