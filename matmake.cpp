@@ -1450,7 +1450,7 @@ main.flags += -Iinclude
 main.src = 
 	src/*.cpp
 	# multi line values starts with whitespace
-main.libs += # -lGL -lSDL2 # libraries to add at link time
+# main.libs += # -lGL -lSDL2 # libraries to add at link time
 
 # main.exe = main          # name of executable (not required)
 # main.dir = bin/release   # set build path
