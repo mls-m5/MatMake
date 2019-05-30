@@ -95,7 +95,8 @@ pair<int, string> popenWithResult(string command) {
 		ret.second += buffer;
 	}
 
-	ret.first = WEXITSTATUS(pclose(file));
+	auto result = pclose(file); // On some systems, not creating a variable for the result leads to a error.
+	ret.first = WEXITSTATUS(result);
 	return ret;
 }
 
