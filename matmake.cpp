@@ -1627,7 +1627,9 @@ int start(vector<string> args) {
 			getline(matmakefile, line);
 			auto words = tokenize(line, lineNumber);
 			ret.append(words);
-			ret.back().trailingSpace += " ";
+			if (!ret.empty()) {
+				ret.back().trailingSpace += " ";
+			}
 		}
 
 		return ret;
