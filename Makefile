@@ -4,7 +4,13 @@ TESTSRC = $(wildcard src/*.cpp)
 TESTOBJ = $(TESTSRC:.cpp=.o)
 CXXFLAGS = -std=c++11 -W -Wall -Wno-unused-parameter -Wno-sign-compare
 
-all: matdep matmake
+matmake = matmake
+
+ifeq ($(OS),Windows_NT)
+${matmake} = matmake.exe
+endif
+
+all: ${matmake}
 
 debug: CXXFLAGS+= -g -O0 -D_GLIBCXX_DEBUG
 debug: all
@@ -16,14 +22,15 @@ tests: all .depend $(TESTOBJ)
 
 matdep: matdep.cpp
 
-matmake: CXXFLAGS += -pthread 
-matmake: matmake.cpp
+${matmake}: CXXFLAGS += -pthread
+${matmake}: src/*.cpp src/*.h
+	${CXX} -o ${matmake} src/matmake.cpp -Isrc/ ${CXXFLAGS}
 
 .depend: Makefile $(TESTSRC)
 
 clean:
 	rm -f matdep
-	rm -f matmake
+	rm -f ${matmake}
 	rm -f $(TESTOBJ)
 	
 init-project:

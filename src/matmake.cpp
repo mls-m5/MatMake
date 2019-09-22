@@ -24,361 +24,20 @@
 #include <atomic>
 #include <queue>
 
-
+#include "files.h"
+#include "token.h"
 
 using namespace std;
 
-#include <stdio.h> //For FILENAME_MAX
-
-#ifdef _WIN32
-#include <direct.h>
-#define GetCurrentDir _getcwd
-#define _popen popen
-const string lineSeparator = "\\";
-#else
-#include <unistd.h>
-#define GetCurrentDir getcwd
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-const string pathSeparator = "/";
-
-
-//Creates a directory if it does not exist
-void createDirectory(string dir) {
-	if (system(("mkdir -p " + dir).c_str())) {
-		runtime_error("could not create directory " + dir);
-	}
-}
-
-#endif
+bool verbose = false;
+bool debugOutput = false;
 
 namespace {
 
-bool verbose = false;
-bool debugOutput = false;
 auto numberOfThreads = thread::hardware_concurrency(); //Get the maximal number of threads
-bool bailout = false;
+bool bailout = false; // when true: exit the program in a controlled way
 
 }
-
-//verbose output
-#define vout if(verbose) cout
-#define dout if(debugOutput) cout
-
-string joinPaths(string a, string b) {
-    return a.empty()? b: (a + pathSeparator + b);
-}
-
-time_t getTimeChanged(const string &path) {
-	struct stat file_stat;
-	int err = stat(path.c_str(), &file_stat);
-    if (err != 0) {
-    	dout << "notice: file does not exist: " << path << endl;
-    	return 0;
-    }
-    return file_stat.st_mtime;
-}
-
-bool isDirectory(const string &path) {
-	struct stat file_stat;
-	int err = stat(path.c_str(), &file_stat);
-    if (err != 0) {
-    	dout << "file or directory " << path << " does not exist" << endl;
-    	return false;
-    }
-    return file_stat.st_mode & S_IFDIR;
-}
-
-pair<int, string> popenWithResult(string command) {
-	pair<int, string> ret;
-
-	FILE *file = popen((command + " 2>&1").c_str(), "r");
-
-	if (!file) {
-		return {-1, "failed to execute command " + command};
-	}
-
-	constexpr int size = 50;
-	char buffer[size];
-
-	while (fgets(buffer, size, file)) {
-		ret.second += buffer;
-	}
-
-	auto result = pclose(file); // On some systems, not creating a variable for the result leads to a error.
-	ret.first = WEXITSTATUS(result);
-	return ret;
-}
-
-
-// adapted from https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
-string getCurrentWorkingDirectory() {
-	char currentPath[FILENAME_MAX];
-	if (!GetCurrentDir(currentPath, sizeof(currentPath))) {
-		throw runtime_error("could not get current working directory");
-	}
-	return currentPath;
-}
-
-// trim from both ends (copying)
-static inline std::string trim(std::string s) {
-	auto front = find_if(s.begin(), s.end(), [] (int ch) {
-		return !isspace(ch);
-	});
-	auto back = find_if(s.rbegin(), s.rend(), [] (int ch) {
-		return !isspace(ch);
-	}).base();
-
-    return string(front, back);
-}
-
-
-
-vector<string> listFiles(string directory) {
-	vector<string> ret;
-
-    if (directory.empty()) {
-        directory = ".";
-    }
-
-	DIR *dir = opendir(directory.c_str());
-	struct dirent *ent;
-
-    if (dir) {
-        while ((ent = readdir(dir))) {
-			string name = ent->d_name;
-			if (name != "." && name != "..") {
-				ret.emplace_back(name);
-			}
-		}
-		closedir(dir);
-	}
-	else {
-		throw runtime_error("could not open directory " + directory);
-	}
-	return ret;
-}
-
-string getDirectory(string filename) {
-	auto directoryFound = filename.rfind("/");
-    if (directoryFound != string::npos) {
-        return string(filename.begin(), filename.begin() + directoryFound);
-	}
-	else {
-		return "";
-	}
-}
-
-vector <string> listRecursive(string directory) {
-
-	auto list = listFiles(directory);
-	auto ret = list;
-
-	for (auto &f: list) {
-		if (isDirectory(directory + "/" + f)) {
-			auto subList = listRecursive(directory + "/" + f);
-			for (auto &s: subList) {
-				s = f + "/" + s;
-			}
-			ret.insert(ret.end(), subList.begin(), subList.end());
-		}
-	}
-
-	return ret;
-}
-
-
-struct Token: public string {
-	string trailingSpace;
-	struct Location {
-		Location() = default;
-		Location (long line, long col): line(line), col(col) {}
-		long line = 0;
-		long col = 0;
-	} location;
-
-	Token(const Token &t) = default;
-	Token() = default;
-	Token(Token && t) = default;
-	Token &operator = (const Token &) = default;
-	Token(const string str, Location l = {0, 0}): string(str), location(l) {}
-	Token(const char* c, Location l = {0,0 }): string(c), location(l) {}
-	Token(string::iterator begin, string::iterator end, Location l = {0,0 }): string(begin, end), location(l) {}
-
-	friend std::ostream &operator << (std::ostream &s, const Token &t) {
-		if (t.empty()) {
-			s << "empty ";
-        }
-        s << string(t) << t.trailingSpace;
-		return s;
-	}
-
-	string str() {
-        return *this;
-	}
-
-	string getLocationDescription() {
-		stringstream ss;
-		ss << "Matmakefile:" << location.line << ":" << location.col;
-		return ss.str();
-	}
-
-
-};
-
-
-vector<Token> findFiles(Token pattern) {
-	pattern = Token(trim(pattern), pattern.location);
-    auto found = pattern.find('*');
-
-	vector<Token> ret;
-	if (found != string::npos) {
-		string beginning(pattern.begin(), pattern.begin() + found);
-		string ending;
-		string directory = beginning;
-		string fileNameBeginning;
-		auto directoryEnding = directory.rfind('/');
-		if (directoryEnding != string::npos && directoryEnding < found) {
-			fileNameBeginning = string(directory.begin() + directoryEnding + 1, directory.begin() + found);
-			directory = string(directory.begin(), directory.begin() + directoryEnding);
-		}
-
-		vector<string> fileList;
-		if (found + 1 < pattern.size() && pattern[found + 1] == '*') {
-			// ** means recursive wildcard search
-			fileList = listRecursive(directory);
-			ending = string(pattern.begin() + found + 2, pattern.end());
-		}
-		else {
-			// * means wildcard search
-			fileList = listFiles(directory);
-			ending = string(pattern.begin() + found + 1, pattern.end());
-		}
-		for (auto &file: fileList) {
-			auto endingPos = file.find(ending);
-			if (endingPos == string::npos) {
-				if (ending.empty()) {
-                    if (file.find(fileNameBeginning) == 0) {
-                        ret.emplace_back(joinPaths(directory, file), pattern.location);
-					}
-				}
-			}
-			else {
-				if (endingPos == file.size() - ending.size() &&
-						file.find(fileNameBeginning) == 0) {
-                    ret.emplace_back(joinPaths(directory, file), pattern.location);
-				}
-			}
-		}
-	}
-	else {
-		return {pattern};
-	}
-	if (ret.empty()) {
-		vout << "warning: pattern " << pattern << " does not match any file" << endl;
-	}
-	if (debugOutput && !ret.empty()) {
-		dout << "recursively added:" << endl;
-		for (auto &f: ret) {
-			dout << f << " " << endl;
-		}
-	}
-	return ret;
-}
-
-class MatmakeError: public runtime_error {
-public:
-	MatmakeError(Token t, string str): runtime_error(t.getLocationDescription() + ": error: " + str  + "\n") {
-		token = t;
-	}
-
-    Token token;
-};
-
-
-static std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch = false) {
-	filename = trim(filename);
-	if (filename.find(".cpp") == filename.size() - 4) {
-		filename = Token(filename.begin(), filename.end() - 4, filename.location);
-		return {filename, "cpp"};
-	}
-	else if (filename.find(".c") == filename.size() - 2) {
-		filename = Token(filename.begin(), filename.end() - 2, filename.location);
-		return {filename, "c"};
-	}
-	else if (filename.find(".so") == filename.size() - 3) {
-		filename = Token(filename.begin(), filename.end() - 3, filename.location);
-		return {filename, "so"};
-	}
-	else {
-		if (allowNoMatch) {
-			return {filename, Token("", filename.location)};
-		}
-		else {
-			throw MatmakeError(filename, "unknown filetype in file " + filename);
-		}
-	}
-}
-
-
-struct Tokens: public vector<Token> {
-	Tokens() = default;
-	Tokens(Tokens &&t) = default;
-	Tokens(const Tokens &t) = default;
-	Tokens(const Token &t) {
-		emplace_back(t);
-	}
-	Tokens& operator=(const Tokens&) = default;
-	Tokens(vector<Token>::iterator begin, vector<Token>::iterator end): vector<Token>(begin, end) {
-	}
-
-	friend std::ostream &operator << (std::ostream &s, const Tokens &t) {
-		for (auto it = t.begin(); it != t.end(); ++it) {
-			s << *it << it->trailingSpace;
-		}
-		return s;
-	}
-
-	//Find groups without spaces between them
-	vector<Tokens> groups() {
-		if (empty()) {
-			return {};
-		}
-
-		vector<Tokens> ret;
-		ret.emplace_back();
-
-		for (auto &t: *this) {
-			ret.back().emplace_back(t);
-			if (!t.trailingSpace.empty()) {
-				ret.emplace_back();
-			}
-		}
-
-		return ret;
-	}
-
-	Token concat() {
-		Token ret;
-		for (auto it = begin(); it != end(); ++it) {
-			ret += ((*it) + it->trailingSpace);
-		}
-		if (!empty()) {
-			ret.location = front().location;
-		}
-		return ret;
-	}
-
-	Tokens &append (const Tokens &other) {
-		if (!empty() && back().trailingSpace.empty()) {
-			back().trailingSpace += " ";
-		}
-		insert(end(), other.begin(), other.end());
-		return *this;
-	}
-};
-
 
 struct NameDescriptor {
 	NameDescriptor(std::vector<Token> name) {
@@ -400,6 +59,7 @@ struct NameDescriptor {
 	Token rootName = "root";
 	Token memberName = "";
 };
+
 
 class Environment;
 
@@ -954,7 +614,7 @@ public:
 					ofstream(depFile) << res.second;
 				}
 				catch (runtime_error &e) {
-					throw MatmakeError(depCommand, "could not write to file " + depFile);
+					throw MatmakeError(depCommand, "could not write to file " + depFile + "\n" + e.what());
 				}
 			}
 		}
@@ -997,7 +657,7 @@ public:
 	queue<Dependency *> tasks;
 	mutex workMutex;
 	mutex workAssignMutex;
-	std::atomic_int numberOfActiveThreads;
+	std::atomic<size_t> numberOfActiveThreads;
 	int maxTasks = 0;
 	int taskFinished = 0;
 	int lastProgress = 0;
@@ -1187,7 +847,7 @@ public:
 				if (matchFailed) {
 					cout << "run matmake --help for help" << endl;
 					cout << "targets: ";
-					list();
+					listAlternatives();
 					bailout = true;
 				}
 			}
@@ -1241,9 +901,9 @@ public:
 
 			threads.reserve(numberOfThreads);
 			auto startTaskNum = tasks.size();
-			for (int i = 0 ;i < numberOfThreads && i < startTaskNum; ++i) {
+			for (size_t i = 0 ;i < numberOfThreads && i < startTaskNum; ++i) {
 				++ numberOfActiveThreads;
-				threads.emplace_back(f, (int)numberOfActiveThreads);
+				threads.emplace_back(f, static_cast<int>(numberOfActiveThreads));
 			}
 
 			for (auto &t: threads) {
@@ -1256,12 +916,12 @@ public:
 				dout << "number of active threads at this point " << numberOfActiveThreads << endl;
 				if (!tasks.empty()) {
 					std::lock_guard<mutex> guard(workAssignMutex);
-					int numTasks = tasks.size();
+					auto numTasks = tasks.size();
 					if (numTasks > numberOfActiveThreads) {
-						for (int i = numberOfActiveThreads; i < numberOfThreads && i < numTasks; ++i) {
+						for (auto i = numberOfActiveThreads.load(); i < numberOfThreads && i < numTasks; ++i) {
 							dout << "Creating new worker thread to manage tasks" << endl;
 							++ numberOfActiveThreads;
-							thread t(f, (int)numberOfActiveThreads);
+							thread t(f, static_cast<int>(numberOfActiveThreads));
 							t.detach();
 						}
 					}
@@ -1307,7 +967,8 @@ public:
 
 	}
 
-	void list() {
+	// Show info of alternative build targets
+	void listAlternatives() {
 		for (auto &t: targets) {
 			if (t->name != "root") {
 				cout << t->name << " ";
@@ -1323,12 +984,6 @@ public:
 BuildTarget *BuildTarget::getParent() {
     auto inheritFrom = get("inherit").concat();
     return environment()->findTarget(inheritFrom);
-}
-
-
-bool isSpecialChar(char c) {
-	const string special = "+=.-:*";
-	return special.find(c) != string::npos;
 }
 
 
@@ -1350,86 +1005,8 @@ bool isOperator(string &op) {
 }
 
 
-Tokens tokenize(string line, int lineNumber) {
-	istringstream ss(line);
-	Tokens ret;
 
-	// The column index for the current character
-	int col = 1;
-
-	auto get = [&] () {
-		++col;
-		return ss.get();
-	};
-
-	auto newWord = [&] () {
-		if (ret.empty() || !ret.back().empty()) {
-			ret.emplace_back();
-			ret.back().location.line = lineNumber;
-			ret.back().location.col = col;
-		}
-	};
-
-	newWord();
-
-	while (ss && isspace(ss.peek())) {
-		ss.get(); //Clear spaces in beginning of line
-	}
-
-	while (ss) {
-		auto c = get();
-		if (c == -1) {
-			continue;
-		}
-		if (isspace(c)) {
-			ret.back().trailingSpace.push_back(c);
-			while (isspace(ss.peek())) {
-				ret.back().trailingSpace.push_back(get());
-			}
-			newWord();
-			continue;
-		}
-		else if (isSpecialChar(c)) {
-			newWord();
-			ret.back().push_back(c);
-			while (isSpecialChar(ss.peek())) {
-				ret.back().push_back(get());
-				if (ret.back().back() == '=') {
-					break;
-				}
-			}
-			if (!isspace(ss.peek())) {
-				newWord();
-			}
-			continue;
-		}
-		else if (c == '#') {
-			string line;
-			getline(ss, line); //Remove the rest of the line
-			continue;
-		}
-
-		ret.back().push_back(c);
-	}
-	if (ret.back().empty()) {
-		ret.pop_back();
-	}
-	return ret;
-}
-
-
-Token concatTokens(const vector<Token>::iterator begin, const vector<Token>::iterator end) {
-	Token ret;
-	for (auto it = begin; it != end; ++it) {
-		ret += ((*it) + it->trailingSpace);
-	}
-	if (begin != end) {
-		ret.location = begin->location;
-	}
-	return ret;
-}
-
-
+namespace {
 
 const char * helpText = R"_(
 Matmake
@@ -1508,6 +1085,7 @@ clean:
 	
 )_";
 
+}
 
 int createProject(string dir) {
 	if (!dir.empty()) {
@@ -1564,7 +1142,7 @@ int createProject(string dir) {
 
 
 int start(vector<string> args) {
-	auto startTime = time(0);
+	auto startTime = time(nullptr);
 	ifstream matmakefile("Matmakefile");
 
 	string line;
@@ -1572,10 +1150,10 @@ int start(vector<string> args) {
 	vector<string> targets;
 
 	string operation = "build";
-	bool localOnly;
+	bool localOnly = false;
 
-	int argc = args.size(); //To support old code
-	for (int i = 0; i < args.size(); ++i) {
+	auto argc = args.size(); //To support old code
+	for (size_t i = 0; i < args.size(); ++i) {
 		string arg = args[i];
 		if (arg == "clean") {
 			operation = "clean";
@@ -1608,7 +1186,7 @@ int start(vector<string> args) {
 		else if (arg == "-j") {
 			++i;
 			if (i < argc) {
-				numberOfThreads = atoi(args[i].c_str());
+				numberOfThreads = static_cast<unsigned>(atoi(args[i].c_str()));
 			}
 			else {
 				cerr << "expected number of threads after -j argument" << endl;
@@ -1737,7 +1315,7 @@ int start(vector<string> args) {
 				environment.compile(targets);
 			}
 			else if (operation == "list") {
-				environment.list();
+				environment.listAlternatives();
 				return 0;
 			}
 			else if (operation == "clean") {
@@ -1748,7 +1326,7 @@ int start(vector<string> args) {
 			cerr << e.what() << endl;
 		}
 	}
-	auto endTime = time(0);
+	auto endTime = time(nullptr);
 
 	auto duration = endTime - startTime;
 	auto m = duration / 60;
