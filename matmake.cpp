@@ -34,21 +34,15 @@ using namespace std;
 #include <direct.h>
 #define GetCurrentDir _getcwd
 #define _popen popen
+const string lineSeparator = "\\";
 #else
 #include <unistd.h>
 #define GetCurrentDir getcwd
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+const string pathSeparator = "/";
 
-bool verbose = false;
-bool debugOutput = false;
-int numberOfThreads = thread::hardware_concurrency(); //Get the maximal number of threads
-bool bailout = false;
-
-//verbose output
-#define vout if(verbose) cout
-#define dout if(debugOutput) cout
 
 //Creates a directory if it does not exist
 void createDirectory(string dir) {
@@ -58,6 +52,23 @@ void createDirectory(string dir) {
 }
 
 #endif
+
+namespace {
+
+bool verbose = false;
+bool debugOutput = false;
+auto numberOfThreads = thread::hardware_concurrency(); //Get the maximal number of threads
+bool bailout = false;
+
+}
+
+//verbose output
+#define vout if(verbose) cout
+#define dout if(debugOutput) cout
+
+string joinPaths(string a, string b) {
+    return a.empty()? b: (a + pathSeparator + b);
+}
 
 time_t getTimeChanged(const string &path) {
 	struct stat file_stat;
@@ -126,11 +137,16 @@ static inline std::string trim(std::string s) {
 
 vector<string> listFiles(string directory) {
 	vector<string> ret;
+
+    if (directory.empty()) {
+        directory = ".";
+    }
+
 	DIR *dir = opendir(directory.c_str());
 	struct dirent *ent;
 
-	if (dir != NULL) {
-		while ((ent = readdir(dir)) != NULL) {
+    if (dir) {
+        while ((ent = readdir(dir))) {
 			string name = ent->d_name;
 			if (name != "." && name != "..") {
 				ret.emplace_back(name);
@@ -146,8 +162,8 @@ vector<string> listFiles(string directory) {
 
 string getDirectory(string filename) {
 	auto directoryFound = filename.rfind("/");
-	if (directoryFound != string::npos) {
-		return string(filename.begin(), filename.begin() + directoryFound);
+    if (directoryFound != string::npos) {
+        return string(filename.begin(), filename.begin() + directoryFound);
 	}
 	else {
 		return "";
@@ -193,13 +209,13 @@ struct Token: public string {
 	friend std::ostream &operator << (std::ostream &s, const Token &t) {
 		if (t.empty()) {
 			s << "empty ";
-		}
-		s << (string)t << t.trailingSpace;
+        }
+        s << string(t) << t.trailingSpace;
 		return s;
 	}
 
 	string str() {
-		return (string) *this;
+        return *this;
 	}
 
 	string getLocationDescription() {
@@ -214,7 +230,7 @@ struct Token: public string {
 
 vector<Token> findFiles(Token pattern) {
 	pattern = Token(trim(pattern), pattern.location);
-	auto found = pattern.find('*');
+    auto found = pattern.find('*');
 
 	vector<Token> ret;
 	if (found != string::npos) {
@@ -243,15 +259,15 @@ vector<Token> findFiles(Token pattern) {
 			auto endingPos = file.find(ending);
 			if (endingPos == string::npos) {
 				if (ending.empty()) {
-					if (file.find(fileNameBeginning) == 0) {
-						ret.emplace_back(directory + "/" + file, pattern.location);
+                    if (file.find(fileNameBeginning) == 0) {
+                        ret.emplace_back(joinPaths(directory, file), pattern.location);
 					}
 				}
 			}
 			else {
 				if (endingPos == file.size() - ending.size() &&
 						file.find(fileNameBeginning) == 0) {
-					ret.emplace_back(directory + "/" + file, pattern.location);
+                    ret.emplace_back(joinPaths(directory, file), pattern.location);
 				}
 			}
 		}
@@ -385,14 +401,11 @@ struct NameDescriptor {
 	Token memberName = "";
 };
 
+class Environment;
 
 class Dependency {
 public:
-	class Environment *env;
-	set<class Dependency*> dependencies;
-	bool dirty = false;
-
-	Dependency(Environment *env): env(env) {};
+    Dependency(Environment *env): _env(env) {}
 
 	virtual ~Dependency() {}
 
@@ -404,8 +417,8 @@ public:
 	virtual void work() = 0;
 
 	void addDependency(Dependency *file) {
-		dependencies.insert(file);
-	}
+        _dependencies.insert(file);
+    }
 
 	// Add task to list of tasks to be executed
 	// the count variable sepcify if the dependency should be counted (true)
@@ -420,38 +433,58 @@ public:
 
 	virtual void clean() = 0;
 
-	virtual bool includeInBinary() { return true; };
+    virtual bool includeInBinary() { return true; }
 
 	virtual void addSubscriber(Dependency *s) {
 		lock_guard<mutex> guard(accessMutex);
-		if (find(subscribers.begin(), subscribers.end(), s) == subscribers.end()) {
-			subscribers.push_back(s);
+        if (find(_subscribers.begin(), _subscribers.end(), s) == _subscribers.end()) {
+            _subscribers.push_back(s);
 		}
 	}
 
 	//Send a notice to all subscribers
 	virtual void sendSubscribersNotice() {
 		lock_guard<mutex> guard(accessMutex);
-		for (auto s: subscribers) {
+        for (auto s: _subscribers) {
 			s->notice(this);
 		}
-		subscribers.clear();
+        _subscribers.clear();
 	}
 
 	// A message from a object being subscribed to
 	// This is used by targets to know when all dependencies
 	// is built
-	virtual void notice(Dependency *d) {};
+    virtual void notice(Dependency *) {}
 
-	vector <Dependency*> subscribers;
-	mutex accessMutex;
+    void lock() {
+        accessMutex.lock();
+    }
+
+    void unlock() {
+        accessMutex.unlock();
+    }
+
+    bool dirty() { return _dirty; }
+    void dirty(bool value) { _dirty = value; }
+
+    const set<class Dependency*> dependencies() const { return _dependencies; }
+    const vector <Dependency*> & subscribers() const { return _subscribers; }
+
+    Environment *environment() { return _env; }
+
+private:
+    Environment *_env;
+    set<class Dependency*> _dependencies;
+    vector <Dependency*> _subscribers;
+    mutex accessMutex;
+    bool _dirty = false;
 };
 
 
 struct BuildTarget: public Dependency {
-	Token name;
-	map<Token, Tokens> members;
-	set<Dependency *> waitList;
+    map<Token, Tokens> members;
+    Token name;
+    set<Dependency *> waitList;
 	Token command;
 
 	BuildTarget(Token name, class Environment *env): Dependency(env), name(name) {
@@ -463,11 +496,11 @@ struct BuildTarget: public Dependency {
 			assign("cpp", Token("c++"));
 			assign("cc", Token("cc"));
 		}
-	};
+    }
 
 	BuildTarget(class Environment *env): Dependency(env){
 		assign("inherit", Token("root"));
-	};
+    }
 
 	BuildTarget(NameDescriptor n, Tokens v, Environment *env): BuildTarget(n.rootName, env) {
 		assign(n.memberName, v);
@@ -523,7 +556,7 @@ struct BuildTarget: public Dependency {
 		try {
 			return members.at(memberName);
 		}
-		catch (out_of_range &e) {
+        catch (out_of_range &) {
 			return {};
 		}
 	}
@@ -547,7 +580,7 @@ struct BuildTarget: public Dependency {
 		return ret;
 	}
 
-	BuildTarget *getParent() ;
+    BuildTarget *getParent() ;
 
 	void print() {
 		vout << "target " << name << ": " << endl;
@@ -571,7 +604,7 @@ struct BuildTarget: public Dependency {
 
 
 	time_t build() override {
-		dirty = false;
+        dirty(false);
 		auto exe = targetPath();
 		if (exe.empty() || name == "root") {
 			return 0;
@@ -580,35 +613,34 @@ struct BuildTarget: public Dependency {
 		vout << endl;
 		vout << "  target " << name << "..." << endl;
 
-		auto lastDependency = 0;
-		for (auto &d: dependencies) {
-			auto t = d->build();
-			if (d->dirty) {
+        time_t lastDependency = 0;
+        for (auto &d:dependencies()) {
+            auto t = d->build();
+            if (d->dirty()) {
 				d->addSubscriber(this);
-				accessMutex.lock();
-				waitList.insert(d);
-				accessMutex.unlock();
+                lock_guard<Dependency> g(*this);
+                waitList.insert(d);
 			}
 			if (t > lastDependency) {
 				lastDependency = t;
 			}
 			if (t == 0) {
-				dirty = true;
+                dirty(true);
 				break;
 			}
 		}
 
 		if (lastDependency > getTimeChanged()) {
-			dirty = true;
-		}
-		else if (!dirty) {
+            dirty(true);
+        }
+        else if (!dirty()) {
 			cout << name << " is fresh " << endl;
 		}
 
-		if (dirty) {
+        if (dirty()) {
 			Token fileList;
 
-			for (auto f: dependencies) {
+            for (auto f: dependencies()) {
 				if (f->includeInBinary()) {
 					fileList += (f->targetPath() + " ");
 				}
@@ -630,16 +662,17 @@ struct BuildTarget: public Dependency {
 				hintStatistic();
 			}
 
-			return time(0);
+            return time(nullptr);
 		}
 
 		return getTimeChanged();
 	}
 
 	void notice(Dependency * d) override {
-		accessMutex.lock();
-		waitList.erase(waitList.find(d));
-		accessMutex.unlock();
+        {
+            lock_guard<Dependency> g(*this);
+            waitList.erase(waitList.find(d));
+        }
 		vout << d->targetPath() << " removed from wating list from " << name << " " << waitList.size() << " to go" << endl;
 		if (waitList.empty()) {
 			queue(false);
@@ -657,13 +690,13 @@ struct BuildTarget: public Dependency {
 		else if (!res.second.empty()) {
 			cout << (command + "\n" + res.second + "\n") << flush;
 		}
-		dirty = false;
+        dirty(false);
 		sendSubscribersNotice();
 		vout << endl;
 	}
 
 	void clean() override {
-		for (auto &d: dependencies) {
+        for (auto &d: dependencies()) {
 			d->clean();
 		}
 		vout << "removing file " << targetPath() << endl;
@@ -717,17 +750,17 @@ struct BuildTarget: public Dependency {
 
 class CopyFile: public Dependency {
 public:
-	CopyFile(const CopyFile &) = default;
-	CopyFile(CopyFile &&) = default;
+    CopyFile(const CopyFile &) = delete;
+    CopyFile(CopyFile &&) = delete;
 	CopyFile(Token source, Token output, BuildTarget *parent, Environment *env):
 		Dependency(env),
 		source(source),
 		output(output),
 		parent(parent) {}
 
-	Token source;
-	Token output;
-	BuildTarget *parent;
+    Token source;
+    Token output;
+    BuildTarget *parent;
 
 	time_t getSourceChangedTime() {
 		return ::getTimeChanged(source);
@@ -741,9 +774,9 @@ public:
 
 		if (getSourceChangedTime() > timeChanged) {
 			queue(true);
-			dirty = true;
+            dirty(true);
 
-			return time(0);
+            return time(nullptr);
 		}
 		return timeChanged;
 	}
@@ -782,8 +815,8 @@ public:
 
 class BuildFile: public Dependency {
 public:
-	BuildFile(const BuildFile &) = default;
-	BuildFile(BuildFile &&) = default;
+    BuildFile(const BuildFile &) = delete;
+    BuildFile(BuildFile &&) = delete;
 	BuildFile(Token filename, BuildTarget *parent, class Environment *env):
 		Dependency(env),
 		filename(filename),
@@ -888,21 +921,21 @@ public:
 		for (auto &d: dependencyFiles) {
 			auto dependencyTimeChanged = ::getTimeChanged(d);
 			if (dependencyTimeChanged == 0 || dependencyTimeChanged > timeChanged) {
-				dirty = true;
+                dirty(true);
 				break;
 			}
 		}
 
-		if (shouldQueue || dirty) {
-			dirty = true;
-			queue(true);
-		}
+        if (shouldQueue || dirty()) {
+            dirty(true);
+            queue(true);
+        }
 
-		if (dirty) {
+        if (dirty()) {
 			command = parent->getCompiler(filetype) + " -c -o " + output + " " + filename + " " + flags;
 			command.location = filename.location;
 
-			return time(0);
+            return time(nullptr);
 		}
 		else {
 			return getTimeChanged();
@@ -935,7 +968,7 @@ public:
 			else if (!res.second.empty()) {
 				cout << (command + "\n" + res.second + "\n") << std::flush;
 			}
-			dirty = false;
+            dirty(false);
 			sendSubscribersNotice();
 		}
 
@@ -1288,8 +1321,8 @@ public:
 
 
 BuildTarget *BuildTarget::getParent() {
-	auto inheritFrom = get("inherit").concat();
-	return env->findTarget(inheritFrom);
+    auto inheritFrom = get("inherit").concat();
+    return environment()->findTarget(inheritFrom);
 }
 
 
@@ -1300,11 +1333,11 @@ bool isSpecialChar(char c) {
 
 
 void Dependency::queue(bool count) {
-	env->addTask(this, count);
+    _env->addTask(this, count);
 }
 
 void Dependency::hintStatistic() {
-	env->addTaskCount();
+    _env->addTaskCount();
 }
 
 bool isOperator(string &op) {
