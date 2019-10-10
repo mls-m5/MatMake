@@ -128,7 +128,7 @@ Compile Bullet Physics (https://github.com/bulletphysics/bullet3):
 flags = -Iinclude  -fPIC
 flags += -Isrc/
 
-dynamics.src +
+dynamics.src +=
 	src/BulletDynamics/**.cpp #recursive search
 	src/BulletCollision/**.cpp
 	src/LinearMath/**.cpp
