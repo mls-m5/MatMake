@@ -3,6 +3,15 @@
  *
  *  Created on: 9 apr. 2019
  *      Author: Mattias Lasersköld
+ *
+ * The main file to be compiled
+ * Notice that the design pattern of this file is not to be used
+ * for inspiration in any actual program. The single source file design
+ * is simply chosen to be able to compile the whole build system with one
+ * command line on any system.
+ *
+ * To build the projekt run "make" in parent directory, or run eqvivalent to
+ * `c++ matmake.cpp -o ../matmake`
  */
 
 
@@ -15,7 +24,6 @@
 #include <sstream>
 #include <algorithm>
 #include <map>
-#include <dirent.h>
 #include <set>
 #include <cstdlib>
 #include <ctime>
@@ -26,393 +34,24 @@
 
 #include "files.h"
 #include "token.h"
+#include "ienvironment.h"
+#include "buildtarget.h"
+#include "dependency.h"
+#include "buildtarget.h"
+
+#include "globals-definition.h" // Global variables
 
 using namespace std;
 
-bool verbose = false;
-bool debugOutput = false;
-
-namespace {
-
-auto numberOfThreads = thread::hardware_concurrency(); //Get the maximal number of threads
-bool bailout = false; // when true: exit the program in a controlled way
-
-}
-
-struct NameDescriptor {
-	NameDescriptor(std::vector<Token> name) {
-		if (name.size() == 1) {
-			memberName = name.front();
-		}
-		else if (name.size() == 3 && name[1] == ".") {
-			rootName = name.front();
-			memberName = name.back();
-		}
-	}
-
-	NameDescriptor(const Token &name, const Token &memberName): rootName(name), memberName(memberName) {}
-
-	bool empty() {
-		return memberName.empty();
-	}
-
-	Token rootName = "root";
-	Token memberName = "";
-};
-
-
 class Environment;
 
-class Dependency {
-public:
-    Dependency(Environment *env): _env(env) {}
-
-	virtual ~Dependency() {}
-
-	time_t getTimeChanged() {
-		return ::getTimeChanged(targetPath());
-	}
-
-	virtual time_t build() = 0;
-	virtual void work() = 0;
-
-	void addDependency(Dependency *file) {
-        _dependencies.insert(file);
-    }
-
-	// Add task to list of tasks to be executed
-	// the count variable sepcify if the dependency should be counted (true)
-	// if hintStatistic has already been called
-	void queue(bool count);
-
-	// Tell the environment that there will be a dependency added in the future
-	// This is when the dependency is waiting for other files to be made
-	void hintStatistic();
-
-	virtual Token targetPath() = 0;
-
-	virtual void clean() = 0;
-
-    virtual bool includeInBinary() { return true; }
-
-	virtual void addSubscriber(Dependency *s) {
-		lock_guard<mutex> guard(accessMutex);
-        if (find(_subscribers.begin(), _subscribers.end(), s) == _subscribers.end()) {
-            _subscribers.push_back(s);
-		}
-	}
-
-	//Send a notice to all subscribers
-	virtual void sendSubscribersNotice() {
-		lock_guard<mutex> guard(accessMutex);
-        for (auto s: _subscribers) {
-			s->notice(this);
-		}
-        _subscribers.clear();
-	}
-
-	// A message from a object being subscribed to
-	// This is used by targets to know when all dependencies
-	// is built
-    virtual void notice(Dependency *) {}
-
-    void lock() {
-        accessMutex.lock();
-    }
-
-    void unlock() {
-        accessMutex.unlock();
-    }
-
-    bool dirty() { return _dirty; }
-    void dirty(bool value) { _dirty = value; }
-
-    const set<class Dependency*> dependencies() const { return _dependencies; }
-    const vector <Dependency*> & subscribers() const { return _subscribers; }
-
-    Environment *environment() { return _env; }
-
-private:
-    Environment *_env;
-    set<class Dependency*> _dependencies;
-    vector <Dependency*> _subscribers;
-    mutex accessMutex;
-    bool _dirty = false;
-};
-
-
-struct BuildTarget: public Dependency {
-    map<Token, Tokens> members;
-    Token name;
-    set<Dependency *> waitList;
-	Token command;
-
-	BuildTarget(Token name, class Environment *env): Dependency(env), name(name) {
-		if (name != "root") {
-			assign("inherit", Token("root"));
-		}
-		else {
-//			assign("exe", Token("program"));
-			assign("cpp", Token("c++"));
-			assign("cc", Token("cc"));
-		}
-    }
-
-	BuildTarget(class Environment *env): Dependency(env){
-		assign("inherit", Token("root"));
-    }
-
-	BuildTarget(NameDescriptor n, Tokens v, Environment *env): BuildTarget(n.rootName, env) {
-		assign(n.memberName, v);
-	}
-
-	void inherit(const BuildTarget &parent) {
-		for (auto v: parent.members) {
-			if (v.first == "inherit") {
-				continue;
-			}
-			assign(v.first, v.second);
-		}
-	}
-
-	void assign(Token memberName, Tokens value) {
-		members[memberName] = value;
-
-		if (memberName == "inherit") {
-			auto parent = getParent();
-			if (parent) {
-				inherit(*parent);
-			}
-		}
-		else if (memberName == "exe" || memberName == "dll") {
-			if (trim(value.concat()) == "%") {
-				members[memberName] = name;
-			}
-		}
-
-		if (memberName == "dll") {
-			auto n = members[memberName];
-			if (!n.empty()) {
-				auto ending = stripFileEnding(n.concat(), true);
-				if (!ending.second.empty()) {
-					members[memberName] = Token(ending.first + ".so");
-				}
-				else {
-					members[memberName] = Token(n.concat() + ".so");
-				}
-			}
-		}
-	}
-
-	void append(Token memberName, Tokens value) {
-		members[memberName].append(value);
-	}
-
-	Tokens get(const NameDescriptor &name) {
-		return get(name.memberName);
-	}
-
-	Tokens get(const Token &memberName) {
-		try {
-			return members.at(memberName);
-		}
-        catch (out_of_range &) {
-			return {};
-		}
-	}
-
-	Tokens getGroups(const Token &memberName) {
-		auto sourceString = get(memberName);
-
-		auto groups = sourceString.groups();
-
-		Tokens ret;
-		for (auto g: groups) {
-			auto sourceFiles = findFiles(g.concat());
-			ret.insert(ret.end(), sourceFiles.begin(), sourceFiles.end());
-		}
-
-		if (ret.size() == 1) {
-			if (ret.front().empty()) {
-				vout << " no pattern matching for " << memberName << endl;
-			}
-		}
-		return ret;
-	}
-
-    BuildTarget *getParent() ;
-
-	void print() {
-		vout << "target " << name << ": " << endl;
-		for (auto &m: members) {
-			vout << "\t" << m.first << " = " << m.second << " " << endl;
-		}
-		vout << endl;
-	}
-
-	Token getCompiler(Token filetype) {
-		if (filetype == "cpp") {
-			return get("cpp").concat();
-		}
-		else if (filetype == "c") {
-			return get("cc").concat();
-		}
-		else {
-			return "echo";
-		}
-	}
-
-
-	time_t build() override {
-        dirty(false);
-		auto exe = targetPath();
-		if (exe.empty() || name == "root") {
-			return 0;
-		}
-
-		vout << endl;
-		vout << "  target " << name << "..." << endl;
-
-        time_t lastDependency = 0;
-        for (auto &d:dependencies()) {
-            auto t = d->build();
-            if (d->dirty()) {
-				d->addSubscriber(this);
-                lock_guard<Dependency> g(*this);
-                waitList.insert(d);
-			}
-			if (t > lastDependency) {
-				lastDependency = t;
-			}
-			if (t == 0) {
-                dirty(true);
-				break;
-			}
-		}
-
-		if (lastDependency > getTimeChanged()) {
-            dirty(true);
-        }
-        else if (!dirty()) {
-			cout << name << " is fresh " << endl;
-		}
-
-        if (dirty()) {
-			Token fileList;
-
-            for (auto f: dependencies()) {
-				if (f->includeInBinary()) {
-					fileList += (f->targetPath() + " ");
-				}
-			}
-
-			auto cpp = getCompiler("cpp");
-			if (!get("dll").empty()) {
-				command = cpp + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
-			}
-			else {
-				command = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
-			}
-			command.location = cpp.location;
-
-			if (waitList.empty()) {
-				queue(true);
-			}
-			else {
-				hintStatistic();
-			}
-
-            return time(nullptr);
-		}
-
-		return getTimeChanged();
-	}
-
-	void notice(Dependency * d) override {
-        {
-            lock_guard<Dependency> g(*this);
-            waitList.erase(waitList.find(d));
-        }
-		vout << d->targetPath() << " removed from wating list from " << name << " " << waitList.size() << " to go" << endl;
-		if (waitList.empty()) {
-			queue(false);
-		}
-	}
-
-	// This is called when all dependencies are built
-	void work() override {
-		vout << "linking " << name << endl;
-		vout << command << endl;
-		pair <int, string> res = popenWithResult(command);
-		if (res.first) {
-			throw MatmakeError(command, "linking failed with\n" + command + "\n" + res.second);
-		}
-		else if (!res.second.empty()) {
-			cout << (command + "\n" + res.second + "\n") << flush;
-		}
-        dirty(false);
-		sendSubscribersNotice();
-		vout << endl;
-	}
-
-	void clean() override {
-        for (auto &d: dependencies()) {
-			d->clean();
-		}
-		vout << "removing file " << targetPath() << endl;
-		remove(targetPath().c_str());
-	}
-
-
-	Token targetPath() override {
-		auto dir = get("dir").concat();
-		if (!dir.empty()) {
-			dir += "/";
-		}
-		auto exe = get("exe").concat();
-		if (exe.empty()) {
-			auto dll = get("dll").concat();
-			if (dll.empty()) {
-				// Automatically create target name
-				dout << "target missing: automatically sets " << name << " as exe" << endl;
-				return dir + name;
-			}
-			else {
-				return dir + dll;
-			}
-		}
-		else {
-			return dir + exe;
-		}
-	}
-
-	Token getOutputDir() {
-		auto outputPath = get("dir").concat();
-		if (!outputPath.empty()) {
-			outputPath += "/";
-		}
-		return outputPath;
-	}
-
-	//If set, where the obj-files is placed
-	Token getObjDir() {
-		auto outputPath = get("objdir").concat();
-		if (!outputPath.empty()) {
-			outputPath += "/";
-		}
-		else {
-			return getOutputDir();
-		}
-		return outputPath;
-	}
-};
 
 
 class CopyFile: public Dependency {
 public:
     CopyFile(const CopyFile &) = delete;
     CopyFile(CopyFile &&) = delete;
-	CopyFile(Token source, Token output, BuildTarget *parent, Environment *env):
+    CopyFile(Token source, Token output, BuildTarget *parent, IEnvironment *env):
 		Dependency(env),
 		source(source),
 		output(output),
@@ -423,7 +62,7 @@ public:
     BuildTarget *parent;
 
 	time_t getSourceChangedTime() {
-		return ::getTimeChanged(source);
+		return env().fileHandler().getTimeChanged(source);
 	}
 
 	time_t build() override {
@@ -474,19 +113,30 @@ public:
 
 
 class BuildFile: public Dependency {
+	Token filename; //The source of the file
+	Token output; //The target of the file
+	Token depFile; //File that summarizes dependencies for file
+	Token filetype; //The ending of the filename
+
+	Token command;
+	Token depCommand;
+
+	IBuildTarget *_parent;
+	vector<string> dependencies;
+
 public:
     BuildFile(const BuildFile &) = delete;
     BuildFile(BuildFile &&) = delete;
-	BuildFile(Token filename, BuildTarget *parent, class Environment *env):
+    BuildFile(Token filename, IBuildTarget *parent, class IEnvironment *env):
 		Dependency(env),
 		filename(filename),
-		output(fixObjectEnding(parent->getObjDir() + filename)),
-		depFile(fixDepEnding(parent->getObjDir() + filename)),
+		output(fixObjectEnding(parent->getBuildDirectory() + filename)),
+		depFile(fixDepEnding(parent->getBuildDirectory() + filename)),
 		filetype(stripFileEnding(filename).second),
-		parent(parent) {
-		auto withoutEnding = stripFileEnding(parent->getObjDir() + filename);
+		_parent(parent) {
+		auto withoutEnding = stripFileEnding(parent->getBuildDirectory() + filename);
 		if (withoutEnding.first.empty()) {
-			throw MatmakeError(filename, "could not figure out source file type '" + parent->getObjDir() + filename +
+			throw MatmakeError(filename, "could not figure out source file type '" + parent->getBuildDirectory() + filename +
 					"' . Is the file ending right?");
 		}
 		if (filename.empty()) {
@@ -499,16 +149,6 @@ public:
 			throw MatmakeError(filename, "could not find dep filename");
 		}
 	}
-	Token filename; //The source of the file
-	Token output; //The target of the file
-	Token depFile; //File that summarizes dependencies for file
-	Token filetype; //The ending of the filename
-
-	Token command;
-	Token depCommand;
-
-	BuildTarget *parent;
-	vector<string> dependencies;
 
 
 	static Token fixObjectEnding(Token filename) {
@@ -519,11 +159,11 @@ public:
 	}
 
 	time_t getInputChangedTime() {
-		return ::getTimeChanged(filename);
+		return env().fileHandler().getTimeChanged(filename);
 	}
 
 	time_t getDepFileChangedTime() {
-		return ::getTimeChanged(depFile);
+		return env().fileHandler().getTimeChanged(depFile);
 	}
 
 	vector<string> parseDepFile() {
@@ -549,15 +189,15 @@ public:
 	}
 
 	time_t build() override {
-		auto flags = parent->get("flags").concat();
+		auto flags = _parent->get("flags").concat();
 		if (filetype == "cpp") {
-			auto cppflags = parent->get("cppflags");
+			auto cppflags = _parent->get("cppflags");
 			if (!cppflags.empty()) {
 				flags += (" " + cppflags.concat());
 			}
 		}
 		if (filetype == "c") {
-			auto cflags = parent->get("cflags");
+			auto cflags = _parent->get("cflags");
 			if (!cflags.empty()) {
 				flags += (" " + cflags.concat());
 			}
@@ -570,7 +210,7 @@ public:
 		auto dependencyFiles = parseDepFile();
 
 		if (depChangedTime == 0 || inputChangedTime > depChangedTime || dependencyFiles.empty()) {
-			depCommand = parent->getCompiler(filetype) + " -MT " + output + " -MM " + filename + " " + flags + " -w";
+			depCommand = _parent->getCompiler(filetype) + " -MT " + output + " -MM " + filename + " " + flags + " -w";
 			depCommand.location = filename.location;
 			shouldQueue = true;
 		}
@@ -579,7 +219,7 @@ public:
 
 
 		for (auto &d: dependencyFiles) {
-			auto dependencyTimeChanged = ::getTimeChanged(d);
+			auto dependencyTimeChanged = env().fileHandler().getTimeChanged(d);
 			if (dependencyTimeChanged == 0 || dependencyTimeChanged > timeChanged) {
                 dirty(true);
 				break;
@@ -592,7 +232,7 @@ public:
         }
 
         if (dirty()) {
-			command = parent->getCompiler(filetype) + " -c -o " + output + " " + filename + " " + flags;
+            command = _parent->getCompiler(filetype) + " -c -o " + output + " " + filename + " " + flags;
 			command.location = filename.location;
 
             return time(nullptr);
@@ -605,7 +245,7 @@ public:
 	void work() override {
 		if (!depCommand.empty()) {
 			vout << depCommand << endl;
-			pair <int, string> res = popenWithResult(depCommand);
+			pair <int, string> res = env().fileHandler().popenWithResult(depCommand);
 			if (res.first) {
 				throw MatmakeError(depCommand, "could not build dependencies:\n" + depCommand + "\n" + res.second);
 			}
@@ -621,7 +261,7 @@ public:
 
 		if (!command.empty()) {
 			vout << command << endl;
-			pair <int, string> res = popenWithResult(command);
+			pair <int, string> res = env().fileHandler().popenWithResult(command);
 			if (res.first) {
 				throw MatmakeError(command, "could not build object:\n" + command + "\n" + res.second);
 			}
@@ -649,21 +289,26 @@ public:
 };
 
 
-class Environment {
+class Environment: IEnvironment {
 public:
 	vector<unique_ptr<BuildTarget>> targets;
 	vector<unique_ptr<Dependency>> files;
 	set<string> directories;
-	queue<Dependency *> tasks;
+	queue<IDependency *> tasks;
 	mutex workMutex;
 	mutex workAssignMutex;
 	std::atomic<size_t> numberOfActiveThreads;
+	std::unique_ptr<IFiles> _fileHandler;
 	int maxTasks = 0;
 	int taskFinished = 0;
 	int lastProgress = 0;
 	bool finished = false;
 
-	void addTask(Dependency *t, bool count) {
+	IFiles &fileHandler() override {
+		return *_fileHandler;
+	}
+
+	void addTask(IDependency *t, bool count) override {
 		workAssignMutex.lock();
 		tasks.push(t);
 		if (count) {
@@ -675,15 +320,16 @@ public:
 		workMutex.unlock();
 	}
 
-	void addTaskCount() {
+	void addTaskCount() override {
 		++maxTasks;
 	}
 
-	Environment () {
+	Environment (IFiles *fileHandler):
+		  _fileHandler(fileHandler){
 		targets.emplace_back(new BuildTarget("root", this));
 	}
 
-	BuildTarget *findTarget(Token name) {
+	IBuildTarget *findTarget(Token name) override {
 		if (name.empty()) {
 			return nullptr;
 		}
@@ -695,7 +341,7 @@ public:
 		return nullptr;
 	}
 
-	BuildTarget *findVariable(Token name) {
+	IBuildTarget *findVariable(Token name) {
 		if (name.empty()) {
 			return nullptr;
 		}
@@ -707,16 +353,17 @@ public:
 		return nullptr;
 	}
 
+	//! Gets a property from a target name plus property name
 	Tokens getValue(NameDescriptor name) {
 		if (auto variable = findVariable(name.rootName)) {
-			return variable->get(name.memberName);
+			return variable->get(name.propertyName);
 		}
 		else {
 			return {};
 		}
 	}
 
-	BuildTarget &operator[] (Token name) {
+	IBuildTarget &operator[] (Token name) {
 		if (auto v = findVariable(name)) {
 			return *v;
 		}
@@ -727,11 +374,11 @@ public:
 	}
 
 	void appendVariable(NameDescriptor name, Tokens value) {
-		(*this) [name.rootName].append(name.memberName, value);
+		(*this) [name.rootName].append(name.propertyName, value);
 	}
 
 	void setVariable(NameDescriptor name, Tokens value) {
-		(*this) [name.rootName].assign(name.memberName, value) ;
+		(*this) [name.rootName].assign(name.propertyName, value) ;
 	}
 
 	void print() {
@@ -981,19 +628,12 @@ public:
 
 
 
-BuildTarget *BuildTarget::getParent() {
-    auto inheritFrom = get("inherit").concat();
-    return environment()->findTarget(inheritFrom);
-}
 
 
-void Dependency::queue(bool count) {
-    _env->addTask(this, count);
-}
 
-void Dependency::hintStatistic() {
-    _env->addTaskCount();
-}
+
+
+
 
 bool isOperator(string &op) {
 	vector<string> opList = {
@@ -1088,6 +728,7 @@ clean:
 }
 
 int createProject(string dir) {
+	Files files;
 	if (!dir.empty()) {
 		createDirectory(dir);
 
@@ -1097,7 +738,7 @@ int createProject(string dir) {
 		}
 	}
 
-	if (getTimeChanged("Matmakefile") > 0) {
+	if (files.getTimeChanged("Matmakefile") > 0) {
 		cerr << "Matmakefile already exists. Exiting..." << endl;
 		return -1;
 	}
@@ -1108,7 +749,7 @@ int createProject(string dir) {
 	}
 
 
-	if (getTimeChanged("Makefile") > 0) {
+	if (files.getTimeChanged("Makefile") > 0) {
 		cerr << "Makefile already exists. Exiting..." << endl;
 		return -1;
 	}
@@ -1120,7 +761,7 @@ int createProject(string dir) {
 
 	createDirectory("src");
 
-	if (getTimeChanged("src/main.cpp") > 0) {
+	if (files.getTimeChanged("src/main.cpp") > 0) {
 		cerr << "src/main.cpp file already exists. Exiting..." << endl;
 		return -1;
 	}
@@ -1146,7 +787,7 @@ int start(vector<string> args) {
 	ifstream matmakefile("Matmakefile");
 
 	string line;
-	Environment environment;
+	Environment environment(new Files());
 	vector<string> targets;
 
 	string operation = "build";
@@ -1212,7 +853,7 @@ int start(vector<string> args) {
 	}
 
 	if (!matmakefile.is_open()) {
-		if (getTimeChanged("Makefile") || getTimeChanged("makefile")) {
+		if (environment.fileHandler().getTimeChanged("Makefile") || environment.fileHandler().getTimeChanged("makefile")) {
 			cout << "makefile in " << getCurrentWorkingDirectory() << endl;
 			string arguments = "make";
 			for (auto arg: args) {

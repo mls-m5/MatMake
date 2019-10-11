@@ -7,6 +7,7 @@
 #include <algorithm>
 #include "token.h"
 #include "merror.h"
+#include <array>
 
 #include <stdio.h> //For FILENAME_MAX
 
@@ -20,12 +21,25 @@ const string lineSeparator = "\\";
 #define GetCurrentDir getcwd
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include <dirent.h>
 #include <unistd.h>
 
 const std::string pathSeparator = "/";
 
 using namespace std;
 
+#include "ifiles.h"
+
+class Files: public IFiles {
+public:
+
+    vector<Token> findFiles(Token pattern) override;
+
+    std::pair<int, string> popenWithResult(string command) override;
+
+    time_t getTimeChanged(const std::string &path) override;
+};
 
 //Creates a directory if it does not exist
 void createDirectory(std::string dir) {
@@ -41,7 +55,7 @@ std::string joinPaths(std::string a, std::string b) {
 }
 
 // Get the time in seconds when a file is changed. Return 0 if the specified file is not found
-time_t getTimeChanged(const std::string &path) {
+time_t Files::getTimeChanged(const std::string &path) {
     struct stat file_stat;
     int err = stat(path.c_str(), &file_stat);
     if (err != 0) {
@@ -63,7 +77,7 @@ bool isDirectory(const string &path) {
 
 
 
-pair<int, string> popenWithResult(string command) {
+pair<int, string> Files::popenWithResult(string command) {
 	pair<int, string> ret;
 
 	FILE *file = popen((command + " 2>&1").c_str(), "r");
@@ -87,11 +101,11 @@ pair<int, string> popenWithResult(string command) {
 
 // adapted from https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
 string getCurrentWorkingDirectory() {
-	char currentPath[FILENAME_MAX];
-	if (!GetCurrentDir(currentPath, sizeof(currentPath))) {
+	std::array<char, FILENAME_MAX> currentPath;
+	if (!GetCurrentDir(currentPath.data(), sizeof(currentPath))) {
 		throw runtime_error("could not get current working directory");
 	}
-	return currentPath;
+	return currentPath.data();
 }
 
 
@@ -163,7 +177,7 @@ static inline std::string trim(std::string s) {
 }
 
 
-vector<Token> findFiles(Token pattern) {
+vector<Token> Files::findFiles(Token pattern) {
 	pattern = Token(trim(pattern), pattern.location);
 	auto found = pattern.find('*');
 
