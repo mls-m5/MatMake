@@ -3,6 +3,7 @@
 #include "token.h"
 
 class IDependency;
+class Globals;
 
 class IEnvironment {
 public:
@@ -12,7 +13,8 @@ public:
 
 	virtual class IBuildTarget *findTarget(Token name) = 0;
 
-
 	virtual void addTask(IDependency *t, bool count) = 0;
 	virtual void addTaskCount() = 0;
+
+	virtual Globals &globals() = 0;
 };

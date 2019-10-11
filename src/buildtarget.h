@@ -5,6 +5,8 @@
 #include "ibuildtarget.h"
 #include "dependency.h"
 
+#include "globals.h"
+
 #include <map>
 
 struct BuildTarget: public Dependency, public IBuildTarget {
@@ -78,9 +80,9 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		property(propertyName).append(value);
 	}
 
-	Tokens get(const NameDescriptor &name) {
-		return get(name.propertyName);
-	}
+//	Tokens get(const NameDescriptor &name) {
+//		return get(name.propertyName);
+//	}
 
 	Tokens get(const Token &propertyName) override {
 		try {
@@ -95,6 +97,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		return _properties;
 	}
 
+	//! Returns all files in a property
 	Tokens getGroups(const Token &propertyName) {
 		auto sourceString = get(propertyName);
 
@@ -154,7 +157,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		vout << "  target " << name << "..." << endl;
 
 		time_t lastDependency = 0;
-		for (auto &d:dependencies()) {
+		for (auto &d: dependencies()) {
 			auto t = d->build();
 			if (d->dirty()) {
 				d->addSubscriber(this);
@@ -213,13 +216,13 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			lock_guard<Dependency> g(*this);
 			waitList.erase(waitList.find(d));
 		}
-		vout << d->targetPath() << " removed from wating list from " << name << " " << waitList.size() << " to go" << endl;
+		dout << d->targetPath() << " removed from wating list from " << name << " " << waitList.size() << " left" << endl;
 		if (waitList.empty()) {
 			queue(false);
 		}
 	}
 
-	// This is called when all dependencies are built
+	//! This is called when all dependencies are built
 	void work() override {
 		vout << "linking " << name << endl;
 		vout << command << endl;
@@ -267,22 +270,22 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	}
 
 	Token getOutputDir() {
-		auto outputPath = get("dir").concat();
-		if (!outputPath.empty()) {
-			outputPath += "/";
+		auto outputDir = get("dir").concat();
+		if (!outputDir.empty()) {
+			outputDir += "/";
 		}
-		return outputPath;
+		return outputDir;
 	}
 
-	//If set, where the obj-files is placed
+	//!If where the tmp build-files is placed
 	Token getBuildDirectory() override {
-		auto outputPath = get("objdir").concat();
-		if (!outputPath.empty()) {
-			outputPath += "/";
+		auto outputDir = get("objdir").concat();
+		if (!outputDir.empty()) {
+			outputDir += "/";
 		}
 		else {
 			return getOutputDir();
 		}
-		return outputPath;
+		return outputDir;
 	}
 };

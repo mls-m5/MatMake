@@ -33,16 +33,27 @@ using namespace std;
 
 class Files: public IFiles {
 public:
-
     vector<Token> findFiles(Token pattern) override;
 
     std::pair<int, string> popenWithResult(string command) override;
 
     time_t getTimeChanged(const std::string &path) override;
+
+	string getCurrentWorkingDirectory() override;
+
+	vector<string> listFiles(string directory) override;
+
+	bool isDirectory(const string &path) override;
+
+	void createDirectory(std::string dir) override;
+
+	string getDirectory(string filename) override;
+
+	std::vector<string> listRecursive(string directory) override;
 };
 
 //Creates a directory if it does not exist
-void createDirectory(std::string dir) {
+void Files::createDirectory(std::string dir) {
     if (system(("mkdir -p " + dir).c_str())) {
         std::runtime_error("could not create directory " + dir);
     }
@@ -59,17 +70,17 @@ time_t Files::getTimeChanged(const std::string &path) {
     struct stat file_stat;
     int err = stat(path.c_str(), &file_stat);
     if (err != 0) {
-        dout << "notice: file does not exist: " << path << endl;
+        // dout << "notice: file does not exist: " << path << endl;
         return 0;
     }
     return file_stat.st_mtime;
 }
 
-bool isDirectory(const string &path) {
+bool Files::isDirectory(const string &path) {
     struct stat file_stat;
     int err = stat(path.c_str(), &file_stat);
     if (err != 0) {
-        dout << "file or directory " << path << " does not exist" << endl;
+        // dout << "file or directory " << path << " does not exist" << endl;
         return false;
     }
     return file_stat.st_mode & S_IFDIR;
@@ -100,7 +111,7 @@ pair<int, string> Files::popenWithResult(string command) {
 
 
 // adapted from https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
-string getCurrentWorkingDirectory() {
+string Files::getCurrentWorkingDirectory() {
 	std::array<char, FILENAME_MAX> currentPath;
 	if (!GetCurrentDir(currentPath.data(), sizeof(currentPath))) {
 		throw runtime_error("could not get current working directory");
@@ -110,7 +121,7 @@ string getCurrentWorkingDirectory() {
 
 
 
-vector<string> listFiles(string directory) {
+vector<string> Files::listFiles(string directory) {
 	vector<string> ret;
 
 	if (directory.empty()) {
@@ -135,7 +146,7 @@ vector<string> listFiles(string directory) {
 	return ret;
 }
 
-string getDirectory(string filename) {
+string Files::getDirectory(string filename) {
 	auto directoryFound = filename.rfind("/");
 	if (directoryFound != string::npos) {
 		return string(filename.begin(), filename.begin() + directoryFound);
@@ -145,7 +156,7 @@ string getDirectory(string filename) {
 	}
 }
 
-std::vector<string> listRecursive(string directory) {
+std::vector<string> Files::listRecursive(string directory) {
 
 	auto list = listFiles(directory);
 	auto ret = list;
@@ -225,14 +236,14 @@ vector<Token> Files::findFiles(Token pattern) {
 		return {pattern};
 	}
 	if (ret.empty()) {
-		vout << "warning: pattern " << pattern << " does not match any file" << endl;
+		// vout << "warning: pattern " << pattern << " does not match any file" << endl;
 	}
-	if (debugOutput && !ret.empty()) {
-		dout << "recursively added:" << endl;
-		for (auto &f: ret) {
-			dout << f << " " << endl;
-		}
-	}
+//	if (debugOutput && !ret.empty()) {
+//		dout << "recursively added:" << endl;
+//		for (auto &f: ret) {
+//			dout << f << " " << endl;
+//		}
+//	}
 	return ret;
 }
 

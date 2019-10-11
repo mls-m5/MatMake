@@ -3,9 +3,5 @@
 #include <iostream>
 
 //verbose output
-#define vout if(verbose) std::cout
-#define dout if(debugOutput) std::cout
-
-extern bool verbose;
-extern bool debugOutput;
-
+#define vout if(env().globals().verbose) std::cout
+#define dout if(env().globals().debugOutput) std::cout
