@@ -41,7 +41,7 @@ make -C matmake/ init-project
 ```
 
 This adds the matmake buildsystem to your repository. To build your project you invoke make with "make" as usual.
-New files are recagnized Automatically.
+New files are recognized Automatically.
 
 If you have matmake installed on your system
 ----------------------------------------
@@ -128,14 +128,14 @@ Compile Bullet Physics (https://github.com/bulletphysics/bullet3):
 flags = -Iinclude  -fPIC
 flags += -Isrc/
 
-dynamics.src +=
+bullet.src +=
 	src/BulletDynamics/**.cpp #recursive search
 	src/BulletCollision/**.cpp
 	src/LinearMath/**.cpp
 
-dynamics.libs += -pthread -ldl
+bullet.libs += -pthread -ldl
 
-dynamics.dll = bullet3
+bullet.dll = bullet
 ```
 
 #### Inheritance:
@@ -173,6 +173,7 @@ There is very many build systems out there. These are some dealbreakers for me i
 
 * CMake
 	* "Globbing" is not recomended, and when used, build does not check for new files.
+	* Syntax is ugly
 * Meson
 	* Does not support wildcard selection of files
 * Ninja

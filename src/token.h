@@ -3,10 +3,23 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 
+// trim from both ends (copying)
+inline std::string trim(std::string s) {
+	auto front = find_if(s.begin(), s.end(), [] (int ch) {
+		return !isspace(ch);
+	});
+	auto back = find_if(s.rbegin(), s.rend(), [] (int ch) {
+					return !isspace(ch);
+				}).base();
 
-bool isSpecialChar(char c) {
+	return std::string(front, back);
+}
+
+
+inline bool isSpecialChar(char c) {
 	using std::string;
 	const string special = "+=.-:*";
 	return special.find(c) != string::npos;
@@ -38,8 +51,14 @@ struct Token: public std::string {
 		return s;
 	}
 
-	std::string str() {
+	//! Access the string part of the token
+	std::string &str() {
 		return *this;
+	}
+
+	//! returns the token without surrounding whitespaces
+	Token trim() {
+		return Token(::trim(str()), location);
 	}
 
 	std::string getLocationDescription() {

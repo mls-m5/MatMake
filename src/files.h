@@ -4,7 +4,6 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
-#include <algorithm>
 #include "token.h"
 #include "merror.h"
 #include <array>
@@ -174,18 +173,6 @@ std::vector<string> Files::listRecursive(string directory) {
 	return ret;
 }
 
-
-// trim from both ends (copying)
-static inline std::string trim(std::string s) {
-	auto front = find_if(s.begin(), s.end(), [] (int ch) {
-		return !isspace(ch);
-	});
-	auto back = find_if(s.rbegin(), s.rend(), [] (int ch) {
-					return !isspace(ch);
-				}).base();
-
-	return string(front, back);
-}
 
 
 vector<Token> Files::findFiles(Token pattern) {

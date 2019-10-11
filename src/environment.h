@@ -12,252 +12,11 @@
 
 #include <fstream>
 #include "buildtarget.h"
-
+#include "buildfile.h"
+#include "copyfile.h"
 
 
 class Environment;
-
-
-class CopyFile: public Dependency {
-public:
-	CopyFile(const CopyFile &) = delete;
-	CopyFile(CopyFile &&) = delete;
-	CopyFile(Token source, Token output, BuildTarget *parent, IEnvironment *env):
-		  Dependency(env),
-		  source(source),
-		  output(output),
-		  parent(parent) {}
-
-	Token source;
-	Token output;
-	BuildTarget *parent;
-
-	time_t getSourceChangedTime() {
-		return env().fileHandler().getTimeChanged(source);
-	}
-
-	time_t build() override {
-		if (output == source) {
-			vout << "file " << output << " source and target is on same place. skipping" << endl;
-		}
-		auto timeChanged = getTimeChanged();
-
-		if (getSourceChangedTime() > timeChanged) {
-			queue(true);
-			dirty(true);
-
-			return time(nullptr);
-		}
-		return timeChanged;
-	}
-
-	void work() override {
-		ifstream src(source);
-		if (!src.is_open()) {
-			cout << "could not open file " << source << " for copy for target " << parent->name << endl;
-		}
-
-		ofstream dst(output);
-		if (!dst) {
-			cout << "could not open file " << output << " for copy for target " << parent->name << endl;
-		}
-
-		vout << "copy " << source << " --> " << output << endl;
-		dst << src.rdbuf();
-
-		sendSubscribersNotice();
-	}
-
-	void clean() override {
-		vout << "removing file " << output << endl;
-		remove(output.c_str());
-	}
-
-	Token targetPath() override {
-		return output;
-	}
-
-	bool includeInBinary() override {
-		return false;
-	}
-};
-
-
-class BuildFile: public Dependency {
-	Token filename; //The source of the file
-	Token output; //The target of the file
-	Token depFile; //File that summarizes dependencies for file
-	Token filetype; //The ending of the filename
-
-	Token command;
-	Token depCommand;
-
-	IBuildTarget *_parent;
-	vector<string> dependencies;
-
-public:
-	BuildFile(const BuildFile &) = delete;
-	BuildFile(BuildFile &&) = delete;
-	BuildFile(Token filename, IBuildTarget *parent, class IEnvironment *env):
-		  Dependency(env),
-		  filename(filename),
-		  output(fixObjectEnding(parent->getBuildDirectory() + filename)),
-		  depFile(fixDepEnding(parent->getBuildDirectory() + filename)),
-		  filetype(stripFileEnding(filename).second),
-		  _parent(parent) {
-		auto withoutEnding = stripFileEnding(parent->getBuildDirectory() + filename);
-		if (withoutEnding.first.empty()) {
-			throw MatmakeError(filename, "could not figure out source file type '" + parent->getBuildDirectory() + filename +
-											 "' . Is the file ending right?");
-		}
-		if (filename.empty()) {
-			throw MatmakeError(filename, "empty buildfile added");
-		}
-		if (output.empty()) {
-			throw MatmakeError(filename, "could not find target name");
-		}
-		if (depFile.empty()) {
-			throw MatmakeError(filename, "could not find dep filename");
-		}
-	}
-
-
-	static Token fixObjectEnding(Token filename) {
-		return stripFileEnding(filename).first + ".o";
-	}
-	static Token fixDepEnding(Token filename) {
-		return stripFileEnding(filename).first + ".d";
-	}
-
-	time_t getInputChangedTime() {
-		return env().fileHandler().getTimeChanged(filename);
-	}
-
-	time_t getDepFileChangedTime() {
-		return env().fileHandler().getTimeChanged(depFile);
-	}
-
-	vector<string> parseDepFile() {
-		if (depFile.empty()) {
-			return {};
-		}
-		ifstream file(depFile);
-		if (file.is_open()) {
-			vector <string> ret;
-			string d;
-			file >> d; //The first is the target path
-			while (file >> d) {
-				if (d != "\\") {
-					ret.push_back(d);
-				}
-			}
-			return ret;
-		}
-		else {
-			dout << "could not find .d file for " << output << " --> " << depFile << endl;
-			return {};
-		}
-	}
-
-	time_t build() override {
-		auto flags = _parent->get("flags").concat();
-		if (filetype == "cpp") {
-			auto cppflags = _parent->get("cppflags");
-			if (!cppflags.empty()) {
-				flags += (" " + cppflags.concat());
-			}
-		}
-		if (filetype == "c") {
-			auto cflags = _parent->get("cflags");
-			if (!cflags.empty()) {
-				flags += (" " + cflags.concat());
-			}
-		}
-		bool shouldQueue = false;
-
-		auto depChangedTime = getDepFileChangedTime();
-		auto inputChangedTime = getInputChangedTime();
-
-		auto dependencyFiles = parseDepFile();
-
-		if (depChangedTime == 0 || inputChangedTime > depChangedTime || dependencyFiles.empty()) {
-			depCommand = _parent->getCompiler(filetype) + " -MT " + output + " -MM " + filename + " " + flags + " -w";
-			depCommand.location = filename.location;
-			shouldQueue = true;
-		}
-
-		auto timeChanged = getTimeChanged();
-
-
-		for (auto &d: dependencyFiles) {
-			auto dependencyTimeChanged = env().fileHandler().getTimeChanged(d);
-			if (dependencyTimeChanged == 0 || dependencyTimeChanged > timeChanged) {
-				dirty(true);
-				break;
-			}
-		}
-
-		if (shouldQueue || dirty()) {
-			dirty(true);
-			queue(true);
-		}
-
-		if (dirty()) {
-			command = _parent->getCompiler(filetype) + " -c -o " + output + " " + filename + " " + flags;
-			command.location = filename.location;
-
-			return time(nullptr);
-		}
-		else {
-			return getTimeChanged();
-		}
-	}
-
-	void work() override {
-		if (!depCommand.empty()) {
-			vout << depCommand << endl;
-			pair <int, string> res = env().fileHandler().popenWithResult(depCommand);
-			if (res.first) {
-				throw MatmakeError(depCommand, "could not build dependencies:\n" + depCommand + "\n" + res.second);
-			}
-			else {
-				try {
-					ofstream(depFile) << res.second;
-				}
-				catch (runtime_error &e) {
-					throw MatmakeError(depCommand, "could not write to file " + depFile + "\n" + e.what());
-				}
-			}
-		}
-
-		if (!command.empty()) {
-			vout << command << endl;
-			pair <int, string> res = env().fileHandler().popenWithResult(command);
-			if (res.first) {
-				throw MatmakeError(command, "could not build object:\n" + command + "\n" + res.second);
-			}
-			else if (!res.second.empty()) {
-				cout << (command + "\n" + res.second + "\n") << std::flush;
-			}
-			dirty(false);
-			sendSubscribersNotice();
-		}
-
-	}
-
-	Token targetPath() override {
-		return output;
-	}
-
-	void clean() override {
-		vout << "removing file " << targetPath() << endl;
-		remove(targetPath().c_str());
-		if (!depFile.empty()) {
-			vout << "removing file " << depFile << endl;
-			remove(depFile.c_str());
-		}
-	}
-};
 
 
 class Environment: public IEnvironment {
@@ -432,6 +191,7 @@ public:
 	}
 
 	void compile(vector<string> targetArguments) {
+		dout << "compiling..." << endl;
 		print();
 
 		calculateDependencies();
@@ -574,6 +334,7 @@ public:
 	}
 
 	void clean(vector<string> targetArguments) {
+		dout << "cleaning " << endl;
 		calculateDependencies();
 
 		if (targetArguments.empty()) {
@@ -595,7 +356,7 @@ public:
 
 	}
 
-	// Show info of alternative build targets
+	//! Show info of alternative build targets
 	void listAlternatives() {
 		for (auto &t: targets) {
 			if (t->name != "root") {

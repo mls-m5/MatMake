@@ -9,6 +9,8 @@
 
 #include <map>
 
+//! A build target is a executable, dll or similar that depends
+//! on one or more build targets, build files or copy files
 struct BuildTarget: public Dependency, public IBuildTarget {
 	std::map<Token, Tokens> _properties;
 	Token name;
@@ -79,10 +81,6 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	void append(Token propertyName, Tokens value) override {
 		property(propertyName).append(value);
 	}
-
-//	Tokens get(const NameDescriptor &name) {
-//		return get(name.propertyName);
-//	}
 
 	Tokens get(const Token &propertyName) override {
 		try {
@@ -248,10 +246,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 
 
 	Token targetPath() override {
-		auto dir = get("dir").concat();
-		if (!dir.empty()) {
-			dir += "/";
-		}
+		auto dir = getOutputDir();
 		auto exe = get("exe").concat();
 		if (exe.empty()) {
 			auto dll = get("dll").concat();
@@ -272,6 +267,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	Token getOutputDir() {
 		auto outputDir = get("dir").concat();
 		if (!outputDir.empty()) {
+			outputDir = outputDir.trim();
 			outputDir += "/";
 		}
 		return outputDir;
@@ -281,6 +277,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	Token getBuildDirectory() override {
 		auto outputDir = get("objdir").concat();
 		if (!outputDir.empty()) {
+			outputDir = outputDir.trim();
 			outputDir += "/";
 		}
 		else {
