@@ -111,10 +111,10 @@ public:
 		auto timeChanged = getTimeChanged();
 		auto dependencyFiles = parseDepFile();
 
-		if (depChangedTime == 0
+		if (   depChangedTime == 0
 			|| inputChangedTime > depChangedTime
-			|| dependencyFiles.empty()
-			|| inputChangedTime > timeChanged) {
+			|| inputChangedTime > timeChanged
+			|| dependencyFiles.empty()) {
 			depCommand = " -MMD -MF " + depFile + " ";
 			depCommand.location = filename.location;
 			dirty(true);

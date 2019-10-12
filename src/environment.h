@@ -9,6 +9,7 @@
 #include "ibuildtarget.h"
 #include "dependency.h"
 #include <queue>
+#include <atomic>
 
 #include <fstream>
 #include "buildtarget.h"
@@ -28,7 +29,7 @@ public:
 	mutex workMutex;
 	mutex workAssignMutex;
 	std::atomic<size_t> numberOfActiveThreads;
-	std::unique_ptr<IFiles> _fileHandler;
+	std::shared_ptr<IFiles> _fileHandler;
 	int maxTasks = 0;
 	int taskFinished = 0;
 	int lastProgress = 0;
@@ -63,7 +64,7 @@ public:
 		++maxTasks;
 	}
 
-	Environment (Globals &globals, IFiles *fileHandler):
+	Environment (Globals &globals, shared_ptr<IFiles> fileHandler):
 		  _fileHandler(fileHandler),
 		  _globals(globals)
 	{
@@ -114,11 +115,11 @@ public:
 		}
 	}
 
-	void appendVariable(NameDescriptor name, Tokens value) {
+	void appendVariable(const NameDescriptor &name, Tokens value) override {
 		(*this) [name.rootName].append(name.propertyName, value);
 	}
 
-	void setVariable(NameDescriptor name, Tokens value) {
+	void setVariable(const NameDescriptor &name, Tokens value) override {
 		(*this) [name.rootName].assign(name.propertyName, value) ;
 	}
 
@@ -190,7 +191,7 @@ public:
 		}
 	}
 
-	void compile(vector<string> targetArguments) {
+	void compile(vector<string> targetArguments) override {
 		dout << "compiling..." << endl;
 		print();
 
@@ -339,7 +340,7 @@ public:
 		vout << "finished" << endl;
 	}
 
-	void clean(vector<string> targetArguments) {
+	void clean(vector<string> targetArguments) override {
 		dout << "cleaning " << endl;
 		calculateDependencies();
 
@@ -363,7 +364,7 @@ public:
 	}
 
 	//! Show info of alternative build targets
-	void listAlternatives() {
+	void listAlternatives() override {
 		for (auto &t: targets) {
 			if (t->name != "root") {
 				cout << t->name << " ";

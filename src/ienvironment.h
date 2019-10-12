@@ -17,4 +17,17 @@ public:
 	virtual void addTaskCount() = 0;
 
 	virtual Globals &globals() = 0;
+
+
+	virtual void appendVariable(
+		const class NameDescriptor &name,
+		Tokens value) = 0;
+
+	virtual void setVariable(
+		const class NameDescriptor &name,
+		Tokens value) = 0;
+
+	virtual void compile(std::vector<std::string> targetArguments) = 0;
+	virtual void clean(std::vector<std::string> targetArguments) = 0;
+	virtual void listAlternatives() = 0;
 };
