@@ -197,10 +197,16 @@ public:
 		calculateDependencies();
 		for (auto &file: files) {
 			auto dir = _fileHandler->getDirectory(file->targetPath());
-			if (dir.empty()) {
-				continue;
+			if (!dir.empty()) {
+				directories.emplace(dir);
 			}
-			directories.emplace(dir);
+		}
+
+		for (auto &target: targets) {
+			auto dir = _fileHandler->getDirectory(target->targetPath());
+			if (!dir.empty()) {
+				directories.emplace(dir);
+			}
 		}
 
 		for (auto dir: directories) {
