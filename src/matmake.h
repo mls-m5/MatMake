@@ -183,8 +183,8 @@ struct Locals {
 //! Also alters globals object if any options related to that is used
 std::tuple<Locals, ShouldQuitT, IsErrorT> parseArguments(vector<string> args, Globals &globals) {
 	Locals locals;
-	ShouldQuitT shouldQuit;
-	IsErrorT isError;
+	ShouldQuitT shouldQuit = false;
+	IsErrorT isError = false;
 
 	locals.args = args;
 
