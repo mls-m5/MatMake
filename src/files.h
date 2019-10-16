@@ -202,19 +202,22 @@ vector<Token> Files::findFiles(Token pattern) {
 			fileList = listFiles(directory);
 			ending = string(pattern.begin() + found + 1, pattern.end());
 		}
+		auto addIfFile = [&ret, this](string filename) {
+			if (!isDirectory(filename)) {
+				ret.push_back(filename);
+			}
+		};
 		for (auto &file: fileList) {
-			auto endingPos = file.find(ending);
-			if (endingPos == string::npos) {
-				if (ending.empty()) {
-					if (file.find(fileNameBeginning) == 0) {
-						ret.emplace_back(joinPaths(directory, file), pattern.location);
-					}
-				}
+			if (ending.empty()) {
+				addIfFile(joinPaths(directory, file));
 			}
 			else {
-				if (endingPos == file.size() - ending.size() &&
-					file.find(fileNameBeginning) == 0) {
-					ret.emplace_back(joinPaths(directory, file), pattern.location);
+				auto endingPos = file.find(ending);
+				if (endingPos != string::npos) {
+					if (endingPos == file.size() - ending.size() &&
+						file.find(fileNameBeginning) == 0) {
+						addIfFile(joinPaths(directory, file));
+					}
 				}
 			}
 		}
@@ -222,20 +225,11 @@ vector<Token> Files::findFiles(Token pattern) {
 	else {
 		return {pattern};
 	}
-	if (ret.empty()) {
-		// vout << "warning: pattern " << pattern << " does not match any file" << endl;
-	}
-//	if (debugOutput && !ret.empty()) {
-//		dout << "recursively added:" << endl;
-//		for (auto &f: ret) {
-//			dout << f << " " << endl;
-//		}
-//	}
 	return ret;
 }
 
 
-static std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch = false) {
+inline std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch = false) {
 	filename = trim(filename);
 	if (filename.find(".cpp") == filename.size() - 4) {
 		filename = Token(filename.begin(), filename.end() - 4, filename.location);
