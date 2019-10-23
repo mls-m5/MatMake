@@ -29,7 +29,9 @@ public:
 
 	virtual Token getBuildDirectory() = 0;
 
-	virtual Token getCompiler(Token filetype) = 0;
+	virtual Token getCompiler(const Token &filetype) = 0;
+
+	virtual Token getBuildFlags(const Token& filetype) = 0;
 
 	virtual void print() = 0;
 	virtual void clean() = 0;

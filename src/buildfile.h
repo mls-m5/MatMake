@@ -86,21 +86,9 @@ public:
 		}
 	}
 
+
 	Token getFlags() {
-		auto flags = _parent->get("flags").concat();
-		if (filetype == "cpp") {
-			auto cppflags = _parent->get("cppflags");
-			if (!cppflags.empty()) {
-				flags += (" " + cppflags.concat());
-			}
-		}
-		if (filetype == "c") {
-			auto cflags = _parent->get("cflags");
-			if (!cflags.empty()) {
-				flags += (" " + cflags.concat());
-			}
-		}
-		return flags;
+		return _parent->getBuildFlags(filetype);
 	}
 
 	time_t build() override {

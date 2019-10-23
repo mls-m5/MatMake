@@ -6,8 +6,10 @@
 #include "dependency.h"
 
 #include "globals.h"
+#include "compilertype.h"
 
 #include <map>
+
 
 //! A build target is a executable, dll or similar that depends
 //! on one or more build targets, build files or copy files
@@ -16,6 +18,8 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	Token name;
 	set<IDependency *> waitList;
 	Token command;
+	Token buildFlags;
+	shared_ptr<ICompiler> compilerType = make_shared<GCCCompiler>();
 
 	BuildTarget(Token name, class IEnvironment *env): Dependency(env), name(name) {
 		if (name != "root") {
@@ -24,6 +28,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		else {
 			assign("cpp", Token("c++"));
 			assign("cc", Token("cc"));
+			assign("includes", Token(""));
 		}
 	}
 
@@ -95,6 +100,79 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		return _properties;
 	}
 
+	Token getIncludeFlags() {
+		Token ret;
+
+		auto includes = get("includes").groups();
+		for (auto &include: includes) {
+			auto includeStr = include.concat();
+			if (includeStr.empty()) {
+				continue;
+			}
+			ret += (" "
+					+ compilerType->getString(CompilerString::IncludePrefix)
+					+ includeStr);
+		}
+
+		auto sysincludes = get("sysincludes").groups();
+		for (auto &include: sysincludes) {
+			auto includeStr = include.concat().trim();
+			if (includeStr.empty()) {
+				continue;
+			}
+			ret += (" "
+					+ compilerType->getString(CompilerString::SystemIncludePrefix)
+					+ include.concat());
+		}
+
+		return ret;
+	}
+
+	Token getDefineFlags() {
+		Token ret;
+
+		auto defines = get("define").groups();
+		for (auto &def: defines) {
+			ret += (" "
+					+ compilerType->getString(CompilerString::DefinePrefix)
+					+ def.concat());
+		}
+
+
+		return ret;
+	}
+
+	//! Return flags used by a file
+	virtual Token getBuildFlags(const Token& filetype) override {
+		if (!buildFlags.empty()) {
+			return buildFlags;
+		}
+
+		auto flags = get("flags").concat();
+		if (filetype == "cpp") {
+			auto cppflags = get("cppflags");
+			if (!cppflags.empty()) {
+				flags += (" " + cppflags.concat());
+			}
+		}
+		if (filetype == "c") {
+			auto cflags = get("cflags");
+			if (!cflags.empty()) {
+				flags += (" " + cflags.concat());
+			}
+		}
+
+		flags += getDefineFlags();
+
+		flags += getIncludeFlags();
+		if (compilerType->getFlag(CompilerFlagType::RequiresPICForLibrary)
+			&& !get("dll").empty()) {
+			flags += (" " + compilerType->getString(CompilerString::PICFlag));
+		}
+
+		return (buildFlags = flags);
+	}
+
 	//! Returns all files in a property
 	Tokens getGroups(const Token &propertyName) {
 		auto sourceString = get(propertyName);
@@ -131,7 +209,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		vout << endl;
 	}
 
-	Token getCompiler(Token filetype) override {
+	Token getCompiler(const Token &filetype) override {
 		if (filetype == "cpp") {
 			return get("cpp").concat();
 		}

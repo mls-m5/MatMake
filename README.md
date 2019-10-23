@@ -102,7 +102,7 @@ program.exe = %           # set the output to the same name as the target (this 
 Heres how to compile the the SDL2 (https://www.libsdl.org/download-2.0.php) source code to a so-file:
 
 ```
-sdl.flags = -Iinclude  -fPIC
+sdl.includes = include
 
 sdl.src +=                 # multiline arguments start line with whitespace
 	src/timer/unix/*.c 
@@ -118,6 +118,7 @@ sdl.src +=                 # multiline arguments start line with whitespace
 sdl.libs += -pthread -ldl  # argument at link time
 
 sdl.dll = SDL2             # sets output to be a library
+                           # -fPIC is automatically added for g++ and clang
 sdl.dir = bin              # set output directory
 
 ```
@@ -125,8 +126,12 @@ sdl.dir = bin              # set output directory
 Compile Bullet Physics (https://github.com/bulletphysics/bullet3):
 
 ```
-flags = -Iinclude  -fPIC
-flags += -Isrc/
+
+bullet.includes +=
+	include
+	src
+
+bullet.define += BT_USE_DOUBLE_PRECISION
 
 bullet.src +=
 	src/BulletDynamics/**.cpp #recursive search

@@ -81,16 +81,20 @@ cflags +=                   # c only flags
 flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
 
 ## Main target
-main.flags += -Iinclude
+main.includes +=
+    include
+# main.flags += -g         # extra compiler flags for target
 main.src =
-	src/*.cpp
-	# multi line values starts with whitespace
+    src/*.cpp
+    # multi line values starts with whitespace
 # main.libs += # -lGL -lSDL2 # libraries to add at link time
 
 # main.exe = main          # name of executable (not required)
 # main.dir = bin/release   # set build path
 # main.objdir = bin/obj    # separates obj-files from build files
 # main.dll = lib           # use this instead of exe to create so/dll file
+# main.sysincludes +=      # include files that should not show errors
+# main.define += X         # define macros in program like #define
 # external tests           # call matmake or make in another folder
 
 )_";

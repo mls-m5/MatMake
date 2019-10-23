@@ -45,7 +45,7 @@ struct Token: public std::string {
 
 	friend std::ostream &operator << (std::ostream &s, const Token &t) {
 		if (t.empty()) {
-			s << "empty ";
+			s << "(empty) ";
 		}
 		s << std::string(t) << t.trailingSpace;
 		return s;
@@ -106,17 +106,29 @@ struct Tokens: public std::vector<Token> {
 			}
 		}
 
+		if (!ret.empty()) {
+			if (ret.back().empty()) {
+				ret.pop_back();
+			}
+		}
+
 		return ret;
 	}
 
 	Token concat() {
+		if (empty()) {
+			return {};
+		}
+
 		Token ret;
-		for (auto it = begin(); it != end(); ++it) {
-			ret += ((*it) + it->trailingSpace);
+
+		for (size_t i = 0; i < size() - 1; ++i) {
+			auto &it = at(i);
+			ret += it + it.trailingSpace;
 		}
-		if (!empty()) {
-			ret.location = front().location;
-		}
+		ret += back();
+
+		ret.location = front().location;
 		return ret;
 	}
 
