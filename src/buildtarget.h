@@ -4,9 +4,12 @@
 
 #include "ibuildtarget.h"
 #include "dependency.h"
+#include "buildfile.h"
+#include "copyfile.h"
 
 #include "globals.h"
 #include "compilertype.h"
+#include "ifiles.h"
 
 #include <map>
 
@@ -15,14 +18,14 @@
 //! on one or more build targets, build files or copy files
 struct BuildTarget: public Dependency, public IBuildTarget {
 	std::map<Token, Tokens> _properties;
-	Token name;
+	Token _name;
 	set<IDependency *> waitList;
 	Token command;
 	Token buildFlags;
 	shared_ptr<ICompiler> compilerType = make_shared<GCCCompiler>();
 
-	BuildTarget(Token name, class IEnvironment *env): Dependency(env), name(name) {
-		if (name != "root") {
+	BuildTarget(Token name, class IEnvironment *env): Dependency(env), _name(name) {
+		if (_name != "root") {
 			assign("inherit", Token("root"));
 		}
 		else {
@@ -65,7 +68,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		}
 		else if (propertyName == "exe" || propertyName == "dll") {
 			if (trim(value.concat()) == "%") {
-				property(propertyName) = name;
+				property(propertyName) = _name;
 			}
 		}
 
@@ -98,6 +101,17 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 
 	const map<Token, Tokens> &properties() const override {
 		return _properties;
+	}
+
+
+	Token preprocessCommand(Token command) override {
+		for (size_t find = command.find('%');
+			 find != string::npos;
+			 find = command.find('%', find + 1)) {
+			command.replace(find, 1, name());
+		}
+
+		return command;
 	}
 
 	Token getIncludeFlags() {
@@ -202,7 +216,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	}
 
 	void print() override {
-		vout << "target " << name << ": " << endl;
+		vout << "target " << _name << ": " << endl;
 		for (auto &m: properties()) {
 			vout << "\t" << m.first << " = " << m.second << " " << endl;
 		}
@@ -225,12 +239,12 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	time_t build() override {
 		dirty(false);
 		auto exe = targetPath();
-		if (exe.empty() || name == "root") {
+		if (exe.empty() || _name == "root") {
 			return 0;
 		}
 
 		vout << endl;
-		vout << "  target " << name << "..." << endl;
+		vout << "  target " << _name << "..." << endl;
 
 		time_t lastDependency = 0;
 		for (auto &d: dependencies()) {
@@ -253,7 +267,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			dirty(true);
 		}
 		else if (!dirty()) {
-			cout << name << " is fresh " << endl;
+			cout << _name << " is fresh " << endl;
 		}
 
 		if (dirty()) {
@@ -272,6 +286,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			else {
 				command = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
 			}
+			command = preprocessCommand(command);
 			command.location = cpp.location;
 
 			if (waitList.empty()) {
@@ -292,7 +307,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			lock_guard<Dependency> g(*this);
 			waitList.erase(waitList.find(d));
 		}
-		dout << d->targetPath() << " removed from wating list from " << name << " " << waitList.size() << " left" << endl;
+		dout << d->targetPath() << " removed from wating list from " << _name << " " << waitList.size() << " left" << endl;
 		if (waitList.empty()) {
 			queue(false);
 		}
@@ -300,7 +315,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 
 	//! This is called when all dependencies are built
 	void work() override {
-		vout << "linking " << name << endl;
+		vout << "linking " << _name << endl;
 		vout << command << endl;
 		pair <int, string> res = env().fileHandler().popenWithResult(command);
 		if (res.first) {
@@ -330,8 +345,8 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			auto dll = get("dll").concat();
 			if (dll.empty()) {
 				// Automatically create target name
-				dout << "target missing: automatically sets " << name << " as exe" << endl;
-				return dir + name;
+				dout << "target missing: automatically sets " << _name << " as exe" << endl;
+				return dir + _name;
 			}
 			else {
 				return dir + dll;
@@ -340,6 +355,10 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		else {
 			return dir + exe;
 		}
+	}
+
+	Token name() override {
+		return _name;
 	}
 
 	Token getOutputDir() {

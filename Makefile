@@ -7,7 +7,7 @@ CXXFLAGS = -std=c++11 -W -Wall -Wno-unused-parameter -Wno-sign-compare
 matmake = matmake
 
 ifeq ($(OS),Windows_NT)
-${matmake} = matmake.exe
+matmake = matmake.exe
 endif
 
 all: ${matmake}

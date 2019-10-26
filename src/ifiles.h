@@ -24,4 +24,6 @@ public:
     virtual std::string getDirectory(std::string filename) = 0;
 
     virtual std::vector<std::string> listRecursive(std::string directory) = 0;
+
+    virtual std::string removeDoubleDots(std::string string) = 0;
 };

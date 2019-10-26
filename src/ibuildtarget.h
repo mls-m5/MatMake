@@ -33,6 +33,12 @@ public:
 
 	virtual Token getBuildFlags(const Token& filetype) = 0;
 
+	//! Replace variables in commands with strings
+	//! For example replaces % with target name
+	virtual Token preprocessCommand(Token command) = 0;
+
+	virtual Token name() = 0;
+
 	virtual void print() = 0;
 	virtual void clean() = 0;
 };

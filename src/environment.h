@@ -76,7 +76,7 @@ public:
 			return nullptr;
 		}
 		for (auto &v: targets) {
-			if (v->name == name) {
+			if (v->name() == name) {
 				return v.get();
 			}
 		}
@@ -88,7 +88,7 @@ public:
 			return nullptr;
 		}
 		for (auto &v: targets) {
-			if (v->name == name) {
+			if (v->name() == name) {
 				return v.get();
 			}
 		}
@@ -168,24 +168,26 @@ public:
 
 
 	void calculateDependencies() {
-		files.clear();
+//		files.clear();
 		for (auto &target: targets) {
 			auto outputPath = target->getOutputDir();
 
 			target->print();
-			dout << "target " << target->name << " src " << target->get("src").concat() << endl;
-			for (auto &filename: target->getGroups("src")) {
+			dout << "target " << target->name() << " src " << target->get("src").concat() << endl;
+			for (auto filename: target->getGroups("src")) {
 				if (filename.empty()) {
 					continue;
 				}
+				filename = target->preprocessCommand(filename);
 				files.emplace_back(new BuildFile(filename, target.get(), this));
 				target->addDependency(files.back().get());
 			}
-			for (auto &file: target->getGroups("copy")) {
-				if (file.empty()) {
+			for (auto &filename: target->getGroups("copy")) {
+				if (filename.empty()) {
 					continue;
 				}
-				files.emplace_back(new CopyFile(file, outputPath + "/" + file, target.get(), this));
+				filename = target->preprocessCommand(filename);
+				files.emplace_back(new CopyFile(filename, target.get(), this));
 				target->addDependency(files.back().get());
 			}
 		}
@@ -346,7 +348,9 @@ public:
 
 		if (targetArguments.empty()) {
 			for (auto &target: targets) {
-				target->clean();
+				if (target->name() != "root") {
+					target->clean();
+				}
 			}
 		}
 		else {
@@ -366,8 +370,8 @@ public:
 	//! Show info of alternative build targets
 	void listAlternatives() override {
 		for (auto &t: targets) {
-			if (t->name != "root") {
-				cout << t->name << " ";
+			if (t->name() != "root") {
+				cout << t->name() << " ";
 			}
 		}
 		cout << "clean";

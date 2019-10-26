@@ -28,7 +28,8 @@ public:
 	BuildFile(Token filename, IBuildTarget *parent, class IEnvironment *env):
 		  Dependency(env),
 		  filename(filename),
-		  output(fixObjectEnding(parent->getBuildDirectory() + filename)),
+		  output(env->fileHandler().removeDoubleDots(
+			  fixObjectEnding(parent->getBuildDirectory() + filename))),
 		  depFile(fixDepEnding(parent->getBuildDirectory() + filename)),
 		  filetype(stripFileEnding(filename).second),
 		  _parent(parent) {
@@ -68,7 +69,7 @@ public:
 		if (depFile.empty()) {
 			return {};
 		}
-		ifstream file(depFile);
+		ifstream file(_parent->preprocessCommand(depFile));
 		if (file.is_open()) {
 			vector <string> ret;
 			string d;
@@ -84,6 +85,10 @@ public:
 			dout << "could not find .d file for " << output << " --> " << depFile << endl;
 			return {};
 		}
+	}
+
+	Token preprocessCommand(Token command) {
+		return _parent->preprocessCommand(command);
 	}
 
 
@@ -110,7 +115,8 @@ public:
 		else {
 			for (auto &d: dependencyFiles) {
 				auto dependencyTimeChanged = env().fileHandler().getTimeChanged(d);
-				if (dependencyTimeChanged == 0 || dependencyTimeChanged > timeChanged) {
+				if (   dependencyTimeChanged == 0
+					|| dependencyTimeChanged > timeChanged) {
 					dirty(true);
 					break;
 				}
@@ -118,7 +124,10 @@ public:
 		}
 
 		if (dirty()) {
-			command = _parent->getCompiler(filetype) + " -c -o " + output + " " + filename + " " + flags + depCommand;
+			command = _parent->getCompiler(filetype) + " -c -o " + output
+					  + " " + filename + " " + flags + depCommand;
+
+			command = preprocessCommand(command);
 			command.location = filename.location;
 			queue(true);
 

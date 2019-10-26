@@ -3,22 +3,23 @@
 #pragma once
 
 #include "dependency.h"
-#include "buildtarget.h"
+#include "ibuildtarget.h"
+#include "globals.h"
 #include <fstream>
 
 class CopyFile: public Dependency {
 public:
 	CopyFile(const CopyFile &) = delete;
 	CopyFile(CopyFile &&) = delete;
-	CopyFile(Token source, Token output, BuildTarget *parent, IEnvironment *env):
+	CopyFile(Token source, IBuildTarget *parent, IEnvironment *env):
 		  Dependency(env),
 		  source(source),
-		  output(output),
+		  output(parent->getBuildDirectory() + pathSeparator + source),
 		  parent(parent) {}
 
 	Token source;
 	Token output;
-	BuildTarget *parent;
+	IBuildTarget *parent;
 
 	time_t getSourceChangedTime() {
 		return env().fileHandler().getTimeChanged(source);
@@ -42,12 +43,12 @@ public:
 	void work() override {
 		ifstream src(source);
 		if (!src.is_open()) {
-			cout << "could not open file " << source << " for copy for target " << parent->name << endl;
+			cout << "could not open file " << source << " for copy for target " << parent->name() << endl;
 		}
 
 		ofstream dst(output);
 		if (!dst) {
-			cout << "could not open file " << output << " for copy for target " << parent->name << endl;
+			cout << "could not open file " << output << " for copy for target " << parent->name() << endl;
 		}
 
 		vout << "copy " << source << " --> " << output << endl;

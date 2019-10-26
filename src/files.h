@@ -7,6 +7,7 @@
 #include "token.h"
 #include "merror.h"
 #include <array>
+#include "matmake-common.h"
 
 #include <stdio.h> //For FILENAME_MAX
 
@@ -14,7 +15,6 @@
 #include <direct.h>
 #define GetCurrentDir _getcwd
 #define _popen popen
-const string lineSeparator = "\\";
 #else
 #include <unistd.h>
 #define GetCurrentDir getcwd
@@ -24,7 +24,6 @@ const string lineSeparator = "\\";
 #include <dirent.h>
 #include <unistd.h>
 
-const std::string pathSeparator = "/";
 
 using namespace std;
 
@@ -49,6 +48,8 @@ public:
 	string getDirectory(string filename) override;
 
 	std::vector<string> listRecursive(string directory) override;
+
+	virtual std::string removeDoubleDots(std::string string) override;
 };
 
 //Creates a directory if it does not exist
@@ -253,3 +254,25 @@ inline std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch
 	}
 }
 
+string Files::removeDoubleDots(std::string str) {
+	auto findStr = ".." + pathSeparator;
+	auto replaceStr = "_" + pathSeparator;
+
+	for (auto found = str.find(findStr);
+		 found != string::npos;
+		 found = str.find(findStr)) {
+
+		str.replace(found, findStr.length(), replaceStr);
+
+		found += replaceStr.length();
+	}
+
+	if (str.length() == 2 && str == "..") {
+		str = "_";
+	}
+	else if (str.substr(str.length() - 2, 2) == "..") {
+		str.replace(str.length() - 2, 2, "_");
+	}
+
+	return str;
+}
