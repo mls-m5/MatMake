@@ -17,6 +17,12 @@
 //! A build target is a executable, dll or similar that depends
 //! on one or more build targets, build files or copy files
 struct BuildTarget: public Dependency, public IBuildTarget {
+	enum BuildType {
+		Executable,
+		Shared,
+		Static,
+	};
+
 	std::map<Token, Tokens> _properties;
 	Token _name;
 	set<IDependency *> waitList;
@@ -66,38 +72,12 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 				inherit(*parent);
 			}
 		}
-		else if (propertyName == "exe" || propertyName == "dll") {
-			if (trim(value.concat()) == "%") {
-				property(propertyName) = _name;
-			}
-		}
 
 		if (propertyName == "dll") {
 			auto n = property(propertyName);
-			if (!n.empty()) {
-				auto ending = stripFileEnding(n.concat(), true);
-				if (!ending.second.empty()) {
-					property(propertyName) = Token("lib" + ending.first + ".so");
-				}
-				else {
-					property(propertyName) = Token("lib" + n.concat() + ".so");
-				}
-			}
-		}
-		else if (propertyName == "out") {
-			if (value.size() == 1) {
-				property(propertyName) = value; // Quick fix
-			}
-			else if (value.size() > 1) {
-				auto head = value.front();
-				auto tail = Tokens(value.begin() + 1, value.end());
-				if (head == "shared") {
-					assign("dll", tail); // Todo: Do a proper handling of this
-				}
-				else if (head == "static") {
-					assign("?", tail); // Todo: Fix this
-				}
-			}
+			cout << "dll property is deprecated, plese use .out = shared " << n.concat() << endl;
+			value.insert(value.begin(), Token("shared "));
+			property("out") = value;
 		}
 	}
 
@@ -118,6 +98,18 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		return _properties;
 	}
 
+	BuildType getBuildType() {
+		auto out = get("out");
+		if (!out.empty()) {
+			if (out.front() == "shared") {
+				return Shared;
+			}
+			else if (out.front() == "static") {
+				return Static;
+			}
+		}
+		return Executable;
+	}
 
 	Token preprocessCommand(Token command) override {
 		for (size_t find = command.find('%');
@@ -194,8 +186,9 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		flags += getDefineFlags();
 
 		flags += getIncludeFlags();
+		auto buildType = getBuildType();
 		if (compilerType->getFlag(CompilerFlagType::RequiresPICForLibrary)
-			&& !get("dll").empty()) {
+			&& buildType == Shared) {
 			flags += (" " + compilerType->getString(CompilerString::PICFlag));
 		}
 
@@ -295,8 +288,17 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			}
 
 			auto cpp = getCompiler("cpp");
-			if (!get("dll").empty()) {
+
+			auto out = get("out");
+			auto buildType = getBuildType();
+			if (buildType == Shared) {
 				command = cpp + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+			}
+			else if (buildType == Static) {
+				command = "ar -rs " + exe + " "  + fileList;
+				if (env().globals().verbose) {
+					command += " -v ";
+				}
 			}
 			else {
 				command = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
@@ -355,21 +357,34 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 
 	Token targetPath() override {
 		auto dir = getOutputDir();
-		auto exe = get("exe").concat();
-		if (exe.empty()) {
-			auto dll = get("dll").concat();
-			if (dll.empty()) {
-				// Automatically create target name
-				dout << "target missing: automatically sets " << _name << " as exe" << endl;
-				return dir + _name;
+		auto out = get("out").groups();
+		if (out.empty()) {
+			return dir + _name;
+		}
+		else if (out.size() == 1) {
+			return dir + out.front().concat();
+		}
+		else if (out.size() > 1) {
+			auto type = out.front().concat();
+			auto striped = stripFileEnding(out[1].concat(), true);
+			auto outName = striped.first;
+
+			if (type == "shared") {
+				return outName + compilerType->getString(
+						   CompilerString::SharedFileEnding);
+			}
+			else if (type == "static") {
+				return outName + compilerType->getString(
+						   CompilerString::StaticFileEnding);
+			}
+			else if (type == "exe") {
+				return outName;
 			}
 			else {
-				return dir + dll;
+				throw MatmakeError(type, "Unknown type " + type);
 			}
 		}
-		else {
-			return dir + exe;
-		}
+		throw std::runtime_error("this should never happend");
 	}
 
 	Token name() override {

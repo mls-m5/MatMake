@@ -7,6 +7,8 @@ enum class CompilerString {
 	SystemIncludePrefix,
 	DefinePrefix,
 	PICFlag,
+	SharedFileEnding,
+	StaticFileEnding,
 };
 
 enum class CompilerFlagType {
@@ -34,6 +36,10 @@ class GCCCompiler: public ICompiler {
 			return "-fPIC ";
 		case CS::DefinePrefix:
 			return "-D";
+		case CS::SharedFileEnding:
+			return ".so";
+		case CS::StaticFileEnding:
+			return ".a";
 		}
 		return {};
 	}
@@ -60,6 +66,10 @@ class MSVCCompiler: public ICompiler {
 			return "";
 		case CS::DefinePrefix:
 			return "/D";
+		case CS::SharedFileEnding:
+			return ".dll";
+		case CS::StaticFileEnding:
+			return ".lib";
 		}
 		return {};
 	}
