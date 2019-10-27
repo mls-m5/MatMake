@@ -43,6 +43,7 @@ public:
 	Globals _globals;
 
 	std::vector<ExternalMatmakeType> externalDependencies;
+	bool isDependenicesCalculated = false;
 
 	IFiles &fileHandler() override {
 		return *_fileHandler;
@@ -224,6 +225,9 @@ public:
 
 
 	void calculateDependencies() {
+		if (isDependenicesCalculated) {
+			return;
+		}
 		for (auto &target: targets) {
 			auto outputPath = target->getOutputDir();
 
@@ -246,6 +250,7 @@ public:
 				target->addDependency(files.back().get());
 			}
 		}
+		isDependenicesCalculated = true;
 	}
 
 
