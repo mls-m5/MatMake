@@ -39,6 +39,8 @@ public:
 
 	string getCurrentWorkingDirectory() override;
 
+	bool setCurrentDirectory(std::string directory) override;
+
 	vector<string> listFiles(string directory) override;
 
 	bool isDirectory(const string &path) override;
@@ -119,6 +121,9 @@ string Files::getCurrentWorkingDirectory() {
 	return currentPath.data();
 }
 
+bool Files::setCurrentDirectory(std::string directory) {
+	return chdir(directory.c_str());
+}
 
 
 vector<string> Files::listFiles(string directory) {

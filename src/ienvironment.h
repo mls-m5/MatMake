@@ -18,6 +18,9 @@ public:
 
 	virtual Globals &globals() = 0;
 
+	virtual void addExternalDependency(bool shouldCompileBefore,
+									   const Token &name,
+									   const Tokens &args) = 0;
 
 	virtual void appendVariable(
 		const class NameDescriptor &name,

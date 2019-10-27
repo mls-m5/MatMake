@@ -22,6 +22,12 @@ class Environment;
 
 class Environment: public IEnvironment {
 public:
+	struct ExternalMatmakeType {
+		bool compileBefore;
+		Token name;
+		Tokens arguments;
+	};
+
 	vector<unique_ptr<BuildTarget>> targets;
 	vector<unique_ptr<Dependency>> files;
 	set<string> directories;
@@ -36,6 +42,8 @@ public:
 	bool finished = false;
 	Globals _globals;
 
+	std::vector<ExternalMatmakeType> externalDependencies;
+
 	IFiles &fileHandler() override {
 		return *_fileHandler;
 	}
@@ -46,6 +54,54 @@ public:
 
 	Globals &globals() override {
 		return _globals;
+	}
+
+	void addExternalDependency(bool shouldCompileBefore,
+							   const Token &name,
+							   const Tokens &args) override {
+		externalDependencies.push_back({shouldCompileBefore,
+										name,
+										args});
+	}
+
+	void buildExternal(bool isBefore, string operation) {
+		for (auto &dependency: externalDependencies) {
+			if (dependency.compileBefore != isBefore) {
+				continue;
+			}
+
+
+			auto currentDirectory = _fileHandler->getCurrentWorkingDirectory();
+
+			if (!_fileHandler->setCurrentDirectory(dependency.name)) {
+				vector <string> newArgs(dependency.arguments.begin(),
+									   dependency.arguments.end());
+
+				if (operation == "clean") {
+					cout << endl << "cleaning external " << dependency.name << endl;
+					start({"clean"}, _globals);
+				}
+				else {
+					cout << endl << "Building external " << dependency.name << endl;
+					start(newArgs, _globals);
+					if (_globals.bailout) {
+						break;
+					}
+					cout << endl;
+				}
+			}
+			else {
+				throw runtime_error("could not external directory " + dependency.name);
+			}
+
+			if (_fileHandler->setCurrentDirectory(currentDirectory)) {
+				throw runtime_error("could not go back to original working directory " + currentDirectory);
+			}
+			else {
+				vout << "returning to " << currentDirectory << endl;
+				vout << endl;
+			}
+		}
 	}
 
 	void addTask(IDependency *t, bool count) override {
@@ -168,7 +224,6 @@ public:
 
 
 	void calculateDependencies() {
-//		files.clear();
 		for (auto &target: targets) {
 			auto outputPath = target->getOutputDir();
 
@@ -192,6 +247,8 @@ public:
 			}
 		}
 	}
+
+
 
 	void compile(vector<string> targetArguments) override {
 		dout << "compiling..." << endl;
@@ -250,10 +307,13 @@ public:
 			}
 		}
 
+		buildExternal(true, "");
 		work();
+		buildExternal(false, "");
 	}
 
 	void work() {
+
 		vector<thread> threads;
 
 		if (_globals.numberOfThreads < 2) {
@@ -347,11 +407,15 @@ public:
 		calculateDependencies();
 
 		if (targetArguments.empty()) {
+			buildExternal(true, "clean");
+
 			for (auto &target: targets) {
 				if (target->name() != "root") {
 					target->clean();
 				}
 			}
+
+			buildExternal(false, "clean");
 		}
 		else {
 			for (auto t: targetArguments) {

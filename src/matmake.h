@@ -15,8 +15,6 @@
 
 using namespace std;
 
-int start(vector<string> args, Globals &globals);
-
 bool isOperator(string &op) {
 	vector<string> opList = {
 		"=",
@@ -89,13 +87,14 @@ main.src =
     # multi line values starts with whitespace
 # main.libs += # -lGL -lSDL2 # libraries to add at link time
 
-# main.exe = main          # name of executable (not required)
+# main.out = main          # name of executable (not required)
+# main.out = shared main   # create a shared library (dll/so)
 # main.dir = bin/release   # set build path
 # main.objdir = bin/obj    # separates obj-files from build files
-# main.dll = lib           # use this instead of exe to create so/dll file
 # main.sysincludes +=      # include files that should not show errors
 # main.define += X         # define macros in program like #define
-# external tests           # call matmake or make in another folder
+# external tests           # call matmake or make in another folder after build
+# dependency some-lib      # same as external but before build in the current dir
 
 )_";
 
@@ -178,6 +177,8 @@ int createProject(string dir) {
 struct Locals {
 	vector<string> targets; // What to build
 	vector<string> args; // Copy of command line arguments
+	vector<string> externalDependencies; // Dependencies to build before main build
+	vector<string> external; // External dependencies to build after main build
 	string operation = "build";
 	bool localOnly = false;
 };
@@ -261,9 +262,13 @@ std::tuple<Locals, ShouldQuitT, IsErrorT> parseArguments(vector<string> args, Gl
 	return {locals, shouldQuit, isError};
 }
 
-//! Parse the Matmakefile (obviously). Put result in environment. May alter globals.
-void parseMatmakeFile(const Locals& locals, Globals &globals, IEnvironment &environment) {
-	auto env = [&] () -> IEnvironment& { return environment; }; // For dout and vout
+//! Parse the Matmakefile (obviously). Put result in environment.
+std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
+                                                   const Globals &globals,
+                                                   IEnvironment &environment) {
+    ShouldQuitT shouldQuit = false;
+    IsErrorT isError = false;
+    auto env = [&] () -> IEnvironment& { return environment; }; // For dout and vout
 	auto &files = environment.fileHandler();
 
 	ifstream matmakefile("Matmakefile");
@@ -281,8 +286,8 @@ void parseMatmakeFile(const Locals& locals, Globals &globals, IEnvironment &envi
 		else {
 			cout << "matmake: could not find Matmakefile in " << files.getCurrentWorkingDirectory() << endl;
 		}
-		globals.bailout = true;
-		return;
+		shouldQuit = true;
+		return {shouldQuit, isError};
 	}
 
 	int lineNumber = 1;
@@ -334,43 +339,27 @@ void parseMatmakeFile(const Locals& locals, Globals &globals, IEnvironment &envi
 				}
 			}
 			else if (!locals.localOnly && words.size() >= 2 && words.front() == "external") {
-				cout << "external dependency to " << words[1] << endl;
+				vout << "external dependency to " << words[1] << endl;
 
-				auto currentDirectory = files.getCurrentWorkingDirectory();
-
-				if (!chdir(words[1].c_str())) {
-					vector <string> newArgs(words.begin() + 2, words.end());
-
-					if (locals.operation == "clean") {
-						start(locals.args, globals);
-					}
-					else {
-						start(newArgs, globals);
-						if (globals.bailout) {
-							break;
-						}
-						cout << endl;
-					}
-				}
-				else {
-					cerr << "could not open directory " << words[1] << endl;
-				}
-
-				if (chdir(currentDirectory.c_str())) {
-					throw runtime_error("could not go back to original working directory " + currentDirectory);
-				}
-				else {
-					vout << "returning to " << currentDirectory << endl;
-					vout << endl;
-				}
+				environment.addExternalDependency(false,
+												  words[1],
+												  Tokens(words.begin() + 2, words.end()));
+			}
+			else if (!locals.localOnly && words.size() >= 2 && words.front() == "dependency") {
+				environment.addExternalDependency(true,
+												  words[1],
+												  Tokens(words.begin() + 2, words.end()));
 			}
 		}
 		++lineNumber;
 	}
+
+	return {shouldQuit, isError};
 }
 
+
 //! Do what operation was given in command line arguments and saved in locals
-ShouldQuitT work(const Locals &locals, Globals globals, IEnvironment &environment) {
+ShouldQuitT work(const Locals &locals, const Globals &globals, IEnvironment &environment) {
 	try {
 		if (locals.operation == "build") {
 			environment.compile(locals.targets);
@@ -421,7 +410,18 @@ int start(vector<string> args, Globals &globals) {
 
 	Environment environment(globals, make_shared<Files>());
 
-	parseMatmakeFile(locals, globals, environment);
+	{
+		ShouldQuitT shouldQuit;
+		IsErrorT isError;
+		std::tie(shouldQuit, isError) = parseMatmakeFile(locals, globals, environment);
+
+		if (shouldQuit) {
+			return 0;
+		}
+		if (isError) {
+			globals.bailout = true;
+		}
+	}
 
 	if (!globals.bailout) {
 		if (work(locals, globals, environment)) {

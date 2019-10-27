@@ -1,4 +1,4 @@
-// Copyright Mattias Larsson Sköld
+// Copyright Mattias Larsson Sköld 2019
 #pragma once
 
 #include "token.h"
@@ -45,3 +45,6 @@ const string pathSeparator = "\\";
 
 const std::string pathSeparator = "/";
 #endif
+
+//! Reference to main function
+int start(std::vector<std::string> args, class Globals &globals);

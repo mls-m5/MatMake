@@ -15,6 +15,8 @@ public:
 
     virtual std::string getCurrentWorkingDirectory() = 0;
 
+    virtual bool setCurrentDirectory(std::string directory) = 0;
+
     virtual std::vector<std::string> listFiles(std::string directory) = 0;
 
     virtual bool isDirectory(const std::string &path) = 0;
