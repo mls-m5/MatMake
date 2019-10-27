@@ -77,10 +77,25 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			if (!n.empty()) {
 				auto ending = stripFileEnding(n.concat(), true);
 				if (!ending.second.empty()) {
-					property(propertyName) = Token(ending.first + ".so");
+					property(propertyName) = Token("lib" + ending.first + ".so");
 				}
 				else {
-					property(propertyName) = Token(n.concat() + ".so");
+					property(propertyName) = Token("lib" + n.concat() + ".so");
+				}
+			}
+		}
+		else if (propertyName == "out") {
+			if (value.size() == 1) {
+				property(propertyName) = value; // Quick fix
+			}
+			else if (value.size() > 1) {
+				auto head = value.front();
+				auto tail = Tokens(value.begin() + 1, value.end());
+				if (head == "shared") {
+					assign("dll", tail); // Todo: Do a proper handling of this
+				}
+				else if (head == "static") {
+					assign("?", tail); // Todo: Fix this
 				}
 			}
 		}

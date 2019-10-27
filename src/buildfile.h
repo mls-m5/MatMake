@@ -30,7 +30,8 @@ public:
 		  filename(filename),
 		  output(env->fileHandler().removeDoubleDots(
 			  fixObjectEnding(parent->getBuildDirectory() + filename))),
-		  depFile(fixDepEnding(parent->getBuildDirectory() + filename)),
+		  depFile(env->fileHandler().removeDoubleDots(
+			  fixDepEnding(parent->getBuildDirectory() + filename))),
 		  filetype(stripFileEnding(filename).second),
 		  _parent(parent) {
 		auto withoutEnding = stripFileEnding(parent->getBuildDirectory() + filename);
