@@ -381,6 +381,9 @@ ShouldQuitT work(const Locals &locals, const Globals &globals, IEnvironment &env
 	catch (MatmakeError &e) {
 		cerr << e.what() << endl;
 	}
+	catch (std::runtime_error &e) {
+		cerr << e.what() << endl;
+	}
 
 	return false;
 }
