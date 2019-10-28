@@ -186,11 +186,15 @@ public:
 		}
 	}
 
+	int getBuildProgress() override {
+		return (taskFinished * 100 / maxTasks);
+	}
+
 	void printProgress() {
 		if (!maxTasks) {
 			return;
 		}
-		int amount = (taskFinished * 100 / maxTasks);
+		int amount = getBuildProgress();
 
 		if (amount == lastProgress) {
 			return;
@@ -216,7 +220,7 @@ public:
 			ss << "] " << amount << "%  \r";
 		}
 		else {
-			ss << "[" << amount << "%] ";
+			//ss << "[" << amount << "%] ";
 		}
 
 		cout << ss.str();
@@ -231,7 +235,6 @@ public:
 		for (auto &target: targets) {
 			auto outputPath = target->getOutputDir();
 
-			target->print();
 			dout << "target " << target->name() << " src " << target->get("src").concat() << endl;
 			for (auto filename: target->getGroups("src")) {
 				if (filename.empty()) {
@@ -342,6 +345,9 @@ public:
 					workAssignMutex.unlock();
 					try {
 						t->work();
+						stringstream ss;
+						ss << "[" << getBuildProgress() << "%] ";
+						vout << ss.str();
 						++ this->taskFinished;
 					}
 					catch (MatmakeError &e) {

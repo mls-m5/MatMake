@@ -33,4 +33,6 @@ public:
 	virtual void compile(std::vector<std::string> targetArguments) = 0;
 	virtual void clean(std::vector<std::string> targetArguments) = 0;
 	virtual void listAlternatives() = 0;
+
+	virtual int getBuildProgress() = 0;
 };
