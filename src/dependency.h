@@ -16,7 +16,7 @@ public:
 
 	virtual ~Dependency() override = default;
 
-	time_t getTimeChanged() {
+	virtual time_t getTimeChanged() {
 		return env().fileHandler().getTimeChanged(targetPath());
 	}
 

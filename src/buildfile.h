@@ -109,6 +109,7 @@ public:
 			|| inputChangedTime > depChangedTime
 			|| inputChangedTime > timeChanged
 			|| dependencyFiles.empty()) {
+			dout << "file is dirty" << endl;
 			depCommand = " -MMD -MF " + depFile + " ";
 			depCommand.location = filename.location;
 			dirty(true);
@@ -118,6 +119,7 @@ public:
 				auto dependencyTimeChanged = env().fileHandler().getTimeChanged(d);
 				if (   dependencyTimeChanged == 0
 					|| dependencyTimeChanged > timeChanged) {
+					dout << "rebuilding because older than " << d;
 					dirty(true);
 					break;
 				}

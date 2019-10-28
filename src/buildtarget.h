@@ -243,6 +243,9 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		}
 	}
 
+	virtual time_t getTimeChanged() override {
+		return env().fileHandler().getTimeChanged(preprocessCommand(targetPath()));
+	}
 
 	time_t build() override {
 		dirty(false);
