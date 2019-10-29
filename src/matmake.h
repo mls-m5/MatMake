@@ -173,6 +173,31 @@ int createProject(string dir) {
 }
 
 
+IsErrorT tokenizeMatmakeFile() {
+	ifstream matmakefile("Matmakefile");
+
+	if (!matmakefile.is_open()) {
+		return true;
+	}
+
+	for (int lineNumber = 1;
+		   matmakefile;
+		   ++lineNumber) {
+		std::string line;
+		getline(matmakefile, line);
+		auto words = tokenize(line, lineNumber);
+
+		for (auto word: words) {
+			cout << word.location.line << ":"
+				 << word.location.col << " " << word
+				 << " '"  << word.trailingSpace << "'" << endl;
+		}
+	}
+
+	return false;
+}
+
+
 //! Variables that is to be used by each start function
 struct Locals {
 	vector<string> targets; // What to build
@@ -253,6 +278,12 @@ std::tuple<Locals, ShouldQuitT, IsErrorT> parseArguments(vector<string> args, Gl
 		}
 		else if (arg == "all") {
 			//Do nothing. Default is te build all
+		}
+		else if (arg == "--tokenize") {
+			// For debugging
+			tokenizeMatmakeFile();
+			shouldQuit = true;
+			break;
 		}
 		else {
 			locals.targets.push_back(arg);
