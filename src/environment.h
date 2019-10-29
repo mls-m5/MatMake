@@ -128,7 +128,7 @@ public:
 		targets.emplace_back(new BuildTarget("root", this));
 	}
 
-	IBuildTarget *findTarget(Token name) override {
+	BuildTarget *findTarget(Token name) override {
 		if (name.empty()) {
 			return nullptr;
 		}
@@ -251,6 +251,19 @@ public:
 				filename = target->preprocessCommand(filename);
 				files.emplace_back(new CopyFile(filename, target.get(), this));
 				target->addDependency(files.back().get());
+			}
+			for (auto &link: target->getGroups("link")) {
+				if (link.empty()) {
+					continue;
+				}
+				link = target->preprocessCommand(link);
+				auto dependencyTarget = findTarget(link);
+				if (dependencyTarget) {
+					target->addDependency(dependencyTarget);
+				}
+				else {
+					throw MatmakeError(link, " Could not find target " + link);
+				}
 			}
 		}
 		isDependenicesCalculated = true;

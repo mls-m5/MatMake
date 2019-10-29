@@ -18,6 +18,7 @@ public:
 
 	virtual Globals &globals() = 0;
 
+	//! Add references to other folders with matmake or makefiles in them
 	virtual void addExternalDependency(bool shouldCompileBefore,
 									   const Token &name,
 									   const Tokens &args) = 0;

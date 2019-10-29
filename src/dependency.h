@@ -23,8 +23,10 @@ public:
 	virtual time_t build() override = 0;
 	virtual void work() override = 0;
 
-	void addDependency(Dependency *file) {
-		_dependencies.insert(file);
+	void addDependency(IDependency *file) override {
+		if (file) {
+			_dependencies.insert(file);
+		}
 	}
 
 	//! Add task to list of tasks to be executed
@@ -44,9 +46,9 @@ public:
 
 	void clean() override = 0;
 
-	virtual bool includeInBinary() { return true; }
+	bool includeInBinary() override { return true; }
 
-	virtual void addSubscriber(Dependency *s) {
+	void addSubscriber(IDependency *s) override {
 		lock_guard<mutex> guard(accessMutex);
 		if (find(_subscribers.begin(), _subscribers.end(), s) == _subscribers.end()) {
 			_subscribers.push_back(s);
@@ -82,16 +84,16 @@ public:
 	bool dirty() override { return _dirty; }
 	void dirty(bool value) override { _dirty = value; }
 
-	const set<class Dependency*> dependencies() const { return _dependencies; }
-	const vector <Dependency*> & subscribers() const { return _subscribers; }
+	const set<class IDependency*> dependencies() const { return _dependencies; }
+	const vector <IDependency*> & subscribers() const { return _subscribers; }
 
 	IEnvironment *environment() { return _env; }
 
 
 private:
 	IEnvironment *_env;
-	set<class Dependency*> _dependencies;
-	vector <Dependency*> _subscribers;
+	set<class IDependency*> _dependencies;
+	vector <IDependency*> _subscribers;
 	mutex accessMutex;
 	bool _dirty = false;
 };

@@ -89,12 +89,13 @@ main.src =
 
 # main.out = main          # name of executable (not required)
 # main.out = shared main   # create a shared library (dll/so)
+# main.link = [libname]    # link to shared or static library with targetname libname
 # main.dir = bin/release   # set build path
 # main.objdir = bin/obj    # separates obj-files from build files
 # main.sysincludes +=      # include files that should not show errors
 # main.define += X         # define macros in program like #define
 # external tests           # call matmake or make in another folder after build
-# dependency some-lib      # same as external but before build in the current dir
+# dependency some-dir      # same as external but before build in the current dir
 
 )_";
 
