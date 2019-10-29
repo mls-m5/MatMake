@@ -9,6 +9,7 @@ enum class CompilerString {
 	PICFlag,
 	SharedFileEnding,
 	StaticFileEnding,
+	RPathOriginFlag,
 };
 
 enum class CompilerFlagType {
@@ -40,6 +41,8 @@ class GCCCompiler: public ICompiler {
 			return ".so";
 		case CS::StaticFileEnding:
 			return ".a";
+		case CS::RPathOriginFlag:
+			return "-Wl,-rpath='${ORIGIN}'";
 		}
 		return {};
 	}
@@ -70,6 +73,8 @@ class MSVCCompiler: public ICompiler {
 			return ".dll";
 		case CS::StaticFileEnding:
 			return ".lib";
+		case CS::RPathOriginFlag:
+			return "";
 		}
 		return {};
 	}

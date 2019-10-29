@@ -69,5 +69,9 @@ public:
 	bool includeInBinary() override {
 		return false;
 	}
+
+	BuildType buildType() override {
+		return Copy;
+	}
 };
 

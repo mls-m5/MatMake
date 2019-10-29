@@ -156,6 +156,11 @@ public:
 		}
 	}
 
+
+	BuildType buildType() override {
+		return Object;
+	}
+
 	Token targetPath() override {
 		return output;
 	}

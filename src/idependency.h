@@ -4,6 +4,14 @@
 
 class IDependency {
 public:
+	enum BuildType {
+		Executable,
+		Shared,
+		Static,
+		Copy,
+		Object
+	};
+
 	virtual ~IDependency() = default;
 	virtual class IEnvironment &env() = 0;
 
@@ -36,4 +44,5 @@ public:
 
 	virtual bool includeInBinary() = 0;
 
+	virtual BuildType buildType() = 0;
 };

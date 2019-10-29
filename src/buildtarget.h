@@ -17,12 +17,6 @@
 //! A build target is a executable, dll or similar that depends
 //! on one or more build targets, build files or copy files
 struct BuildTarget: public Dependency, public IBuildTarget {
-	enum BuildType {
-		Executable,
-		Shared,
-		Static,
-	};
-
 	std::map<Token, Tokens> _properties;
 	Token _name;
 	set<IDependency *> waitList;
@@ -98,7 +92,8 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		return _properties;
 	}
 
-	BuildType getBuildType() {
+
+	BuildType buildType() override {
 		auto out = get("out");
 		if (!out.empty()) {
 			if (out.front() == "shared") {
@@ -163,6 +158,16 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		return ret;
 	}
 
+	//! This is to check if should include linker -rpath or similar
+	bool hasReferencesToSharedLibrary() {
+		for (auto &d: dependencies()) {
+			if (d->buildType() == Shared) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	//! Return flags used by a file
 	virtual Token getBuildFlags(const Token& filetype) override {
 		if (!buildFlags.empty()) {
@@ -186,11 +191,13 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		flags += getDefineFlags();
 
 		flags += getIncludeFlags();
-		auto buildType = getBuildType();
-		if (compilerType->getFlag(CompilerFlagType::RequiresPICForLibrary)
-			&& buildType == Shared) {
-			flags += (" " + compilerType->getString(CompilerString::PICFlag));
+		auto buildType = this->buildType();
+		if (buildType == Shared) {
+			if (compilerType->getFlag(CompilerFlagType::RequiresPICForLibrary)) {
+				flags += (" " + compilerType->getString(CompilerString::PICFlag));
+			}
 		}
+
 
 		return (buildFlags = flags);
 	}
@@ -293,7 +300,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			auto cpp = getCompiler("cpp");
 
 			auto out = get("out");
-			auto buildType = getBuildType();
+			auto buildType = this->buildType();
 			if (buildType == Shared) {
 				command = cpp + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
 			}
@@ -307,6 +314,12 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 				command = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
 			}
 			command = preprocessCommand(command);
+
+			if (buildType == Executable || buildType == Shared) {
+				if (hasReferencesToSharedLibrary()) {
+					command += (" " + compilerType->getString(CompilerString::RPathOriginFlag));
+				}
+			}
 			command.location = cpp.location;
 
 			if (waitList.empty()) {
