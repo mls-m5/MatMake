@@ -56,8 +56,12 @@ struct Token: public std::string {
 		return *this;
 	}
 
+	const std::string &str() const {
+		return *this;
+	}
+
 	//! returns the token without surrounding whitespaces
-	Token trim() {
+	Token trim() const {
 		return Token(::trim(str()), location);
 	}
 
@@ -66,10 +70,7 @@ struct Token: public std::string {
 		ss << "Matmakefile:" << location.line << ":" << location.col;
 		return ss.str();
 	}
-
-
 };
-
 
 
 struct Tokens: public std::vector<Token> {

@@ -237,15 +237,21 @@ vector<Token> Files::findFiles(Token pattern) {
 
 inline std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch = false) {
 	filename = trim(filename);
-	if (filename.find(".cpp") == filename.size() - 4) {
+
+	auto matchEnding = [&filename](const string &ending) {
+		return filename.length() > ending.length()
+			&& filename.find(ending) == filename.length() - ending.length();
+	};
+
+	if (matchEnding(".cpp")) {
 		filename = Token(filename.begin(), filename.end() - 4, filename.location);
 		return {filename, "cpp"};
 	}
-	else if (filename.find(".c") == filename.size() - 2) {
+	else if (matchEnding(".c")) {
 		filename = Token(filename.begin(), filename.end() - 2, filename.location);
 		return {filename, "c"};
 	}
-	else if (filename.find(".so") == filename.size() - 3) {
+	else if (matchEnding(".so")) {
 		filename = Token(filename.begin(), filename.end() - 3, filename.location);
 		return {filename, "so"};
 	}
