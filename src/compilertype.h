@@ -1,6 +1,7 @@
 // Copyright Mattias Larsson Sköld 2019
 
 #include <string>
+#include <map>
 
 enum class CompilerString {
 	IncludePrefix,
@@ -10,6 +11,7 @@ enum class CompilerString {
 	SharedFileEnding,
 	StaticFileEnding,
 	RPathOriginFlag,
+	LibLinkFlag,
 };
 
 enum class CompilerFlagType {
@@ -24,6 +26,7 @@ public:
 	virtual ~ICompiler() = default;
 	virtual std::string getString(CompilerString) = 0;
 	virtual bool getFlag(CompilerFlagType) = 0;
+	virtual std::string translateConfig(std::string) = 0;
 };
 
 class GCCCompiler: public ICompiler {
@@ -43,6 +46,8 @@ class GCCCompiler: public ICompiler {
 			return ".a";
 		case CS::RPathOriginFlag:
 			return "-Wl,-rpath='${ORIGIN}'";
+		case CS::LibLinkFlag:
+			return "-l";
 		}
 		return {};
 	}
@@ -53,6 +58,22 @@ class GCCCompiler: public ICompiler {
 			return true;
 		}
 		return false;
+	}
+
+	std::string translateConfig(std::string name) override {
+		const std::map<std::string, std::string> translateMap = {
+			{"Wall", "-Wall"}
+		};
+
+		if (name.substr(0, 3) == "c++") {
+			return "-std=" + name;
+		}
+
+		try {
+			return translateMap.at(name);
+		} catch (std::out_of_range) {
+			return "";
+		}
 	}
 };
 
@@ -75,6 +96,8 @@ class MSVCCompiler: public ICompiler {
 			return ".lib";
 		case CS::RPathOriginFlag:
 			return "";
+		case CS::LibLinkFlag:
+			return "?"; // Todo: Fix this when adding support for MSVC
 		}
 		return {};
 	}

@@ -66,6 +66,10 @@ public:
 		return output;
 	}
 
+	Token linkString() override {
+		return targetPath();
+	}
+
 	bool includeInBinary() override {
 		return false;
 	}

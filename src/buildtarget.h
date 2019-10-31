@@ -23,6 +23,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	Token command;
 	Token buildFlags;
 	shared_ptr<ICompiler> compilerType = make_shared<GCCCompiler>();
+	bool _isBuildCalled = false;
 
 	BuildTarget(Token name, class IEnvironment *env): Dependency(env), _name(name) {
 		if (_name != "root") {
@@ -158,6 +159,21 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		return ret;
 	}
 
+	Token getConfigFlags() {
+		Token ret;
+		auto configs = get("config").groups();
+		for (auto &config: configs) {
+			ret += (" " + compilerType->translateConfig(config.concat()));
+		}
+		return ret;
+	}
+
+	Token getLibs() {
+		auto libs = get("libs");
+
+		return libs.concat();
+	}
+
 	//! This is to check if should include linker -rpath or similar
 	bool hasReferencesToSharedLibrary() {
 		for (auto &d: dependencies()) {
@@ -189,6 +205,8 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		}
 
 		flags += getDefineFlags();
+
+		flags += getConfigFlags();
 
 		flags += getIncludeFlags();
 		auto buildType = this->buildType();
@@ -255,6 +273,11 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	}
 
 	time_t build() override {
+		if (_isBuildCalled) {
+			return getTimeChanged();
+		}
+		_isBuildCalled = true;
+
 		dirty(false);
 		auto exe = targetPath();
 		if (exe.empty() || _name == "root") {
@@ -293,7 +316,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 
 			for (auto f: dependencies()) {
 				if (f->includeInBinary()) {
-					fileList += (f->targetPath() + " ");
+					fileList += (f->linkString() + " ");
 				}
 			}
 
@@ -302,7 +325,9 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			auto out = get("out");
 			auto buildType = this->buildType();
 			if (buildType == Shared) {
-				command = cpp + " -shared -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+				command = cpp + " -shared -o " + exe + " -Wl,--start-group "
+						  + fileList + " " + getLibs() + "  -Wl,--end-group  "
+						  + get("flags").concat();
 			}
 			else if (buildType == Static) {
 				command = "ar -rs " + exe + " "  + fileList;
@@ -311,7 +336,9 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 				}
 			}
 			else {
-				command = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " + get("libs").concat() + "  -Wl,--end-group  " + get("flags").concat();
+				command = cpp + " -o " + exe + " -Wl,--start-group "
+						  + fileList + " " + getLibs() + "  -Wl,--end-group  "
+						  + get("flags").concat();
 			}
 			command = preprocessCommand(command);
 
@@ -336,11 +363,10 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 	}
 
 	void notice(IDependency * d) override {
-		{
-			lock_guard<Dependency> g(*this);
-			waitList.erase(waitList.find(d));
-		}
-		dout << d->targetPath() << " removed from wating list from " << _name << " " << waitList.size() << " left" << endl;
+		lock_guard<Dependency> g(*this);
+		waitList.erase(waitList.find(d));
+		dout << d->targetPath() << " removed from wating list from " << _name
+			 << " " << waitList.size() << " left" << endl;
 		if (waitList.empty()) {
 			queue(false);
 		}
@@ -370,19 +396,19 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		remove(targetPath().c_str());
 	}
 
-
-	Token targetPath() override {
-		auto dir = getOutputDir();
+	//! Path minus directory
+	Token filename() {
 		auto out = get("out").groups();
 		if (out.empty()) {
-			return dir + _name;
+			return _name;
 		}
 		else if (out.size() == 1) {
-			return dir + out.front().concat();
+			return preprocessCommand(out.front().concat());
 		}
 		else if (out.size() > 1) {
 			auto type = out.front().concat();
-			auto striped = stripFileEnding(out[1].concat(), true);
+			auto striped = stripFileEnding(preprocessCommand(out[1].concat()),
+										   true);
 			auto outName = striped.first;
 
 			if (type == "shared") {
@@ -401,6 +427,24 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			}
 		}
 		throw std::runtime_error("this should never happend");
+	}
+
+	Token linkString() override {
+		auto dir = getOutputDir();
+		if (buildType() == Shared) {
+			if (dir.empty()) {
+				dir = ".";
+			}
+			return " " + filename() + " -L" + dir;
+		}
+		else {
+			return targetPath();
+		}
+	}
+
+	Token targetPath() override {
+		auto dir = getOutputDir();
+		return dir + filename();
 	}
 
 	Token name() override {

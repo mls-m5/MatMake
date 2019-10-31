@@ -45,4 +45,6 @@ public:
 	virtual bool includeInBinary() = 0;
 
 	virtual BuildType buildType() = 0;
+
+	virtual Token linkString() = 0;
 };

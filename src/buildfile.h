@@ -165,6 +165,10 @@ public:
 		return output;
 	}
 
+	Token linkString() override {
+		return targetPath();
+	}
+
 	void clean() override {
 		vout << "removing file " << targetPath() << endl;
 		remove(targetPath().c_str());
