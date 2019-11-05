@@ -40,7 +40,7 @@ struct NameDescriptor {
 
 #ifdef _WIN32
 
-const string pathSeparator = "\\";
+const std::string pathSeparator = "\\";
 #else
 
 const std::string pathSeparator = "/";
