@@ -435,7 +435,7 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 			if (dir.empty()) {
 				dir = ".";
 			}
-			return " " + filename() + " -L" + dir;
+			return compilerType->prepareLinkString(dir, filename());
 		}
 		else {
 			return targetPath();

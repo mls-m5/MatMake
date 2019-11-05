@@ -11,7 +11,6 @@ enum class CompilerString {
 	SharedFileEnding,
 	StaticFileEnding,
 	RPathOriginFlag,
-	LibLinkFlag,
 };
 
 enum class CompilerFlagType {
@@ -27,6 +26,7 @@ public:
 	virtual std::string getString(CompilerString) = 0;
 	virtual bool getFlag(CompilerFlagType) = 0;
 	virtual std::string translateConfig(std::string) = 0;
+	virtual std::string prepareLinkString(std::string dir, std::string name) = 0;
 };
 
 class GCCCompiler: public ICompiler {
@@ -46,8 +46,6 @@ class GCCCompiler: public ICompiler {
 			return ".a";
 		case CS::RPathOriginFlag:
 			return "-Wl,-rpath='${ORIGIN}'";
-		case CS::LibLinkFlag:
-			return "-l";
 		}
 		return {};
 	}
@@ -58,6 +56,10 @@ class GCCCompiler: public ICompiler {
 			return true;
 		}
 		return false;
+	}
+
+	std::string prepareLinkString(std::string dir, std::string name) override {
+		return "-l:" + name + " -L " + dir;
 	}
 
 	std::string translateConfig(std::string name) override {
@@ -96,8 +98,6 @@ class MSVCCompiler: public ICompiler {
 			return ".lib";
 		case CS::RPathOriginFlag:
 			return "";
-		case CS::LibLinkFlag:
-			return "?"; // Todo: Fix this when adding support for MSVC
 		}
 		return {};
 	}
@@ -108,6 +108,10 @@ class MSVCCompiler: public ICompiler {
 			return true;
 		}
 		return false;
+	}
+
+	std::string prepareLinkString(std::string /*dir*/, std::string name) override {
+		return "lib?" + name;
 	}
 };
 
