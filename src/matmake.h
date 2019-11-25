@@ -291,7 +291,7 @@ std::tuple<Locals, ShouldQuitT, IsErrorT> parseArguments(vector<string> args, Gl
 		}
 	}
 
-	return {locals, shouldQuit, isError};
+	return std::tuple<Locals, ShouldQuitT, IsErrorT> {locals, shouldQuit, isError};
 }
 
 //! Parse the Matmakefile (obviously). Put result in environment.
@@ -319,7 +319,7 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 			cout << "matmake: could not find Matmakefile in " << files.getCurrentWorkingDirectory() << endl;
 		}
 		shouldQuit = true;
-		return {shouldQuit, isError};
+		return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
 	}
 
 	int lineNumber = 1;
@@ -386,7 +386,7 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 		++lineNumber;
 	}
 
-	return {shouldQuit, isError};
+	return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
 }
 
 
