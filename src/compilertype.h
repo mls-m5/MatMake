@@ -64,7 +64,8 @@ class GCCCompiler: public ICompiler {
 
 	std::string translateConfig(std::string name) override {
 		const std::map<std::string, std::string> translateMap = {
-			{"Wall", "-Wall"}
+			{"Wall", "-Wall"},
+			{"debug", "-g"},
 		};
 
 		if (name.substr(0, 3) == "c++") {
@@ -73,7 +74,7 @@ class GCCCompiler: public ICompiler {
 
 		try {
 			return translateMap.at(name);
-		} catch (std::out_of_range) {
+		} catch (std::out_of_range &) {
 			return "";
 		}
 	}
