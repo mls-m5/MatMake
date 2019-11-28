@@ -14,7 +14,7 @@ public:
 	CopyFile(Token source, IBuildTarget *parent, IEnvironment *env):
 		  Dependency(env),
 		  source(source),
-		  output(parent->getBuildDirectory() + pathSeparator + source),
+		  output(joinPaths(parent->getBuildDirectory(), source)),
 		  parent(parent) {}
 
 	Token source;
