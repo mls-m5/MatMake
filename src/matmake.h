@@ -323,7 +323,6 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 	}
 
 	int lineNumber = 1;
-	string line;
 
 	auto getMultilineArgument = [&lineNumber, &matmakefile]() {
 		Tokens ret;
@@ -342,8 +341,7 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 	};
 
 
-	while (matmakefile) {
-		getline(matmakefile, line);
+	for (string line; getline(matmakefile, line); ++lineNumber) {
 		auto words = tokenize(line, lineNumber);
 
 		if (!words.empty()) {
@@ -383,7 +381,6 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 												  Tokens(words.begin() + 2, words.end()));
 			}
 		}
-		++lineNumber;
 	}
 
 	return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
