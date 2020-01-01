@@ -1,0 +1,16 @@
+.cproject
+.project
+.settings/
+file_test
+test1
+testproject/build/
+
+#project files
+matmake-tests.cflags
+matmake-tests.config
+matmake-tests.creator
+matmake-tests.cxxflags
+matmake-tests.files
+matmake-tests.includes
+matmake-tests.creator.user
+

@@ -1,0 +1,6 @@
+[submodule "googletest"]
+	path = googletest
+	url = https://github.com/google/googletest
+[submodule "matmake"]
+	path = matmake
+	url = http://www.github.com/mls-m5/matmake
