@@ -329,6 +329,7 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 		string line;
 		// Continue as long as the line starts with a space character
 		while (matmakefile && isspace(matmakefile.peek())) {
+			++lineNumber;
 			getline(matmakefile, line);
 			auto words = tokenize(line, lineNumber);
 			ret.append(words);
@@ -379,6 +380,12 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 				environment.addExternalDependency(true,
 												  words[1],
 												  Tokens(words.begin() + 2, words.end()));
+			}
+			else if (words.empty()) {
+			}
+			else {
+				std::cerr << words.front().getLocationDescription() << ":";
+				std::cerr << "'" << line << "': are you missing operator?" << endl;
 			}
 		}
 	}
