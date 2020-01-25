@@ -5,7 +5,6 @@
 
 #include "files.h"
 #include "token.h"
-#include "ienvironment.h"
 #include "buildtarget.h"
 #include "dependency.h"
 #include "buildtarget.h"

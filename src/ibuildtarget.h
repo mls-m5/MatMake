@@ -27,6 +27,10 @@ public:
 	//! Adding extra data to a variable (existing or non-existing)
 	virtual void append(Token propertyName, Tokens value) = 0;
 
+	//! Where the final product will be placed
+	virtual Token getOutputDir() = 0;
+
+	//! Where teporary object files will be placed
 	virtual Token getBuildDirectory() = 0;
 
 	virtual Token getCompiler(const Token &filetype) = 0;

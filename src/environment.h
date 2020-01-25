@@ -334,7 +334,6 @@ public:
 	}
 
 	void work() {
-
 		vector<thread> threads;
 
 		if (_globals.numberOfThreads < 2) {

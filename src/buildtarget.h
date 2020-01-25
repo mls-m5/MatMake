@@ -451,7 +451,8 @@ struct BuildTarget: public Dependency, public IBuildTarget {
 		return _name;
 	}
 
-	Token getOutputDir() {
+	//! Where the final product will be placed
+	Token getOutputDir() override {
 		auto outputDir = get("dir").concat();
 		if (!outputDir.empty()) {
 			outputDir = outputDir.trim();
