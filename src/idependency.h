@@ -1,17 +1,10 @@
 #pragma once
 
 #include "token.h"
+#include "buildtype.h"
 
 class IDependency {
 public:
-	enum BuildType {
-		Executable,
-		Shared,
-		Static,
-		Copy,
-		Object
-	};
-
 	virtual ~IDependency() = default;
 	virtual class IEnvironment &env() = 0;
 
@@ -32,6 +25,9 @@ public:
 
 	//! Tell a dependency that the built of this file is finished
 	virtual void notice(IDependency * d) = 0;
+
+	//! When the targets dependency is fresh and the target is ready to be built
+	virtual void dependenciesComplete() = 0;
 
 	//! The path to where the target will be built
 	virtual Token targetPath() = 0;

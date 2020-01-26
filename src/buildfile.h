@@ -20,7 +20,6 @@ class BuildFile: public Dependency {
 	Token depCommand;
 
 	IBuildTarget *_parent;
-	vector<string> dependencies;
 
 public:
 	BuildFile(const BuildFile &) = delete;
@@ -66,6 +65,27 @@ public:
 		return env().fileHandler().getTimeChanged(depFile);
 	}
 
+	Token preprocessCommand(Token command) {
+		return _parent->preprocessCommand(command);
+	}
+
+
+	Token getFlags() {
+		return _parent->getBuildFlags(filetype);
+	}
+
+	BuildType buildType() override {
+		return Object;
+	}
+
+	Token targetPath() override {
+		return output;
+	}
+
+	Token linkString() override {
+		return targetPath();
+	}
+
 	vector<string> parseDepFile() {
 		if (depFile.empty()) {
 			return {};
@@ -86,15 +106,6 @@ public:
 			dout << "could not find .d file for " << output << " --> " << depFile << endl;
 			return {};
 		}
-	}
-
-	Token preprocessCommand(Token command) {
-		return _parent->preprocessCommand(command);
-	}
-
-
-	Token getFlags() {
-		return _parent->getBuildFlags(filetype);
 	}
 
 	time_t build() override {
@@ -157,17 +168,6 @@ public:
 	}
 
 
-	BuildType buildType() override {
-		return Object;
-	}
-
-	Token targetPath() override {
-		return output;
-	}
-
-	Token linkString() override {
-		return targetPath();
-	}
 
 	void clean() override {
 		vout << "removing file " << targetPath() << endl;

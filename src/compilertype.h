@@ -1,4 +1,5 @@
 // Copyright Mattias Larsson Sköld 2019
+#pragma once
 
 #include <string>
 #include <map>

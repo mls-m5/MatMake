@@ -11,6 +11,12 @@
 #include <set>
 
 class Dependency: public IDependency {
+	IEnvironment *_env;
+	set<class IDependency*> _dependencies;
+	vector <IDependency*> _subscribers;
+	mutex accessMutex;
+	bool _dirty = false;
+
 public:
 	Dependency(IEnvironment *env): _env(env) {}
 
@@ -30,8 +36,8 @@ public:
 	}
 
 	//! Add task to list of tasks to be executed
-	//! the count variable sepcify if the dependency should be counted (true)
-	//! if hintStatistic has already been called
+	//! if hintStatistic has already been called called is set to false to not
+	//! count the dependency twice
 	void queue(bool count) override {
 		_env->addTask(this, count);
 	}
@@ -71,7 +77,16 @@ public:
 	//! A message from a object being subscribed to
 	//! This is used by targets to know when all dependencies
 	//! is built
-	void notice(IDependency *) override {}
+	void notice(IDependency *d) override {
+		_dependencies.erase(d);
+		if (_dependencies.empty()) {
+			dependenciesComplete();
+		}
+	}
+
+	void dependenciesComplete() override {
+		queue(true);
+	}
 
 	void lock() {
 		accessMutex.lock();
@@ -89,11 +104,4 @@ public:
 
 	IEnvironment *environment() { return _env; }
 
-
-private:
-	IEnvironment *_env;
-	set<class IDependency*> _dependencies;
-	vector <IDependency*> _subscribers;
-	mutex accessMutex;
-	bool _dirty = false;
 };

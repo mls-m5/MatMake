@@ -29,7 +29,7 @@ public:
 	};
 
 	vector<unique_ptr<BuildTarget>> targets;
-	vector<unique_ptr<Dependency>> files;
+	vector<unique_ptr<IDependency>> files;
 	set<string> directories;
 	queue<IDependency *> tasks;
 	mutex workMutex;
@@ -233,38 +233,17 @@ public:
 			return;
 		}
 		for (auto &target: targets) {
-			auto outputPath = target->getOutputDir();
+			dout << "target " << target->name() << " src "
+					<< target->get("src").concat() << endl;
 
-			dout << "target " << target->name() << " src " << target->get("src").concat() << endl;
-			for (auto filename: target->getGroups("src")) {
-				if (filename.empty()) {
-					continue;
-				}
-				filename = target->preprocessCommand(filename);
-				files.emplace_back(new BuildFile(filename, target.get(), this));
-				target->addDependency(files.back().get());
-			}
-			for (auto &filename: target->getGroups("copy")) {
-				if (filename.empty()) {
-					continue;
-				}
-				filename = target->preprocessCommand(filename);
-				files.emplace_back(new CopyFile(filename, target.get(), this));
-				target->addDependency(files.back().get());
-			}
-			for (auto &link: target->getGroups("link")) {
-				if (link.empty()) {
-					continue;
-				}
-				link = target->preprocessCommand(link);
-				auto dependencyTarget = findTarget(link);
-				if (dependencyTarget) {
-					target->addDependency(dependencyTarget);
-				}
-				else {
-					throw MatmakeError(link, " Could not find target " + link);
-				}
-			}
+			auto targetDependencies = target->calculateDependencies();
+
+			typedef decltype (files)::iterator iter_t;
+
+			files.insert(files.end(),
+					std::move_iterator<iter_t>(targetDependencies.begin()),
+					std::move_iterator<iter_t>(targetDependencies.end()));
+
 		}
 		isDependenicesCalculated = true;
 	}
