@@ -312,82 +312,87 @@ public:
 		buildExternal(false, "");
 	}
 
-	void work() {
-		vector<thread> threads;
+	// This is what a single thread will do
+	void workThreadFunction(int i) {
+		dout << "starting thread " << endl;
 
-		if (_globals.numberOfThreads < 2) {
+		workAssignMutex.lock();
+		while (!tasks.empty()) {
+
+			auto t = tasks.front();
+			tasks.pop();
+			workAssignMutex.unlock();
+			try {
+				t->work();
+				stringstream ss;
+				ss << "[" << getBuildProgress() << "%] ";
+				vout << ss.str();
+				++ this->taskFinished;
+			}
+			catch (MatmakeError &e) {
+				cerr << e.what() << endl;
+				_globals.bailout = true;
+			}
+			printProgress();
+
+			workAssignMutex.lock();
+		}
+		workAssignMutex.unlock();
+
+		workMutex.try_lock();
+		workMutex.unlock();
+
+		dout << "thread " << i << " is finished quit" << endl;
+		numberOfActiveThreads -= 1;
+	}
+
+	void workMultiThreaded() {
+		vout << "running with " << _globals.numberOfThreads << " threads" << endl;
+
+		vector<thread> threads;
+		numberOfActiveThreads = 0;
+
+		auto f = [this] (int i) {
+			workThreadFunction(i);
+		};
+
+		threads.reserve(_globals.numberOfThreads);
+		auto startTaskNum = tasks.size();
+		for (size_t i = 0 ;i < _globals.numberOfThreads && i < startTaskNum; ++i) {
+			++ numberOfActiveThreads;
+			threads.emplace_back(f, static_cast<int>(numberOfActiveThreads));
+		}
+
+		for (auto &t: threads) {
+			t.detach();
+		}
+
+		while (numberOfActiveThreads > 0 && !_globals.bailout) {
+			workMutex.lock();
+			dout << "remaining tasks " << tasks.size() << " tasks" << endl;
+			dout << "number of active threads at this point " << numberOfActiveThreads << endl;
+			if (!tasks.empty()) {
+				std::lock_guard<mutex> guard(workAssignMutex);
+				auto numTasks = tasks.size();
+				if (numTasks > numberOfActiveThreads) {
+					for (auto i = numberOfActiveThreads.load(); i < _globals.numberOfThreads && i < numTasks; ++i) {
+						dout << "Creating new worker thread to manage tasks" << endl;
+						++ numberOfActiveThreads;
+						thread t(f, static_cast<int>(numberOfActiveThreads));
+						t.detach(); // Make the thread live without owning it
+					}
+				}
+			}
+		}
+	}
+
+	void work() {
+		if (_globals.numberOfThreads > 1) {
+			workMultiThreaded();
+		}
+		else {
 			_globals.numberOfThreads = 1;
 			vout << "running with 1 thread" << endl;
-		}
-		else {
-			vout << "running with " << _globals.numberOfThreads << " threads" << endl;
-		}
-
-		if (_globals.numberOfThreads > 1) {
-			numberOfActiveThreads = 0;
-			auto f = [&] (int i) {
-				dout << "starting thread " << endl;
-
-				workAssignMutex.lock();
-				while (!tasks.empty()) {
-
-					auto t = tasks.front();
-					tasks.pop();
-					workAssignMutex.unlock();
-					try {
-						t->work();
-						stringstream ss;
-						ss << "[" << getBuildProgress() << "%] ";
-						vout << ss.str();
-						++ this->taskFinished;
-					}
-					catch (MatmakeError &e) {
-						cerr << e.what() << endl;
-						_globals.bailout = true;
-					}
-					printProgress();
-
-					workAssignMutex.lock();
-				}
-				workAssignMutex.unlock();
-
-				workMutex.try_lock();
-				workMutex.unlock();
-
-				dout << "thread " << i << " is finished quit" << endl;
-				numberOfActiveThreads -= 1;
-			};
-
-			threads.reserve(_globals.numberOfThreads);
-			auto startTaskNum = tasks.size();
-			for (size_t i = 0 ;i < _globals.numberOfThreads && i < startTaskNum; ++i) {
-				++ numberOfActiveThreads;
-				threads.emplace_back(f, static_cast<int>(numberOfActiveThreads));
-			}
-
-			for (auto &t: threads) {
-				t.detach();
-			}
-
-			while (numberOfActiveThreads > 0 && !_globals.bailout) {
-				workMutex.lock();
-				dout << "remaining tasks " << tasks.size() << " tasks" << endl;
-				dout << "number of active threads at this point " << numberOfActiveThreads << endl;
-				if (!tasks.empty()) {
-					std::lock_guard<mutex> guard(workAssignMutex);
-					auto numTasks = tasks.size();
-					if (numTasks > numberOfActiveThreads) {
-						for (auto i = numberOfActiveThreads.load(); i < _globals.numberOfThreads && i < numTasks; ++i) {
-							dout << "Creating new worker thread to manage tasks" << endl;
-							++ numberOfActiveThreads;
-							thread t(f, static_cast<int>(numberOfActiveThreads));
-							t.detach();
-						}
-					}
-				}
-			}
-		}
-		else {
 			while(!tasks.empty()) {
 				auto t = tasks.front();
 				tasks.pop();
@@ -400,6 +405,16 @@ public:
 				}
 			}
 		}
+
+//		for (auto& file: files) {
+//			if (file->dirty()) {
+//				cout << "file " << file->targetPath() << " was never built" << endl;
+//				cout << "depending on: " << endl;
+//				for (auto dependency: file->dependencies()) {
+//					dependency->targetPath();
+//				}
+//			}
+//		}
 
 		vout << "finished" << endl;
 	}
