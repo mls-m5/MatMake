@@ -8,7 +8,7 @@ Design goals:
 * Automatic dependency checks
 	* Source files is parsed to find dependencies
 * Single command builds
-	* Configure step is and should allways be optional
+	* Configure step is and should always be optional
 * Fast to setup new c++ projects
 	* one single command to generate a start for a project
 * Should handle when the project and complexity grows
