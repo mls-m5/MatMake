@@ -22,7 +22,7 @@ public:
 
 	//! Get but without reference
 	//! (This may very well be redundant
-	virtual Tokens get(const Token &propertyName) = 0;
+	virtual Tokens get(const Token &propertyName) const = 0;
 
 	//! Used for setting _and handling_ properties on a build target
 	//! This handles for example "inherit" or "exe" rules in the right way
@@ -35,35 +35,35 @@ public:
 	//-------- Values made from combining the buildtargets properties ---------
 
 	//! Where the final product will be placed
-	virtual Token getOutputDir() = 0;
+	virtual Token getOutputDir() const = 0;
 
 	//! Where teporary object files will be placed
-	virtual Token getBuildDirectory() = 0;
+	virtual Token getBuildDirectory() const = 0;
 
-	virtual Token getCompiler(const Token &filetype) = 0;
+	virtual Token getCompiler(const Token &filetype) const = 0;
 
-	virtual Token getBuildFlags(const Token& filetype) = 0;
+	virtual Token getBuildFlags(const Token& filetype) const = 0;
 
-	virtual class IDependency *outputFile() = 0;
+	virtual class IDependency *outputFile() const = 0;
 
 	//! Replace variables in commands with strings
 	//! For example replaces % with target name
-	virtual Token preprocessCommand(Token command) = 0;
+	virtual Token preprocessCommand(Token command) const = 0;
 
-	virtual Token name() = 0;
+	virtual Token name() const = 0;
 
-	virtual Token getLibs() = 0;
+	virtual Token getLibs() const = 0;
 
-	virtual Token getFlags() = 0;
+	virtual Token getFlags() const = 0;
 
-	virtual BuildType buildType() = 0;
+	virtual BuildType buildType() const = 0;
 
 	// ------- Commands that is executed on the build target -------------------
 
 	//! Calculate and return all files used by this target
 	virtual std::vector<std::unique_ptr<class IDependency>> calculateDependencies() = 0;
 
-	virtual time_t build() = 0;
+	virtual void build() = 0;
 
 	virtual void print() = 0;
 

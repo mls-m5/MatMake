@@ -45,7 +45,7 @@ public:
 	std::vector<ExternalMatmakeType> externalDependencies;
 	bool isDependenicesCalculated = false;
 
-	IFiles &fileHandler() override {
+	const IFiles &fileHandler() const override {
 		return *_fileHandler;
 	}
 
@@ -53,7 +53,7 @@ public:
 		return *this;
 	}
 
-	Globals &globals() override {
+	const Globals &globals() const override {
 		return _globals;
 	}
 

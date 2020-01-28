@@ -25,7 +25,7 @@ public:
 		return env().fileHandler().getTimeChanged(source);
 	}
 
-	time_t build() override {
+	void build() override {
 		if (output == source) {
 			vout << "file " << output << " source and target is on same place. skipping" << endl;
 		}
@@ -35,9 +35,9 @@ public:
 			queue(true);
 			dirty(true);
 
-			return time(nullptr);
+//			return time(nullptr);
 		}
-		return timeChanged;
+//		return timeChanged;
 	}
 
 	void work() override {
@@ -62,7 +62,7 @@ public:
 		remove(output.c_str());
 	}
 
-	Token targetPath() override {
+	Token targetPath() const override {
 		return output;
 	}
 

@@ -21,7 +21,7 @@ struct BuildTarget: public IBuildTarget {
 	std::map<Token, Tokens> _properties;
 	Token _name;
 	IEnvironment *_env;
-	Token _buildFlags;
+//	Token _buildFlags;
 
 	shared_ptr<ICompiler> _compilerType = make_shared<GCCCompiler>();
 	LinkFile *_outputFile = nullptr;
@@ -86,7 +86,7 @@ struct BuildTarget: public IBuildTarget {
 		property(propertyName).append(value);
 	}
 
-	Tokens get(const Token &propertyName) override {
+	Tokens get(const Token &propertyName) const override {
 		try {
 			return properties().at(propertyName);
 		}
@@ -99,13 +99,13 @@ struct BuildTarget: public IBuildTarget {
 		return _properties;
 	}
 
-	Token getLibs() override {
+	Token getLibs() const override {
 		auto libs = get("libs");
 
 		return libs.concat();
 	}
 
-	Token preprocessCommand(Token command) override {
+	Token preprocessCommand(Token command) const override {
 		for (size_t find = command.find('%');
 			 find != string::npos;
 			 find = command.find('%', find + 1)) {
@@ -115,11 +115,11 @@ struct BuildTarget: public IBuildTarget {
 		return command;
 	}
 
-	Token getFlags() override {
+	Token getFlags() const override {
 		return get("flags").concat();
 	}
 
-	Token getIncludeFlags() {
+	Token getIncludeFlags() const {
 		Token ret;
 
 		auto includes = get("includes").groups();
@@ -147,7 +147,7 @@ struct BuildTarget: public IBuildTarget {
 		return ret;
 	}
 
-	Token getDefineFlags() {
+	Token getDefineFlags() const {
 		Token ret;
 
 		auto defines = get("define").groups();
@@ -161,7 +161,7 @@ struct BuildTarget: public IBuildTarget {
 		return ret;
 	}
 
-	Token getConfigFlags() {
+	Token getConfigFlags() const {
 		Token ret;
 		auto configs = get("config").groups();
 		for (auto &config: configs) {
@@ -207,7 +207,7 @@ struct BuildTarget: public IBuildTarget {
 		vout << endl;
 	}
 
-	Token getCompiler(const Token &filetype) override {
+	Token getCompiler(const Token &filetype) const override {
 		if (filetype == "cpp") {
 			return get("cpp").concat();
 		}
@@ -255,10 +255,12 @@ struct BuildTarget: public IBuildTarget {
 			}
 		}
 
+		dependencies.push_back(unique_ptr<IDependency>(_outputFile));
+
 		return dependencies;
 	}
 
-	BuildType buildType() override {
+	BuildType buildType() const override {
 		auto out = get("out");
 		if (!out.empty()) {
 			if (out.front() == "shared") {
@@ -271,8 +273,8 @@ struct BuildTarget: public IBuildTarget {
 		return Executable;
 	}
 
-	time_t build() override {
-		return _outputFile->build();
+	void build() override {
+		outputFile()->build();
 	}
 
 
@@ -309,12 +311,12 @@ struct BuildTarget: public IBuildTarget {
 		throw std::runtime_error("this should never happend");
 	}
 
-	Token name() override {
+	Token name() const override {
 		return _name;
 	}
 
 	//! Where the final product will be placed
-	Token getOutputDir() override {
+	Token getOutputDir() const override {
 		auto outputDir = get("dir").concat();
 		if (!outputDir.empty()) {
 			outputDir = outputDir.trim();
@@ -324,7 +326,7 @@ struct BuildTarget: public IBuildTarget {
 	}
 
 	//!If where the tmp build-files is placed
-	Token getBuildDirectory() override {
+	Token getBuildDirectory() const override {
 		auto outputDir = get("objdir").concat();
 		if (!outputDir.empty()) {
 			outputDir = outputDir.trim();
@@ -338,9 +340,10 @@ struct BuildTarget: public IBuildTarget {
 
 
 	//! Return flags used by a file
-	virtual Token getBuildFlags(const Token& filetype) override {
-		if (!_buildFlags.empty()) {
-			return _buildFlags;
+	virtual Token getBuildFlags(const Token& filetype) const override {
+		auto buildFlags = this->getBuildFlags(filetype);
+		if (!buildFlags.empty()) {
+			return buildFlags;
 		}
 
 		auto flags = get("flags").concat();
@@ -370,7 +373,9 @@ struct BuildTarget: public IBuildTarget {
 		}
 
 
-		return (_buildFlags = flags);
+		//Todo: optimize performance
+//		return (_buildFlags = flags);
+		return flags;
 	}
 
 	Token targetPath() {
@@ -378,7 +383,7 @@ struct BuildTarget: public IBuildTarget {
 	}
 
 
-	IDependency *outputFile() override {
+	IDependency *outputFile() const override {
 		return _outputFile;
 	}
 

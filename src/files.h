@@ -78,7 +78,7 @@ inline std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch
 
 class Files: public IFiles {
 public:
-    vector<Token> findFiles(Token pattern) override  {
+    vector<Token> findFiles(Token pattern) const override {
         pattern = Token(trim(pattern), pattern.location);
         auto found = pattern.find('*');
 
@@ -131,7 +131,7 @@ public:
         return ret;
     }
 
-    std::pair<int, string> popenWithResult(string command) override  {
+    std::pair<int, string> popenWithResult(string command) const override  {
         pair<int, string> ret;
 
         FILE *file = popen((command + " 2>&1").c_str(), "r");
@@ -157,7 +157,7 @@ public:
     }
 
 
-    time_t getTimeChanged(const std::string &path) override {
+    time_t getTimeChanged(const std::string &path) const override {
         struct stat file_stat;
         int err = stat(path.c_str(), &file_stat);
         if (err != 0) {
@@ -168,7 +168,7 @@ public:
     }
 
     // adapted from https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
-    string getCurrentWorkingDirectory() override {
+    string getCurrentWorkingDirectory() const override {
         std::array<char, FILENAME_MAX> currentPath;
         if (!GetCurrentDir(currentPath.data(), sizeof(currentPath))) {
             throw runtime_error("could not get current working directory");
@@ -176,11 +176,11 @@ public:
         return currentPath.data();
     }
 
-    bool setCurrentDirectory(std::string directory) override  {
+    bool setCurrentDirectory(std::string directory) const override  {
         return chdir(directory.c_str());
     }
 
-    vector<string> listFiles(string directory) override {
+    vector<string> listFiles(string directory) const override {
         vector<string> ret;
 
         if (directory.empty()) {
@@ -221,7 +221,7 @@ public:
 #endif
     }
 
-    bool isDirectory(const string &path) override {
+    bool isDirectory(const string &path) const override {
         struct stat file_stat;
         int err = stat(path.c_str(), &file_stat);
         if (err != 0) {
@@ -233,13 +233,13 @@ public:
 
 
     //Creates a directory if it does not exist
-    void createDirectory(std::string dir) override {
+    void createDirectory(std::string dir) const override {
         if (system(("mkdir -p " + dir).c_str())) {
             std::runtime_error("could not create directory " + dir);
         }
     }
 
-    string getDirectory(string filename) override  {
+    string getDirectory(string filename) const override {
         auto directoryFound = filename.rfind("/");
         if (directoryFound != string::npos) {
             return string(filename.begin(), filename.begin() + directoryFound);
@@ -249,7 +249,7 @@ public:
         }
     }
 
-    std::vector<string> listRecursive(string directory) override {
+    std::vector<string> listRecursive(string directory) const override {
 
         auto list = listFiles(directory);
         auto ret = list;
@@ -267,7 +267,7 @@ public:
         return ret;
     }
 
-    virtual std::string removeDoubleDots(std::string str) override {
+    virtual std::string removeDoubleDots(std::string str) const override {
         auto findStr = ".." + pathSeparator;
         auto replaceStr = "_" + pathSeparator;
 

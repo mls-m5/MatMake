@@ -2,17 +2,23 @@
 
 #include "token.h"
 #include "buildtype.h"
+#include <set>
 
 class IDependency {
 public:
 	virtual ~IDependency() = default;
 	virtual class IEnvironment &env() = 0;
+	virtual const class IEnvironment &env() const = 0;
 
 	virtual void dirty(bool) = 0;
 	virtual bool dirty() = 0;
 	virtual void clean() = 0;
-	virtual time_t build() = 0;
+	virtual void build() = 0;
 	virtual void work() = 0;
+
+	//! Get the time when the file was latest changed
+	//! 0 means that the file is not built at all
+	virtual time_t getChangedTime() const = 0;
 
 	//! Add task to list of tasks to be executed
 	//! the count variable sepcify if the dependency should be counted (true)
@@ -30,7 +36,10 @@ public:
 	virtual void dependenciesComplete() = 0;
 
 	//! The path to where the target will be built
-	virtual Token targetPath() = 0;
+	virtual Token targetPath() const = 0;
+
+	//! The main target and implicit targets (often dependency files)
+	virtual const vector<Token>& outputs() const = 0;
 
 	//! A subscriber is a dependency that want a notice when the file is built
 	virtual void addSubscriber(IDependency *s) = 0;
@@ -43,4 +52,8 @@ public:
 	virtual BuildType buildType() = 0;
 
 	virtual Token linkString() = 0;
+
+	virtual const std::set<class IDependency*> dependencies() const = 0;
+
+	virtual std::string createNinjaDescription() = 0;
 };

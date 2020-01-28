@@ -57,15 +57,17 @@ public:
 		return env().fileHandler().getTimeChanged(_output);
 	}
 
-	time_t build() override {
+	void build() override {
 		if (_isBuildCalled) {
-			return getTimeChanged();
+			return;
+//			return getTimeChanged();
 		}
 		_isBuildCalled = true;
 
 		auto exe = targetPath();
 		if (exe.empty() || _target->name() == "root") {
-			return 0;
+			return;
+//			return 0;
 		}
 
 		dirty(false);
@@ -73,7 +75,8 @@ public:
 
 		time_t lastDependency = 0;
 		for (auto &d: dependencies()) {
-			auto t = d->build();
+//			auto t = d->build();
+			auto t = getChangedTime();
 			if (d->dirty()) {
 				d->addSubscriber(this);
 				std::lock_guard<Dependency> g(*this);
@@ -142,10 +145,10 @@ public:
 				hintStatistic();
 			}
 
-			return time(nullptr);
+//			return time(nullptr);
 		}
 
-		return getTimeChanged();
+//		return getTimeChanged();
 	}
 
 	//! This is called when all dependencies are built
@@ -192,7 +195,7 @@ public:
 	}
 
 
-	Token targetPath() override {
+	Token targetPath() const override {
 		auto dir = _target->getOutputDir();
 		return dir + _target->filename();
 	}

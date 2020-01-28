@@ -6,6 +6,7 @@
 #include "ienvironment.h"
 #include "idependency.h"
 #include "matmake-common.h"
+#include "globals.h"
 #include "files.h"
 #include <mutex>
 #include <set>
@@ -17,6 +18,11 @@ class Dependency: public IDependency {
 	mutex accessMutex;
 	bool _dirty = false;
 
+	vector <Token> _outputs;
+	vector <Token> _inputs;
+	Token _command;
+	Token _depFile;
+
 public:
 	Dependency(IEnvironment *env): _env(env) {}
 
@@ -26,8 +32,21 @@ public:
 		return env().fileHandler().getTimeChanged(targetPath());
 	}
 
-	virtual time_t build() override = 0;
+	virtual void build() override = 0;
 	virtual void work() override = 0;
+
+	//! Returns the changed time of the oldest of all output files
+	virtual time_t getChangedTime() const override {
+		time_t outputChangedTime = std::numeric_limits<time_t>::max();
+
+		for (auto &out: _outputs) {
+			auto changedTime = env().fileHandler().getTimeChanged(out);
+
+			outputChangedTime = std::min(outputChangedTime, changedTime);
+		}
+
+		return outputChangedTime;
+	}
 
 	void addDependency(IDependency *file) override {
 		if (file) {
@@ -48,9 +67,15 @@ public:
 		_env->addTaskCount();
 	}
 
-	Token targetPath() override = 0;
+	Token targetPath() const override = 0;
 
-	void clean() override = 0;
+	void clean() override {
+		vout << "removing file " << targetPath() << endl;
+		for (auto &out: outputs()) {
+			vout << "removing file " << out << endl;
+			remove(out.c_str());
+		}
+	}
 
 	bool includeInBinary() override { return true; }
 
@@ -71,6 +96,10 @@ public:
 	}
 
 	virtual class IEnvironment &env() override {
+		return *_env;
+	}
+
+	virtual const class IEnvironment &env() const override {
 		return *_env;
 	}
 
@@ -99,9 +128,52 @@ public:
 	bool dirty() override { return _dirty; }
 	void dirty(bool value) override { _dirty = value; }
 
-	const set<class IDependency*> dependencies() const { return _dependencies; }
+	const set<class IDependency*> dependencies() const override {
+		return _dependencies;
+	}
 	const vector <IDependency*> & subscribers() const { return _subscribers; }
 
 	IEnvironment *environment() { return _env; }
 
+	const Token &command() const {
+		return _command;
+	}
+
+	void command(Token command) {
+		_command = std::move(command);
+	}
+
+	//! Set the primary output file for the dependency
+	void output(Token output) {
+		_outputs.insert(_outputs.begin(), output);
+	}
+
+	// Set which file to search for dependencies in
+	// this file is also a implicit output file
+	void depFile(Token file) {
+		_depFile = file;
+	}
+
+	Token depFile() const {
+		return _depFile;
+	}
+
+	const vector<Token>& outputs() const {
+		return _outputs;
+	}
+
+	void inputs(vector<Token> in) {
+		_inputs = std::move(in);
+	}
+
+	std::string createNinjaDescription() {
+		std::string outputsString, inputsString;
+		for (auto &out: _outputs) {
+			outputsString += (" " + out);
+		}
+		for (auto &in: _inputs) {
+			inputsString += (" " + in);
+		}
+		return "build" + outputsString + ":???_??? " + inputsString;
+	}
 };
