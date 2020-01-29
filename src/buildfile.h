@@ -39,27 +39,25 @@ public:
 		if (filename.empty()) {
 			throw MatmakeError(filename, "empty buildfile added");
 		}
+		if (output().empty()) {
+			throw MatmakeError(filename, "could not find target name");
+		}
 		if (Dependency::outputs().size() < 2) {
-			if (output().empty()) {
-				throw MatmakeError(filename, "could not find target name");
-			}
-			if (Dependency::outputs()[1].empty()) {
-				throw MatmakeError(filename, "could not find dep filename");
-			}
+			throw MatmakeError(filename, "could not find dep filename for " + output());
 		}
 		else {
 			depFile(Dependency::outputs()[1]);
 		}
 	}
-
-	Token output() const {
-		if (!outputs().empty()) {
-			return outputs().front();
-		}
-		else {
-			return "";
-		}
-	}
+//
+//	Token output() const {
+//		if (!outputs().empty()) {
+//			return outputs().front();
+//		}
+//		else {
+//			return "";
+//		}
+//	}
 
 //	Token depFile() const {
 //		if (_outputs.size() < 2) {
@@ -94,12 +92,8 @@ public:
 		return Object;
 	}
 
-	Token targetPath() const override {
-		return output();
-	}
-
 	Token linkString() override {
-		return targetPath();
+		return output();
 	}
 
 	vector<string> parseDepFile() const {

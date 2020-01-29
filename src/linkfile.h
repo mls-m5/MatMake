@@ -12,7 +12,7 @@
 
 class LinkFile: public Dependency {
 	IBuildTarget *_target; // The build target responsible for this file
-	Token _output; // The output filename
+//	Token _output; // The output filename
 	bool _isBuildCalled = false;
 	ICompiler *_compilerType;
 	Token _command;
@@ -24,8 +24,8 @@ public:
 			ICompiler* compilerType) :
 			Dependency(env),
 			_target(target),
-			_output(env->fileHandler().removeDoubleDots(filename)),
 			_compilerType(compilerType) {
+		output(env->fileHandler().removeDoubleDots(filename));
 	}
 
 
@@ -49,12 +49,12 @@ public:
 //	}
 
 	void dependenciesComplete() override {
-		dout << targetPath() << " is ready to be built" << endl;
+		dout << output() << " is ready to be built" << endl;
 		queue(false);
 	}
 
 	time_t getTimeChanged() {
-		return env().fileHandler().getTimeChanged(_output);
+		return env().fileHandler().getTimeChanged(output());
 	}
 
 	void build() override {
@@ -64,7 +64,7 @@ public:
 		}
 		_isBuildCalled = true;
 
-		auto exe = targetPath();
+		auto exe = output();
 		if (exe.empty() || _target->name() == "root") {
 			return;
 //			return 0;
@@ -95,7 +95,7 @@ public:
 			dirty(true);
 		}
 		else if (!dirty()) {
-			cout << _output << " is fresh " << endl;
+			cout << output() << " is fresh " << endl;
 		}
 
 
@@ -172,8 +172,8 @@ public:
 		for (auto &d: dependencies()) {
 			d->clean();
 		}
-		vout << "removing file " << targetPath() << endl;
-		remove(targetPath().c_str());
+		vout << "removing file " << output() << endl;
+		remove(output().c_str());
 	}
 
 
@@ -186,7 +186,7 @@ public:
 			return _compilerType->prepareLinkString(dir, _target->filename());
 		}
 		else {
-			return targetPath();
+			return output();
 		}
 	}
 
@@ -195,10 +195,10 @@ public:
 	}
 
 
-	Token targetPath() const override {
-		auto dir = _target->getOutputDir();
-		return dir + _target->filename();
-	}
+//	Token output() const override {
+//		auto dir = _target->getOutputDir();
+//		return dir + _target->filename();
+//	}
 
 
 	//! This is to check if should include linker -rpath or similar

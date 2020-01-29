@@ -36,7 +36,7 @@ public:
 	virtual void dependenciesComplete() = 0;
 
 	//! The path to where the target will be built
-	virtual Token targetPath() const = 0;
+	virtual Token output() const = 0;
 
 	//! The main target and implicit targets (often dependency files)
 	virtual const vector<Token>& outputs() const = 0;

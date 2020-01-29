@@ -29,7 +29,7 @@ public:
 	virtual ~Dependency() override = default;
 
 	virtual time_t getTimeChanged() {
-		return env().fileHandler().getTimeChanged(targetPath());
+		return env().fileHandler().getTimeChanged(output());
 	}
 
 	virtual void build() override = 0;
@@ -67,10 +67,17 @@ public:
 		_env->addTaskCount();
 	}
 
-	Token targetPath() const override = 0;
+	Token output() const final {
+		if (_outputs.empty()) {
+			return "";
+		}
+		else {
+			return _outputs.front();
+		}
+	}
 
 	void clean() override {
-		vout << "removing file " << targetPath() << endl;
+		vout << "removing file " << output() << endl;
 		for (auto &out: outputs()) {
 			vout << "removing file " << out << endl;
 			remove(out.c_str());
@@ -152,6 +159,7 @@ public:
 	// this file is also a implicit output file
 	void depFile(Token file) {
 		_depFile = file;
+		_outputs.push_back(file);
 	}
 
 	Token depFile() const {
@@ -176,4 +184,6 @@ public:
 		}
 		return "build" + outputsString + ":???_??? " + inputsString;
 	}
+
+
 };

@@ -378,9 +378,9 @@ struct BuildTarget: public IBuildTarget {
 		return flags;
 	}
 
-	Token targetPath() {
-		return outputFile()->targetPath();
-	}
+//	Token targetPath() {
+//		return outputFile()->output();
+//	}
 
 
 	IDependency *outputFile() const override {

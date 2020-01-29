@@ -256,18 +256,19 @@ public:
 
 		calculateDependencies();
 		for (auto &file: files) {
-			auto dir = _fileHandler->getDirectory(file->targetPath());
+			auto dir = _fileHandler->getDirectory(file->output());
 			if (!dir.empty()) {
 				directories.emplace(dir);
 			}
 		}
 
-		for (auto &target: targets) {
-			auto dir = _fileHandler->getDirectory(target->targetPath());
-			if (!dir.empty()) {
-				directories.emplace(dir);
-			}
-		}
+		// This is created automatically by the linkfile
+//		for (auto &target: targets) {
+//			auto dir = _fileHandler->getDirectory(target->targetPath());
+//			if (!dir.empty()) {
+//				directories.emplace(dir);
+//			}
+//		}
 
 		for (auto dir: directories) {
 			dout << "output dir: " << dir << endl;
