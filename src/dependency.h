@@ -125,7 +125,7 @@ public:
 		accessMutex.unlock();
 	}
 
-	bool dirty() override { return _dirty; }
+	bool dirty() const override { return _dirty; }
 	void dirty(bool value) override { _dirty = value; }
 
 	const set<class IDependency*> dependencies() const override {

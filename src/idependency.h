@@ -11,7 +11,7 @@ public:
 	virtual const class IEnvironment &env() const = 0;
 
 	virtual void dirty(bool) = 0;
-	virtual bool dirty() = 0;
+	virtual bool dirty() const = 0;
 	virtual void clean() = 0;
 	virtual void build() = 0;
 	virtual void work() = 0;
