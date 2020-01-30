@@ -14,8 +14,8 @@
 class Dependency: public IDependency {
 	IEnvironment *_env;
 	set<class IDependency*> _dependencies;
-	vector <IDependency*> _subscribers;
-	mutex accessMutex;
+	set<IDependency*> _subscribers;
+	mutex _accessMutex;
 	bool _dirty = false;
 
 	vector <Token> _outputs;
@@ -33,10 +33,24 @@ public:
 	}
 
 	virtual void build() override = 0;
-	virtual void work() override = 0;
+
+	virtual void work() override {
+		if (!command().empty()) {
+			vout << command() << endl;
+			pair <int, string> res = env().fileHandler().popenWithResult(command());
+			if (res.first) {
+				throw MatmakeError(command(), "could not build object:\n" + command() + "\n" + res.second);
+			}
+			else if (!res.second.empty()) {
+				cout << (command() + "\n" + res.second + "\n") << std::flush;
+			}
+			dirty(false);
+			sendSubscribersNotice();
+		}
+	}
 
 	//! Returns the changed time of the oldest of all output files
-	virtual time_t getChangedTime() const override {
+	virtual time_t changedTime() const override {
 		time_t outputChangedTime = std::numeric_limits<time_t>::max();
 
 		for (auto &out: _outputs) {
@@ -50,21 +64,9 @@ public:
 
 	void addDependency(IDependency *file) override {
 		if (file) {
+			dout << "adding " << file->output() << " to " << output() << endl;
 			_dependencies.insert(file);
 		}
-	}
-
-	//! Add task to list of tasks to be executed
-	//! if hintStatistic has already been called called is set to false to not
-	//! count the dependency twice
-	void queue(bool count) override {
-		_env->addTask(this, count);
-	}
-
-	//! Tell the environment that there will be a dependency added in the future
-	//! This is when the dependency is waiting for other files to be made
-	void hintStatistic() override {
-		_env->addTaskCount();
 	}
 
 	Token output() const final {
@@ -77,7 +79,6 @@ public:
 	}
 
 	void clean() override {
-		vout << "removing file " << output() << endl;
 		for (auto &out: outputs()) {
 			vout << "removing file " << out << endl;
 			remove(out.c_str());
@@ -87,17 +88,17 @@ public:
 	bool includeInBinary() override { return true; }
 
 	void addSubscriber(IDependency *s) override {
-		lock_guard<mutex> guard(accessMutex);
+		lock_guard<mutex> guard(_accessMutex);
 		if (find(_subscribers.begin(), _subscribers.end(), s) == _subscribers.end()) {
-			_subscribers.push_back(s);
+			_subscribers.insert(s);
 		}
 	}
 
 	//! Send a notice to all subscribers
-	virtual void sendSubscribersNotice() {
-		lock_guard<mutex> guard(accessMutex);
+	virtual void sendSubscribersNotice(bool pruned = false) {
+		lock_guard<mutex> guard(_accessMutex);
 		for (auto s: _subscribers) {
-			s->notice(this);
+			s->notice(this, pruned);
 		}
 		_subscribers.clear();
 	}
@@ -113,23 +114,29 @@ public:
 	//! A message from a object being subscribed to
 	//! This is used by targets to know when all dependencies
 	//! is built
-	void notice(IDependency *d) override {
+	void notice(IDependency *d, bool pruned = false) override {
 		_dependencies.erase(d);
+		if (env().globals().debugOutput) {
+			dout << "removing dependency " << d->output() << " from " << output() << endl;
+			dout << "   " << _dependencies.size() << " remains ";
+			for (auto d: _dependencies) {
+				dout << d->output() << " " << endl;
+			}
+		}
 		if (_dependencies.empty()) {
-			dependenciesComplete();
+			if (!pruned) {
+				env().addTask(this);
+				dout << "Adding " << output() << " to task list " << endl;
+			}
 		}
 	}
 
-	void dependenciesComplete() override {
-		queue(true);
-	}
-
 	void lock() {
-		accessMutex.lock();
+		_accessMutex.lock();
 	}
 
 	void unlock() {
-		accessMutex.unlock();
+		_accessMutex.unlock();
 	}
 
 	bool dirty() const override { return _dirty; }
@@ -138,7 +145,8 @@ public:
 	const set<class IDependency*> dependencies() const override {
 		return _dependencies;
 	}
-	const vector <IDependency*> & subscribers() const { return _subscribers; }
+
+	const set <IDependency*> & subscribers() const { return _subscribers; }
 
 	IEnvironment *environment() { return _env; }
 
@@ -185,5 +193,15 @@ public:
 		return "build" + outputsString + ":???_??? " + inputsString;
 	}
 
-
+	void prune() override {
+		vector<IDependency*> toRemove;
+		for (auto* dep: _dependencies) {
+			if (!dep->dirty()) {
+				toRemove.push_back(dep);
+			}
+		}
+		for (auto d: toRemove) {
+			_dependencies.erase(d);
+		}
+	}
 };

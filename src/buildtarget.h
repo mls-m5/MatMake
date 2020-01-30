@@ -231,7 +231,7 @@ struct BuildTarget: public IBuildTarget {
 			filename = preprocessCommand(filename);
 			dependencies.emplace_back(
 					new BuildFile(filename, this, _env));
-			_outputFile->addDependency(dependencies.back().get());
+//			_outputFile->addDependency(dependencies.back().get());
 		}
 		for (auto &filename: getGroups("copy")) {
 			if (filename.empty()) {
@@ -239,7 +239,7 @@ struct BuildTarget: public IBuildTarget {
 			}
 			filename = preprocessCommand(filename);
 			dependencies.emplace_back(new CopyFile(filename, this, _env));
-			_outputFile->addDependency(dependencies.back().get());
+//			_outputFile->addDependency(dependencies.back().get());
 		}
 		for (auto &link: getGroups("link")) {
 			if (link.empty()) {
@@ -253,6 +253,10 @@ struct BuildTarget: public IBuildTarget {
 			else {
 				throw MatmakeError(link, " Could not find target " + link);
 			}
+		}
+
+		for (auto& dep: dependencies) {
+			_outputFile->addDependency(dep.get());
 		}
 
 		dependencies.push_back(unique_ptr<IDependency>(_outputFile));
@@ -341,10 +345,10 @@ struct BuildTarget: public IBuildTarget {
 
 	//! Return flags used by a file
 	virtual Token getBuildFlags(const Token& filetype) const override {
-		auto buildFlags = this->getBuildFlags(filetype);
-		if (!buildFlags.empty()) {
-			return buildFlags;
-		}
+//		auto buildFlags = this->getBuildFlags(filetype);
+//		if (!buildFlags.empty()) {
+//			return buildFlags;
+//		}
 
 		auto flags = get("flags").concat();
 		if (filetype == "cpp") {
@@ -377,11 +381,6 @@ struct BuildTarget: public IBuildTarget {
 //		return (_buildFlags = flags);
 		return flags;
 	}
-
-//	Token targetPath() {
-//		return outputFile()->output();
-//	}
-
 
 	IDependency *outputFile() const override {
 		return _outputFile;

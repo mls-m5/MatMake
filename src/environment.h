@@ -105,13 +105,9 @@ public:
 		}
 	}
 
-	void addTask(IDependency *t, bool count) override {
+	void addTask(IDependency *t) override {
 		workAssignMutex.lock();
 		tasks.push(t);
-		if (count) {
-			++maxTasks;
-		}
-		//		maxTasks = std::max((int)tasks.size(), maxTasks);
 		workAssignMutex.unlock();
 		workMutex.try_lock();
 		workMutex.unlock();
@@ -128,7 +124,7 @@ public:
 		targets.emplace_back(new BuildTarget("root", this));
 	}
 
-	BuildTarget *findTarget(Token name) override {
+	BuildTarget *findTarget(Token name) const override {
 		if (name.empty()) {
 			return nullptr;
 		}
@@ -140,7 +136,7 @@ public:
 		return nullptr;
 	}
 
-	IBuildTarget *findVariable(Token name) {
+	IBuildTarget *findVariable(Token name) const {
 		if (name.empty()) {
 			return nullptr;
 		}
@@ -153,7 +149,7 @@ public:
 	}
 
 	//! Gets a property from a target name plus property name
-	Tokens getValue(NameDescriptor name) {
+	Tokens getValue(NameDescriptor name) const {
 		if (auto variable = findVariable(name.rootName)) {
 			return variable->get(name.propertyName);
 		}
@@ -186,7 +182,7 @@ public:
 		}
 	}
 
-	int getBuildProgress() override {
+	int getBuildProgress() const override {
 		return (taskFinished * 100 / maxTasks);
 	}
 
@@ -228,11 +224,42 @@ public:
 	}
 
 
-	void calculateDependencies() {
+	void calculateDependencies(vector<string> targetArguments) {
+		vector<BuildTarget*> selectedTargets;
+
+		if (targetArguments.empty()) {
+			for (auto& target: targets) {
+				selectedTargets.push_back(target.get());
+			}
+		}
+		else {
+			for (auto t: targetArguments) {
+				bool matchFailed = true;
+				auto target = findTarget(t);
+				if (target) {
+
+					selectedTargets.push_back(target);
+					matchFailed = false;
+				}
+				else {
+					cout << "target '" << t << "' does not exist" << endl;
+				}
+
+				if (matchFailed) {
+					cout << "run matmake --help for help" << endl;
+					cout << "targets: ";
+					listAlternatives();
+					_globals.bailout = true;
+					break;
+				}
+			}
+		}
+
+
 		if (isDependenicesCalculated) {
 			return;
 		}
-		for (auto &target: targets) {
+		for (auto target: selectedTargets) {
 			dout << "target " << target->name() << " src "
 					<< target->get("src").concat() << endl;
 
@@ -254,21 +281,22 @@ public:
 		dout << "compiling..." << endl;
 		print();
 
-		calculateDependencies();
+		calculateDependencies(targetArguments);
+
+
+		for (auto& file: files) {
+			file->build();
+		}
+
 		for (auto &file: files) {
+			if (!file->dirty()) {
+				continue;
+			}
 			auto dir = _fileHandler->getDirectory(file->output());
 			if (!dir.empty()) {
 				directories.emplace(dir);
 			}
 		}
-
-		// This is created automatically by the linkfile
-//		for (auto &target: targets) {
-//			auto dir = _fileHandler->getDirectory(target->targetPath());
-//			if (!dir.empty()) {
-//				directories.emplace(dir);
-//			}
-//		}
 
 		for (auto dir: directories) {
 			dout << "output dir: " << dir << endl;
@@ -281,30 +309,17 @@ public:
 			_fileHandler->createDirectory(dir);
 		}
 
-
-		if (targetArguments.empty()) {
-			for (auto &target: targets) {
-				target->build();
+		for (auto &file: files) {
+			if (file->dirty()) {
+				dout << "file " << file->output() << " is dirty" << endl;
+				addTaskCount();
+				file->prune();
+				if (file->dependencies().empty()) {
+					addTask(file.get());
+				}
 			}
-		}
-		else {
-			bool matchFailed = true;
-			for (auto t: targetArguments) {
-				auto target = findTarget(t);
-				if (target) {
-					target->build();
-					matchFailed = false;
-				}
-				else {
-					cout << "target '" << t << "' does not exist" << endl;
-				}
-
-				if (matchFailed) {
-					cout << "run matmake --help for help" << endl;
-					cout << "targets: ";
-					listAlternatives();
-					_globals.bailout = true;
-				}
+			else {
+				dout << "file " << file->output() << " is fresh" << endl;
 			}
 		}
 
@@ -407,22 +422,22 @@ public:
 			}
 		}
 
-//		for (auto& file: files) {
-//			if (file->dirty()) {
-//				cout << "file " << file->targetPath() << " was never built" << endl;
-//				cout << "depending on: " << endl;
-//				for (auto dependency: file->dependencies()) {
-//					dependency->targetPath();
-//				}
-//			}
-//		}
+		for (auto& file: files) {
+			if (file->dirty()) {
+				cout << "file " << file->output() << " was never built" << endl;
+				cout << "depending on: " << endl;
+				for (auto dependency: file->dependencies()) {
+					dependency->output();
+				}
+			}
+		}
 
 		vout << "finished" << endl;
 	}
 
 	void clean(vector<string> targetArguments) override {
 		dout << "cleaning " << endl;
-		calculateDependencies();
+		calculateDependencies(targetArguments);
 
 		if (targetArguments.empty()) {
 			buildExternal(true, "clean");
@@ -450,7 +465,7 @@ public:
 	}
 
 	//! Show info of alternative build targets
-	void listAlternatives() override {
+	void listAlternatives() const override {
 		for (auto &t: targets) {
 			if (t->name() != "root") {
 				cout << t->name() << " ";

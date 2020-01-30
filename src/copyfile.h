@@ -42,12 +42,8 @@ public:
 		auto timeChanged = getTimeChanged();
 
 		if (getSourceChangedTime() > timeChanged) {
-			queue(true);
 			dirty(true);
-
-//			return time(nullptr);
 		}
-//		return timeChanged;
 	}
 
 	void work() override {

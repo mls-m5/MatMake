@@ -29,30 +29,6 @@ public:
 	}
 
 
-
-
-//	virtual time_t getTimeChanged() override {
-//		return env().fileHandler().getTimeChanged(
-//				_target->preprocessCommand(targetPath()));
-//	}
-
-
-//
-//	void notice(IDependency * d) override {
-//		std::lock_guard<Dependency> g(*this);
-//		waitList.erase(waitList.find(d));
-//		dout << d->targetPath() << " removed from wating list from " << _name
-//			 << " " << waitList.size() << " left" << endl;
-//		if (waitList.empty()) {
-//			queue(false);
-//		}
-//	}
-
-	void dependenciesComplete() override {
-		dout << output() << " is ready to be built" << endl;
-		queue(false);
-	}
-
 	time_t getTimeChanged() {
 		return env().fileHandler().getTimeChanged(output());
 	}
@@ -60,14 +36,12 @@ public:
 	void build() override {
 		if (_isBuildCalled) {
 			return;
-//			return getTimeChanged();
 		}
 		_isBuildCalled = true;
 
 		auto exe = output();
 		if (exe.empty() || _target->name() == "root") {
 			return;
-//			return 0;
 		}
 
 		dirty(false);
@@ -75,19 +49,16 @@ public:
 
 		time_t lastDependency = 0;
 		for (auto &d: dependencies()) {
-//			auto t = d->build();
-			auto t = getChangedTime();
+			auto t = changedTime();
 			if (d->dirty()) {
 				d->addSubscriber(this);
 				std::lock_guard<Dependency> g(*this);
-//				waitList.insert(d);
 			}
 			if (t > lastDependency) {
 				lastDependency = t;
 			}
 			if (t == 0) {
 				dirty(true);
-				break;
 			}
 		}
 
@@ -136,19 +107,7 @@ public:
 				}
 			}
 			_command.location = cpp.location;
-
-
-			if (dependencies().empty()) {
-				queue(true);
-			}
-			else {
-				hintStatistic();
-			}
-
-//			return time(nullptr);
 		}
-
-//		return getTimeChanged();
 	}
 
 	//! This is called when all dependencies are built
@@ -193,12 +152,6 @@ public:
 	BuildType buildType() override {
 		return _target->buildType();
 	}
-
-
-//	Token output() const override {
-//		auto dir = _target->getOutputDir();
-//		return dir + _target->filename();
-//	}
 
 
 	//! This is to check if should include linker -rpath or similar

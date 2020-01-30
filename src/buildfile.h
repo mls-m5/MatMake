@@ -11,10 +11,8 @@
 
 //! Represent a single source file to be built
 class BuildFile: public Dependency {
-	Token filename; //The source of the file
-	Token filetype; //The ending of the filename
-
-	Token depCommand;
+	Token _filename; //The source of the file
+	Token _filetype; //The ending of the filename
 
 	IBuildTarget *_parent;
 
@@ -23,8 +21,8 @@ public:
 	BuildFile(BuildFile &&) = delete;
 	BuildFile(Token filename, IBuildTarget *parent, class IEnvironment *env):
 		  Dependency(env),
-		  filename(filename),
-		  filetype(stripFileEnding(filename).second),
+		  _filename(filename),
+		  _filetype(stripFileEnding(filename).second),
 		  _parent(parent) {
 		auto withoutEnding = stripFileEnding(parent->getBuildDirectory() + filename);
 		if (withoutEnding.first.empty()) {
@@ -34,39 +32,20 @@ public:
 
 		Dependency::output(env->fileHandler().removeDoubleDots(
 					  fixObjectEnding(parent->getBuildDirectory() + filename)));
-		Dependency::depFile(env->fileHandler().removeDoubleDots(
+		this->depFile(env->fileHandler().removeDoubleDots(
 					  fixDepEnding(parent->getBuildDirectory() + filename)));
 		if (filename.empty()) {
 			throw MatmakeError(filename, "empty buildfile added");
 		}
+
 		if (output().empty()) {
 			throw MatmakeError(filename, "could not find target name");
 		}
-		if (Dependency::outputs().size() < 2) {
+
+		if (depFile().empty()) {
 			throw MatmakeError(filename, "could not find dep filename for " + output());
 		}
-		else {
-			depFile(Dependency::outputs()[1]);
-		}
 	}
-//
-//	Token output() const {
-//		if (!outputs().empty()) {
-//			return outputs().front();
-//		}
-//		else {
-//			return "";
-//		}
-//	}
-
-//	Token depFile() const {
-//		if (_outputs.size() < 2) {
-//			return "";
-//		}
-//		else {
-//			return _outputs[1];
-//		}
-//	}
 
 	static Token fixObjectEnding(Token filename) {
 		return stripFileEnding(filename).first + ".o";
@@ -76,16 +55,15 @@ public:
 	}
 
 	time_t getInputChangedTime() {
-		return env().fileHandler().getTimeChanged(filename);
+		return env().fileHandler().getTimeChanged(_filename);
 	}
 
 	Token preprocessCommand(Token command) const {
 		return _parent->preprocessCommand(command);
 	}
 
-
 	Token getFlags() {
-		return _parent->getBuildFlags(filetype);
+		return _parent->getBuildFlags(_filetype);
 	}
 
 	BuildType buildType() override {
@@ -121,62 +99,40 @@ public:
 
 		auto inputChangedTime = getInputChangedTime();
 		auto dependencyFiles = parseDepFile();
-		time_t outputChangedTime = getChangedTime();
+		time_t outputChangedTime = changedTime();
 
 		if (outputChangedTime < inputChangedTime) {
 			dirty(true);
 			dout << "file is dirty" << endl;
 		}
 
-		if (!dirty()) {
-			if (dependencyFiles.empty()) {
-				dout << "file is dirty" << endl;
-				depCommand = " -MMD -MF " + depFile() + " ";
-				depCommand.location = filename.location;
-				dirty(true);
-			}
-			else {
-				for (auto &d: dependencyFiles) {
-					auto dependencyTimeChanged = env().fileHandler().getTimeChanged(d);
-					if (   dependencyTimeChanged == 0
-							|| dependencyTimeChanged > outputChangedTime) {
-						dout << "rebuilding because older than " << d;
-						dirty(true);
-						break;
-					}
+		Token depCommand;
+
+		if (dependencyFiles.empty()) {
+			dout << "file is dirty" << endl;
+			depCommand = " -MMD -MF " + depFile() + " ";
+			depCommand.location = _filename.location;
+			dirty(true);
+		}
+		else {
+			for (auto &d: dependencyFiles) {
+				auto dependencyTimeChanged = env().fileHandler().getTimeChanged(d);
+				if (   dependencyTimeChanged == 0
+						|| dependencyTimeChanged > outputChangedTime) {
+					dout << "rebuilding because older than " << d;
+					dirty(true);
+					break;
 				}
 			}
 		}
 
 		if (dirty()) {
-			Token command = _parent->getCompiler(filetype) + " -c -o " + output()
-					  + " " + filename + " " + flags + depCommand;
+			Token command = _parent->getCompiler(_filetype) + " -c -o " + output()
+					  + " " + _filename + " " + flags + depCommand;
 
 			command = preprocessCommand(command);
-			command.location = filename.location;
+			command.location = _filename.location;
 			this->command(command);
-			queue(true);
-
-//			return time(nullptr);
-		}
-//		else {
-//			return getTimeChanged();
-//		}
-	}
-
-	void work() override {
-		if (!command().empty()) {
-			vout << command() << endl;
-			pair <int, string> res = env().fileHandler().popenWithResult(command());
-			if (res.first) {
-				throw MatmakeError(command(), "could not build object:\n" + command() + "\n" + res.second);
-			}
-			else if (!res.second.empty()) {
-				cout << (command() + "\n" + res.second + "\n") << std::flush;
-			}
-			dirty(false);
-			sendSubscribersNotice();
 		}
 	}
-
 };

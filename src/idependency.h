@@ -18,22 +18,11 @@ public:
 
 	//! Get the time when the file was latest changed
 	//! 0 means that the file is not built at all
-	virtual time_t getChangedTime() const = 0;
-
-	//! Add task to list of tasks to be executed
-	//! the count variable sepcify if the dependency should be counted (true)
-	//! if hintStatistic has already been called
-	virtual void queue(bool count) = 0;
-
-	//! Tell the environment that there will be a dependency added in the future
-	//! This is when the dependency is waiting for other files to be made
-	virtual void hintStatistic() = 0;
+	virtual time_t changedTime() const = 0;
 
 	//! Tell a dependency that the built of this file is finished
-	virtual void notice(IDependency * d) = 0;
-
-	//! When the targets dependency is fresh and the target is ready to be built
-	virtual void dependenciesComplete() = 0;
+	//! Set pruned to true if
+	virtual void notice(IDependency * d, bool pruned = false) = 0;
 
 	//! The path to where the target will be built
 	virtual Token output() const = 0;
@@ -46,6 +35,9 @@ public:
 
 	//! Add a file that this file will wait for
 	virtual void addDependency(IDependency *file) = 0;
+
+	//! Remove fresh dependencies
+	virtual void prune() = 0;
 
 	virtual bool includeInBinary() = 0;
 
