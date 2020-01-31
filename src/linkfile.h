@@ -12,7 +12,6 @@
 
 class LinkFile: public Dependency {
 	IBuildTarget *_target; // The build target responsible for this file
-//	Token _output; // The output filename
 	bool _isBuildCalled = false;
 	ICompiler *_compilerType;
 	Token _command;
@@ -25,13 +24,28 @@ public:
 			Dependency(env),
 			_target(target),
 			_compilerType(compilerType) {
-		output(env->fileHandler().removeDoubleDots(filename));
+		output(
+				env->fileHandler().removeDoubleDots(
+						target->getOutputDir() + filename));
+		depFile(
+				env->fileHandler().removeDoubleDots(
+						target->getBuildDirectory() + filename + ".d"));
 	}
 
 
 	time_t getTimeChanged() {
 		return env().fileHandler().getTimeChanged(output());
 	}
+
+//	void printDepFile() {
+//		std::ofstream file(depFile());
+//		if (file) {
+//			file << output() << ":";
+//			for (auto* dep: dependencies()) {
+//				file << " " << dep->output();
+//			}
+//		}
+//	}
 
 	void build() override {
 		if (_isBuildCalled) {
@@ -121,6 +135,7 @@ public:
 		else if (!res.second.empty()) {
 			cout << (_command + "\n" + res.second + "\n") << flush;
 		}
+//		printDepFile();
 		dirty(false);
 		sendSubscribersNotice();
 		vout << endl;

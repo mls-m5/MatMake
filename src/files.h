@@ -40,7 +40,12 @@ using namespace std;
 // Joins two paths and makes sure that the path separator does not
 // end up in the beginning of the new path
 std::string joinPaths(std::string a, std::string b) {
-    return a.empty()? b: (a + pathSeparator + b);
+	if (a.empty()) {
+		return b;
+	}
+	else {
+		return a.back() == '/'? a + b: (a + pathSeparator + b);
+	}
 }
 
 

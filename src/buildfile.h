@@ -32,7 +32,7 @@ public:
 
 		Dependency::output(env->fileHandler().removeDoubleDots(
 					  fixObjectEnding(parent->getBuildDirectory() + filename)));
-		this->depFile(env->fileHandler().removeDoubleDots(
+		depFile(env->fileHandler().removeDoubleDots(
 					  fixDepEnding(parent->getBuildDirectory() + filename)));
 		if (filename.empty()) {
 			throw MatmakeError(filename, "empty buildfile added");
@@ -51,7 +51,7 @@ public:
 		return stripFileEnding(filename).first + ".o";
 	}
 	static Token fixDepEnding(Token filename) {
-		return stripFileEnding(filename).first + ".d";
+		return filename + ".d";
 	}
 
 	time_t getInputChangedTime() {
