@@ -21,7 +21,6 @@ public:
 	};
 
 	vector<unique_ptr<BuildTarget>> targets;
-	vector<unique_ptr<IDependency>> files;
 	queue<IDependency *> tasks;
 	mutex workMutex;
 	mutex workAssignMutex;
@@ -34,13 +33,12 @@ public:
 	Globals _globals;
 
 	std::vector<ExternalMatmakeType> externalDependencies;
-	bool isDependenicesCalculated = false;
 
 	const IFiles &fileHandler() const override {
 		return *_fileHandler;
 	}
 
-	IEnvironment &env() {
+	const IEnvironment &env() const {
 		return *this;
 	}
 
@@ -61,7 +59,6 @@ public:
 			if (dependency.compileBefore != isBefore) {
 				continue;
 			}
-
 
 			auto currentDirectory = _fileHandler->getCurrentWorkingDirectory();
 
@@ -247,11 +244,10 @@ public:
 		return selectedTargets;
 	}
 
-	void calculateDependencies(vector<BuildTarget*> selectedTargets) {
-		if (isDependenicesCalculated) {
-			return;
-		}
-		for (auto target: selectedTargets) {
+	vector<unique_ptr<IDependency>> calculateDependencies(
+			vector<BuildTarget*> selectedTargets) const {
+		vector < unique_ptr < IDependency >> files;
+		for (auto target : selectedTargets) {
 			dout << "target " << target->name() << " src "
 					<< target->get("src").concat() << endl;
 
@@ -264,7 +260,8 @@ public:
 					std::move_iterator<iter_t>(targetDependencies.end()));
 
 		}
-		isDependenicesCalculated = true;
+
+		return files;
 	}
 
 
@@ -273,7 +270,7 @@ public:
 		dout << "compiling..." << endl;
 		print();
 
-		calculateDependencies(parseTargetArguments(targetArguments));
+		auto files = calculateDependencies(parseTargetArguments(targetArguments));
 
 		for (auto& file: files) {
 			file->build();
@@ -316,7 +313,7 @@ public:
 		}
 
 		buildExternal(true, "");
-		work();
+		work(std::move(files));
 		buildExternal(false, "");
 	}
 
@@ -394,7 +391,7 @@ public:
 		}
 	}
 
-	void work() {
+	void work(vector<unique_ptr<IDependency>> files) {
 		if (_globals.numberOfThreads > 1) {
 			workMultiThreaded();
 		}
@@ -429,28 +426,20 @@ public:
 
 	void clean(vector<string> targetArguments) override {
 		dout << "cleaning " << endl;
-		calculateDependencies(parseTargetArguments(targetArguments));
+		auto files = calculateDependencies(parseTargetArguments(targetArguments));
 
 		if (targetArguments.empty()) {
 			buildExternal(true, "clean");
 
-			for (auto &target: targets) {
-				if (target->name() != "root") {
-					target->clean();
-				}
+			for (auto& file: files) {
+				file->clean();
 			}
 
 			buildExternal(false, "clean");
 		}
 		else {
-			for (auto t: targetArguments) {
-				auto target = findTarget(t);
-				if (target) {
-					target->clean();
-				}
-				else {
-					cout << "target '" << t << "' does not exist" << endl;
-				}
+			for (auto& file: files) {
+				file->clean();
 			}
 		}
 

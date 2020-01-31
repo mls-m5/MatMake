@@ -21,7 +21,6 @@ struct BuildTarget: public IBuildTarget {
 	std::map<Token, Tokens> _properties;
 	Token _name;
 	IEnvironment *_env;
-//	Token _buildFlags;
 
 	shared_ptr<ICompiler> _compilerType = make_shared<GCCCompiler>();
 	LinkFile *_outputFile = nullptr;
@@ -220,6 +219,10 @@ struct BuildTarget: public IBuildTarget {
 	}
 
 	std::vector<std::unique_ptr<IDependency>> calculateDependencies() {
+		if (name() == "root") {
+			return {};
+		}
+
 		std::vector<std::unique_ptr<IDependency>> dependencies;
 
 		_outputFile = new LinkFile(filename(), this, _env, _compilerType.get());
@@ -231,7 +234,6 @@ struct BuildTarget: public IBuildTarget {
 			filename = preprocessCommand(filename);
 			dependencies.emplace_back(
 					new BuildFile(filename, this, _env));
-//			_outputFile->addDependency(dependencies.back().get());
 		}
 		for (auto &filename: getGroups("copy")) {
 			if (filename.empty()) {
@@ -239,7 +241,6 @@ struct BuildTarget: public IBuildTarget {
 			}
 			filename = preprocessCommand(filename);
 			dependencies.emplace_back(new CopyFile(filename, this, _env));
-//			_outputFile->addDependency(dependencies.back().get());
 		}
 		for (auto &link: getGroups("link")) {
 			if (link.empty()) {
@@ -345,11 +346,6 @@ struct BuildTarget: public IBuildTarget {
 
 	//! Return flags used by a file
 	virtual Token getBuildFlags(const Token& filetype) const override {
-//		auto buildFlags = this->getBuildFlags(filetype);
-//		if (!buildFlags.empty()) {
-//			return buildFlags;
-//		}
-
 		auto flags = get("flags").concat();
 		if (filetype == "cpp") {
 			auto cppflags = get("cppflags");

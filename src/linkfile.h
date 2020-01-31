@@ -128,15 +128,6 @@ public:
 	}
 
 
-	void clean() override {
-		for (auto &d: dependencies()) {
-			d->clean();
-		}
-		vout << "removing file " << output() << endl;
-		remove(output().c_str());
-	}
-
-
 	Token linkString() override {
 		auto dir = _target->getOutputDir();
 		if (buildType() == Shared) {
