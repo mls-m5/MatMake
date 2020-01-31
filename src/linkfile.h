@@ -27,9 +27,6 @@ public:
 		output(
 				env->fileHandler().removeDoubleDots(
 						target->getOutputDir() + filename));
-		depFile(
-				env->fileHandler().removeDoubleDots(
-						target->getBuildDirectory() + filename + ".d"));
 	}
 
 

@@ -60,6 +60,8 @@ public:
 		vout << "copy " << source << " --> " << output() << endl;
 		dst << src.rdbuf();
 
+		dirty(false);
+
 		sendSubscribersNotice();
 	}
 
