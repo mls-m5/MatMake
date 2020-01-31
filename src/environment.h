@@ -264,18 +264,7 @@ public:
 		return files;
 	}
 
-
-
-	void compile(vector<string> targetArguments) override {
-		dout << "compiling..." << endl;
-		print();
-
-		auto files = calculateDependencies(parseTargetArguments(targetArguments));
-
-		for (auto& file: files) {
-			file->build();
-		}
-
+	void createDirectories(const vector<unique_ptr<IDependency>>& files) const {
 		set<string> directories;
 		for (auto &file: files) {
 			if (!file->dirty()) {
@@ -297,6 +286,19 @@ public:
 			}
 			_fileHandler->createDirectory(dir);
 		}
+	}
+
+	void compile(vector<string> targetArguments) override {
+		dout << "compiling..." << endl;
+		print();
+
+		auto files = calculateDependencies(parseTargetArguments(targetArguments));
+
+		for (auto& file: files) {
+			file->build();
+		}
+
+		createDirectories(files);
 
 		for (auto &file: files) {
 			if (file->dirty()) {

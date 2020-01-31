@@ -11,6 +11,8 @@
 #include <mutex>
 #include <set>
 
+class IBuildTarget;
+
 class Dependency: public IDependency {
 	IEnvironment *_env;
 	set<class IDependency*> _dependencies; // Dependencies from matmakefile
@@ -22,9 +24,12 @@ class Dependency: public IDependency {
 	vector <Token> _inputs;
 	Token _command;
 	Token _depFile;
+	IBuildTarget* _target;
 
 public:
-	Dependency(IEnvironment *env): _env(env) {}
+	Dependency(IEnvironment *env, IBuildTarget *target) :
+			_env(env), _target(target) {
+	}
 
 	virtual ~Dependency() override = default;
 
@@ -80,12 +85,15 @@ public:
 
 	void clean() override {
 		for (auto &out: outputs()) {
+			if (std::find(_inputs.begin(), _inputs.end(), out) != _inputs.end()) {
+				continue; // Do not remove source files
+			}
 			vout << "removing file " << out << endl;
 			remove(out.c_str());
 		}
 	}
 
-	bool includeInBinary() override { return true; }
+	bool includeInBinary() const override { return true; }
 
 	void addSubscriber(IDependency *s) override {
 		lock_guard<mutex> guard(_accessMutex);
@@ -182,7 +190,20 @@ public:
 		_inputs = std::move(in);
 	}
 
-	std::string createNinjaDescription() {
+	void input(Token in) {
+		_inputs = {std::move(in)};
+	}
+
+	Token input() {
+		if (_inputs.empty()) {
+			return "";
+		}
+		else {
+			return _inputs.front();
+		}
+	}
+
+	std::string createNinjaDescription() const {
 		std::string outputsString, inputsString;
 		for (auto &out: _outputs) {
 			outputsString += (" " + out);
@@ -203,5 +224,13 @@ public:
 		for (auto d: toRemove) {
 			_dependencies.erase(d);
 		}
+	}
+
+	Token linkString() const override {
+		return output();
+	}
+
+	IBuildTarget *target() const override {
+		return _target;
 	}
 };

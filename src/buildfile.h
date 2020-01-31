@@ -13,27 +13,23 @@
 class BuildFile: public Dependency {
 	Token _filename; //The source of the file
 	Token _filetype; //The ending of the filename
-
-	IBuildTarget *_parent;
-
 public:
 	BuildFile(const BuildFile &) = delete;
 	BuildFile(BuildFile &&) = delete;
-	BuildFile(Token filename, IBuildTarget *parent, class IEnvironment *env):
-		  Dependency(env),
+	BuildFile(Token filename, IBuildTarget *target, class IEnvironment *env):
+		  Dependency(env, target),
 		  _filename(filename),
-		  _filetype(stripFileEnding(filename).second),
-		  _parent(parent) {
-		auto withoutEnding = stripFileEnding(parent->getBuildDirectory() + filename);
+		  _filetype(stripFileEnding(filename).second) {
+		auto withoutEnding = stripFileEnding(target->getBuildDirectory() + filename);
 		if (withoutEnding.first.empty()) {
-			throw MatmakeError(filename, "could not figure out source file type '" + parent->getBuildDirectory() + filename +
+			throw MatmakeError(filename, "could not figure out source file type '" + target->getBuildDirectory() + filename +
 											 "' . Is the file ending right?");
 		}
 
 		Dependency::output(env->fileHandler().removeDoubleDots(
-					  fixObjectEnding(parent->getBuildDirectory() + filename)));
+					  fixObjectEnding(target->getBuildDirectory() + filename)));
 		depFile(env->fileHandler().removeDoubleDots(
-					  fixDepEnding(parent->getBuildDirectory() + filename)));
+					  fixDepEnding(target->getBuildDirectory() + filename)));
 		if (filename.empty()) {
 			throw MatmakeError(filename, "empty buildfile added");
 		}
@@ -59,25 +55,21 @@ public:
 	}
 
 	Token preprocessCommand(Token command) const {
-		return _parent->preprocessCommand(command);
+		return target()->preprocessCommand(command);
 	}
 
 	Token getFlags() {
-		return _parent->getBuildFlags(_filetype);
+		return target()->getBuildFlags(_filetype);
 	}
 
-	BuildType buildType() override {
+	BuildType buildType() const override {
 		return Object;
-	}
-
-	Token linkString() override {
-		return output();
 	}
 
 	//! Calculate dependencies from makefile styled .d files generated
 	//! by the compiler
 	vector<string> parseDepFile() const {
-		ifstream file(_parent->preprocessCommand(depFile()));
+		ifstream file(target()->preprocessCommand(depFile()));
 		if (file.is_open()) {
 			vector <string> ret;
 			string d;
@@ -128,7 +120,7 @@ public:
 
 		if (dirty()) {
 			auto flags = getFlags();
-			Token command = _parent->getCompiler(_filetype) + " -c -o " + output()
+			Token command = target()->getCompiler(_filetype) + " -c -o " + output()
 					  + " " + _filename + " " + flags + depCommand;
 
 			command = preprocessCommand(command);

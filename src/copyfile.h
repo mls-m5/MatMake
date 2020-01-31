@@ -12,31 +12,27 @@ class CopyFile: public Dependency {
 public:
 	CopyFile(const CopyFile &) = delete;
 	CopyFile(CopyFile &&) = delete;
-	CopyFile(Token source, IBuildTarget *parent, IEnvironment *envi):
-		  Dependency(envi),
-		  source(source),
-		  parent(parent) {
-		auto o = joinPaths(parent->getOutputDir(), source);
+	CopyFile(Token source, IBuildTarget *target, IEnvironment *envi):
+			Dependency(envi, target) {
+		auto o = joinPaths(target->getOutputDir(), source);
 		if (o != source) {
 			output(o);
 		}
 		else {
 			dout << o << " does not need copying, same source and output" << endl;
 		}
+		input(source);
 	}
 
-	Token source;
-	IBuildTarget *parent;
-
 	time_t getSourceChangedTime() {
-		return env().fileHandler().getTimeChanged(source);
+		return env().fileHandler().getTimeChanged(input());
 	}
 
 	void build() override {
 		if (output().empty()) {
 			return;
 		}
-		if (output() == source) {
+		if (output() == input()) {
 			vout << "file " << output() << " source and target is on same place. skipping" << endl;
 		}
 		auto timeChanged = getTimeChanged();
@@ -47,17 +43,17 @@ public:
 	}
 
 	void work() override {
-		ifstream src(source);
+		ifstream src(input());
 		if (!src.is_open()) {
-			cout << "could not open file " << source << " for copy for target " << parent->name() << endl;
+			cout << "could not open file " << input() << " for copy for target " << target()->name() << endl;
 		}
 
 		ofstream dst(output());
 		if (!dst) {
-			cout << "could not open file " << output() << " for copy for target " << parent->name() << endl;
+			cout << "could not open file " << output() << " for copy for target " << target()->name() << endl;
 		}
 
-		vout << "copy " << source << " --> " << output() << endl;
+		vout << "copy " << input() << " --> " << output() << endl;
 		dst << src.rdbuf();
 
 		dirty(false);
@@ -65,24 +61,11 @@ public:
 		sendSubscribersNotice();
 	}
 
-	void clean() override {
-		vout << "removing file " << output() << endl;
-		if (output() != source) {
-			// Extra redundant checks
-			remove(output().c_str());
-		}
-	}
-
-
-	Token linkString() override {
-		return output();
-	}
-
-	bool includeInBinary() override {
+	bool includeInBinary() const override {
 		return false;
 	}
 
-	BuildType buildType() override {
+	BuildType buildType() const override {
 		return Copy;
 	}
 };

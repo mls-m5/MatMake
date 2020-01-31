@@ -39,15 +39,17 @@ public:
 	//! Remove fresh dependencies
 	virtual void prune() = 0;
 
-	virtual bool includeInBinary() = 0;
+	virtual bool includeInBinary() const = 0;
 
-	virtual BuildType buildType() = 0;
+	virtual BuildType buildType() const = 0;
 
-	virtual Token linkString() = 0;
+	virtual Token linkString() const = 0;
 
 	virtual const std::set<class IDependency*> dependencies() const = 0;
 
 	//! Create ninja specification for this file
 	//! this is not yet implemented
-	virtual std::string createNinjaDescription() = 0;
+	virtual std::string createNinjaDescription() const = 0;
+
+	virtual const IBuildTarget* target() const = 0;
 };
