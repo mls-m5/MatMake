@@ -13,7 +13,7 @@
 
 class Dependency: public IDependency {
 	IEnvironment *_env;
-	set<class IDependency*> _dependencies;
+	set<class IDependency*> _dependencies; // Dependencies from matmakefile
 	set<IDependency*> _subscribers;
 	mutex _accessMutex;
 	bool _dirty = false;

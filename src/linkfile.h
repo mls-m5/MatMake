@@ -34,16 +34,6 @@ public:
 		return env().fileHandler().getTimeChanged(output());
 	}
 
-//	void printDepFile() {
-//		std::ofstream file(depFile());
-//		if (file) {
-//			file << output() << ":";
-//			for (auto* dep: dependencies()) {
-//				file << " " << dep->output();
-//			}
-//		}
-//	}
-
 	void build() override {
 		if (_isBuildCalled) {
 			return;
@@ -132,7 +122,6 @@ public:
 		else if (!res.second.empty()) {
 			cout << (_command + "\n" + res.second + "\n") << flush;
 		}
-//		printDepFile();
 		dirty(false);
 		sendSubscribersNotice();
 		vout << endl;

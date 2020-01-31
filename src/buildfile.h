@@ -74,6 +74,8 @@ public:
 		return output();
 	}
 
+	//! Calculate dependencies from makefile styled .d files generated
+	//! by the compiler
 	vector<string> parseDepFile() const {
 		ifstream file(_parent->preprocessCommand(depFile()));
 		if (file.is_open()) {
@@ -95,8 +97,6 @@ public:
 
 
 	void build() override {
-		auto flags = getFlags();
-
 		auto inputChangedTime = getInputChangedTime();
 		auto dependencyFiles = parseDepFile();
 		time_t outputChangedTime = changedTime();
@@ -127,6 +127,7 @@ public:
 		}
 
 		if (dirty()) {
+			auto flags = getFlags();
 			Token command = _parent->getCompiler(_filetype) + " -c -o " + output()
 					  + " " + _filename + " " + flags + depCommand;
 

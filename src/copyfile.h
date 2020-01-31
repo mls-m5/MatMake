@@ -72,14 +72,10 @@ public:
 			remove(output().c_str());
 		}
 	}
-//
-//	Token targetPath() const override {
-//		return output;
-//	}
+
 
 	Token linkString() override {
 		return output();
-//		return targetPath();
 	}
 
 	bool includeInBinary() override {

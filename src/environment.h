@@ -7,18 +7,10 @@
 #include "globals.h"
 #include "token.h"
 #include "ibuildtarget.h"
-#include "dependency.h"
 #include <queue>
 #include <atomic>
 
 #include <fstream>
-#include "buildtarget.h"
-#include "buildfile.h"
-#include "copyfile.h"
-
-
-class Environment;
-
 
 class Environment: public IEnvironment {
 public:
@@ -30,7 +22,6 @@ public:
 
 	vector<unique_ptr<BuildTarget>> targets;
 	vector<unique_ptr<IDependency>> files;
-	set<string> directories;
 	queue<IDependency *> tasks;
 	mutex workMutex;
 	mutex workAssignMutex;
@@ -223,8 +214,7 @@ public:
 		cout.flush();
 	}
 
-
-	void calculateDependencies(vector<string> targetArguments) {
+	vector<BuildTarget*> parseTargetArguments(vector<string> targetArguments) const {
 		vector<BuildTarget*> selectedTargets;
 
 		if (targetArguments.empty()) {
@@ -249,13 +239,15 @@ public:
 					cout << "run matmake --help for help" << endl;
 					cout << "targets: ";
 					listAlternatives();
-					_globals.bailout = true;
-					break;
+					throw runtime_error("error when parsing targets");
 				}
 			}
 		}
 
+		return selectedTargets;
+	}
 
+	void calculateDependencies(vector<BuildTarget*> selectedTargets) {
 		if (isDependenicesCalculated) {
 			return;
 		}
@@ -281,13 +273,13 @@ public:
 		dout << "compiling..." << endl;
 		print();
 
-		calculateDependencies(targetArguments);
-
+		calculateDependencies(parseTargetArguments(targetArguments));
 
 		for (auto& file: files) {
 			file->build();
 		}
 
+		set<string> directories;
 		for (auto &file: files) {
 			if (!file->dirty()) {
 				continue;
@@ -437,7 +429,7 @@ public:
 
 	void clean(vector<string> targetArguments) override {
 		dout << "cleaning " << endl;
-		calculateDependencies(targetArguments);
+		calculateDependencies(parseTargetArguments(targetArguments));
 
 		if (targetArguments.empty()) {
 			buildExternal(true, "clean");

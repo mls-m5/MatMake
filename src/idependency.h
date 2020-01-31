@@ -47,5 +47,7 @@ public:
 
 	virtual const std::set<class IDependency*> dependencies() const = 0;
 
+	//! Create ninja specification for this file
+	//! this is not yet implemented
 	virtual std::string createNinjaDescription() = 0;
 };
