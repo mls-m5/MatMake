@@ -33,7 +33,7 @@ public:
 
 	virtual ~Dependency() override = default;
 
-	virtual time_t getTimeChanged() {
+	virtual time_t getTimeChanged() const {
 		return env().fileHandler().getTimeChanged(output());
 	}
 
