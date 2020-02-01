@@ -67,20 +67,21 @@ int main(int argc, char **argv) {
 
 )_";
 
-const char *exampleMatmakefile = R"_(
-# Matmake file
+const char *exampleMatmakefile =
+R"_(# Matmake file
 # https://github.com/mls-m5/matmake
 
-cppflags += -std=c++14      # c++ only flags
+cppflags +=                 # c++ only flags
 cflags +=                   # c only flags
 
 # global flags:
-flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
+config += c++14 Wall
+# config += debug
 
 ## Main target
 main.includes +=
     include
-# main.flags += -g         # extra compiler flags for target
+
 main.src =
     src/*.cpp
     # multi line values starts with whitespace
@@ -89,8 +90,8 @@ main.src =
 # main.out = main          # name of executable (not required)
 # main.out = shared main   # create a shared library (dll/so)
 # main.link = [libname]    # link to shared or static library with targetname libname
-# main.dir = bin/release   # set build path
-# main.objdir = bin/obj    # separates obj-files from build files
+# main.dir = build/bin     # set build path
+# main.objdir = build/obj  # separates obj-files from build files
 # main.sysincludes +=      # include files that should not show errors
 # main.define += X         # define macros in program like #define
 # external tests           # call matmake or make in another folder after build
@@ -114,6 +115,39 @@ clean:
 
 }
 
+std::string stripComments(const std::string code) {
+	std::istringstream ss(code);
+	std::ostringstream out;
+
+	auto parseLine = [](std::string line) -> std::string {
+		if (line.empty()) {
+			return "";
+		}
+		else if(line.front() == '#') {
+			return "x";
+		}
+		else {
+			return line;
+		}
+	};
+
+	string line;
+
+	for (size_t i = 0; i < 3; ++i) {
+		// Keep the comments on the first three lines
+		std::getline(ss, line);
+		out << line << endl;
+	}
+
+	while (std::getline(ss, line)) {
+		line = parseLine(line);
+		if (line != "x") {
+			out << line << endl;
+		}
+	}
+
+	return out.str();
+}
 
 //! Creates a project in the current folder
 //!
@@ -136,7 +170,8 @@ int createProject(string dir) {
 
 	{
 		ofstream file("Matmakefile");
-		file << exampleMatmakefile;
+//		file << exampleMatmakefile;
+		file << stripComments(exampleMatmakefile);
 	}
 
 
@@ -211,8 +246,8 @@ struct Locals {
 //! Parse arguments and produce a new Locals object containing the result
 //!
 //! Also alters globals object if any options related to that is used
-std::tuple<Locals, ShouldQuitT, IsErrorT> parseArguments(vector<string> args, Globals &globals) {
-	Locals locals;
+std::tuple<ShouldQuitT, IsErrorT> parseArguments(
+		vector<string> args, Globals &globals, Locals &locals) {
 	ShouldQuitT shouldQuit = false;
 	IsErrorT isError = false;
 
@@ -242,7 +277,7 @@ std::tuple<Locals, ShouldQuitT, IsErrorT> parseArguments(vector<string> args, Gl
 		}
 		else if (arg == "--example") {
 			cout << "### Example matmake file (Matmakefile): " << endl;
-			cout << "# means comment" << endl;
+			cout << "'#' means comment" << endl;
 			cout << exampleMatmakefile << endl;
 			cout << "### Example main file (src/main.cpp):" << endl;
 			cout << exampleMain << endl;
@@ -290,12 +325,11 @@ std::tuple<Locals, ShouldQuitT, IsErrorT> parseArguments(vector<string> args, Gl
 		}
 	}
 
-	return std::tuple<Locals, ShouldQuitT, IsErrorT> {locals, shouldQuit, isError};
+	return std::tuple<ShouldQuitT, IsErrorT> {shouldQuit, isError};
 }
 
 //! Parse the Matmakefile (obviously). Put result in environment.
 std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
-                                                   const Globals &globals,
                                                    IEnvironment &environment) {
     ShouldQuitT shouldQuit = false;
     IsErrorT isError = false;
@@ -435,7 +469,7 @@ int start(vector<string> args, Globals &globals) {
 	{
 		ShouldQuitT shouldQuit;
 		IsErrorT isError;
-		std::tie(locals, shouldQuit, isError) = parseArguments(args, globals);
+		std::tie(shouldQuit, isError) = parseArguments(args, globals, locals);
 
 		if (isError) {
 			return -1;
@@ -451,7 +485,7 @@ int start(vector<string> args, Globals &globals) {
 	{
 		ShouldQuitT shouldQuit;
 		IsErrorT isError;
-		std::tie(shouldQuit, isError) = parseMatmakeFile(locals, globals, environment);
+		std::tie(shouldQuit, isError) = parseMatmakeFile(locals, environment);
 
 		if (shouldQuit) {
 			return 0;

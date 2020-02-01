@@ -37,7 +37,7 @@ struct BuildTarget: public IBuildTarget {
 		}
 	}
 
-	BuildTarget(class IEnvironment *env) {
+	BuildTarget(class IEnvironment *env): _env(env) {
 		assign("inherit", Token("root"));
 	}
 
