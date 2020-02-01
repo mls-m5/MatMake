@@ -47,4 +47,4 @@ const std::string pathSeparator = "/";
 #endif
 
 //! Reference to main function
-int start(std::vector<std::string> args, class Globals &globals);
+int start(std::vector<std::string> args);

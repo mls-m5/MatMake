@@ -42,7 +42,7 @@ public:
 		}
 	}
 
-	void work(const IFiles &/*files*/) override {
+	void work(const IFiles &/*files*/, ThreadPool& pool) override {
 		ifstream src(input());
 		if (!src.is_open()) {
 			cout << "could not open file " << input() << " for copy for target " << target()->name() << endl;
@@ -58,7 +58,7 @@ public:
 
 		dirty(false);
 
-		sendSubscribersNotice();
+		sendSubscribersNotice(pool);
 	}
 
 	bool includeInBinary() const override {

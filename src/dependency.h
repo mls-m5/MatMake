@@ -5,6 +5,7 @@
 #include <chrono>
 #include "idependency.h"
 #include "matmake-common.h"
+#include "threadpool.h"
 #include "globals.h"
 #include "files.h"
 #include <mutex>
@@ -35,7 +36,7 @@ public:
 		return files.getTimeChanged(output());
 	}
 
-	virtual void work(const IFiles &files) override {
+	virtual void work(const IFiles &files, ThreadPool& pool) override {
 		if (!command().empty()) {
 			vout << command() << endl;
 			pair <int, string> res = files.popenWithResult(command());
@@ -46,7 +47,7 @@ public:
 				cout << (command() + "\n" + res.second + "\n") << std::flush;
 			}
 			dirty(false);
-			sendSubscribersNotice();
+			sendSubscribersNotice(pool);
 		}
 	}
 
@@ -99,10 +100,10 @@ public:
 	}
 
 	//! Send a notice to all subscribers
-	virtual void sendSubscribersNotice(bool pruned = false) {
+	virtual void sendSubscribersNotice(ThreadPool& pool) {
 		lock_guard<mutex> guard(_accessMutex);
 		for (auto s: _subscribers) {
-			s->notice(this, pruned);
+			s->notice(this, pool);
 		}
 		_subscribers.clear();
 	}
@@ -110,7 +111,7 @@ public:
 	//! A message from a object being subscribed to
 	//! This is used by targets to know when all dependencies
 	//! is built
-	void notice(IDependency *d, bool pruned = false) override {
+	void notice(IDependency *d, ThreadPool& pool) override {
 		_dependencies.erase(d);
 		if (globals.debugOutput) {
 			dout << "removing dependency " << d->output() << " from " << output() << endl;
@@ -120,10 +121,8 @@ public:
 			}
 		}
 		if (_dependencies.empty()) {
-			if (!pruned) {
-				env().addTask(this);
-				dout << "Adding " << output() << " to task list " << endl;
-			}
+			pool.addTask(this);
+			dout << "Adding " << output() << " to task list " << endl;
 		}
 	}
 

@@ -38,7 +38,7 @@ public:
 	//! Where the final product will be placed
 	virtual Token getOutputDir() const = 0;
 
-	//! Where teporary object files will be placed
+	//! Where temporary object files will be placed
 	virtual Token getBuildDirectory() const = 0;
 
 	virtual Token getCompiler(const Token &filetype) const = 0;

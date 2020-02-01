@@ -273,7 +273,7 @@ public:
     }
 
     int remove(std::string filename) const override {
-    	return remove(filename.c_str());
+    	return ::remove(filename.c_str());
 
     }
 

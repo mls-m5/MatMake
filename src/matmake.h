@@ -334,7 +334,6 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 												   const IFiles &files) {
     ShouldQuitT shouldQuit = false;
     IsErrorT isError = false;
-    auto env = [&] () -> IEnvironment& { return environment; }; // For dout and vout
 
 	ifstream matmakefile("Matmakefile");
 	if (!matmakefile.is_open()) {

@@ -12,7 +12,7 @@ public:
 	virtual bool dirty() const = 0;
 	virtual void clean(const IFiles& files) = 0;
 	virtual void build(const IFiles& files) = 0;
-	virtual void work(const IFiles& files) = 0;
+	virtual void work(const IFiles& files, class ThreadPool& pool) = 0;
 
 	//! Get the time when the file was latest changed
 	//! 0 means that the file is not built at all
@@ -20,7 +20,7 @@ public:
 
 	//! Tell a dependency that the built of this file is finished
 	//! Set pruned to true if
-	virtual void notice(IDependency * d, bool pruned = false) = 0;
+	virtual void notice(IDependency * d, class ThreadPool& pool) = 0;
 
 	//! The path to where the target will be built
 	virtual Token output() const = 0;

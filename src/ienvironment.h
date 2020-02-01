@@ -11,8 +11,8 @@ public:
 
 //	virtual class IBuildTarget *findTarget(Token name) const = 0;
 
-	virtual void addTask(IDependency *t) = 0;
-	virtual void addTaskCount() = 0;
+//	virtual void addTask(IDependency *t) = 0;
+//	virtual void addTaskCount() = 0;
 
 	//! Add references to other folders with matmake or makefiles in them
 	virtual void addExternalDependency(bool shouldCompileBefore,
@@ -31,5 +31,5 @@ public:
 	virtual void clean(std::vector<std::string> targetArguments) = 0;
 	virtual void listAlternatives() const = 0;
 
-	virtual int getBuildProgress() const = 0;
+//	virtual int getBuildProgress() const = 0;
 };

@@ -26,9 +26,9 @@ struct BuildTarget: public IBuildTarget {
 	LinkFile *_outputFile = nullptr;
 	bool _isBuildCalled = false;
 
-	BuildTarget(Token name): _name(name) {
+	BuildTarget(Token name, IBuildTarget *root): _name(name) {
 		if (_name != "root") {
-			assign("inherit", Token("root"));
+			inherit(root);
 		}
 		else {
 			assign("cpp", Token("c++"));
@@ -37,16 +37,19 @@ struct BuildTarget: public IBuildTarget {
 		}
 	}
 
-	BuildTarget() {
-		assign("inherit", Token("root"));
+	BuildTarget(IBuildTarget *root) {
+		inherit(root);
 	}
 
-	BuildTarget(NameDescriptor n, Tokens v): BuildTarget(n.rootName) {
+	BuildTarget(NameDescriptor n, Tokens v, IBuildTarget *root): BuildTarget(n.rootName, root) {
 		assign(n.propertyName, v);
 	}
 
-	void inherit(const IBuildTarget &parent) {
-		for (auto v: parent.properties()) {
+	void inherit(const IBuildTarget *parent) {
+		if (!parent) {
+			return;
+		}
+		for (auto v: parent->properties()) {
 			if (v.first == "inherit") {
 				continue;
 			}
@@ -59,6 +62,9 @@ struct BuildTarget: public IBuildTarget {
 	}
 
 	void assign(Token propertyName, Tokens value) override {
+		if (propertyName == "inherit") {
+			cout << "Target " << name() << " tries to inherit wrong" << endl;
+		}
 		property(propertyName) = value;
 	}
 
@@ -68,16 +74,9 @@ struct BuildTarget: public IBuildTarget {
 		if (propertyName == "inherit") {
 			auto parent = getParent(targets);
 			if (parent) {
-				inherit(*parent);
+				inherit(parent);
 			}
 		}
-
-//		if (propertyName == "dll") {
-//			auto n = property(propertyName);
-//			cout << "dll property is deprecated, plese use .out = shared " << n.concat() << endl;
-//			value.insert(value.begin(), Token("shared "));
-//			property("out") = value;
-//		}
 	}
 
 	void append(Token propertyName, Tokens value) override {
@@ -277,10 +276,6 @@ struct BuildTarget: public IBuildTarget {
 		}
 		return Executable;
 	}
-
-//	void build(IFiles &files) override {
-//		outputFile()->build(files);
-//	}
 
 
 	//! Path minus directory
