@@ -7,6 +7,7 @@
 #include "globals.h"
 #include "token.h"
 #include "ibuildtarget.h"
+#include "targets.h"
 #include <queue>
 #include <atomic>
 
@@ -20,7 +21,7 @@ public:
 		Tokens arguments;
 	};
 
-	vector<unique_ptr<BuildTarget>> targets;
+	Targets targets;
 	queue<IDependency *> tasks;
 	mutex workMutex;
 	mutex workAssignMutex;
@@ -98,17 +99,6 @@ public:
 		targets.emplace_back(new BuildTarget("root"));
 	}
 
-	BuildTarget *findTarget(Token name) const override {
-		if (name.empty()) {
-			return nullptr;
-		}
-		for (auto &v: targets) {
-			if (v->name() == name) {
-				return v.get();
-			}
-		}
-		return nullptr;
-	}
 
 	IBuildTarget *findVariable(Token name) const {
 		if (name.empty()) {
@@ -147,7 +137,7 @@ public:
 	}
 
 	void setVariable(const NameDescriptor &name, Tokens value) override {
-		(*this) [name.rootName].assign(name.propertyName, value) ;
+		(*this) [name.rootName].assign(name.propertyName, value, targets) ;
 	}
 
 	void print() {
@@ -197,8 +187,8 @@ public:
 		cout.flush();
 	}
 
-	vector<BuildTarget*> parseTargetArguments(vector<string> targetArguments) const {
-		vector<BuildTarget*> selectedTargets;
+	vector<IBuildTarget*> parseTargetArguments(vector<string> targetArguments) const {
+		vector<IBuildTarget*> selectedTargets;
 
 		if (targetArguments.empty()) {
 			for (auto& target: targets) {
@@ -208,7 +198,7 @@ public:
 		else {
 			for (auto t: targetArguments) {
 				bool matchFailed = true;
-				auto target = findTarget(t);
+				auto target = targets.find(t);
 				if (target) {
 
 					selectedTargets.push_back(target);
@@ -231,13 +221,13 @@ public:
 	}
 
 	vector<unique_ptr<IDependency>> calculateDependencies(
-			vector<BuildTarget*> selectedTargets) const {
+			vector<IBuildTarget*> selectedTargets) const {
 		vector < unique_ptr < IDependency >> files;
 		for (auto target : selectedTargets) {
 			dout << "target " << target->name() << " src "
 					<< target->get("src").concat() << endl;
 
-			auto targetDependencies = target->calculateDependencies(*_fileHandler);
+			auto targetDependencies = target->calculateDependencies(*_fileHandler, targets);
 
 			typedef decltype (files)::iterator iter_t;
 

@@ -9,7 +9,7 @@ class IEnvironment {
 public:
 	virtual ~IEnvironment() = default;
 
-	virtual class IBuildTarget *findTarget(Token name) const = 0;
+//	virtual class IBuildTarget *findTarget(Token name) const = 0;
 
 	virtual void addTask(IDependency *t) = 0;
 	virtual void addTaskCount() = 0;

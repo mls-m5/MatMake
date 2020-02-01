@@ -26,6 +26,7 @@ public:
 
 	//! Used for setting _and handling_ properties on a build target
 	//! This handles for example "inherit" or "exe" rules in the right way
+	virtual void assign(Token propertyName, Tokens value, const class Targets&) = 0;
 	virtual void assign(Token propertyName, Tokens value) = 0;
 
 	//! Adding extra data to a variable (existing or non-existing)
@@ -61,7 +62,8 @@ public:
 	// ------- Commands that is executed on the build target -------------------
 
 	//! Calculate and return all files used by this target
-	virtual std::vector<std::unique_ptr<class IDependency>> calculateDependencies(IFiles &files) = 0;
+	virtual std::vector<std::unique_ptr<class IDependency>> calculateDependencies(
+			const IFiles &files, const class Targets& targets) = 0;
 
 //	virtual void build() = 0;
 

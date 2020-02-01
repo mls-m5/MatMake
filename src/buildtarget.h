@@ -11,6 +11,7 @@
 #include "globals.h"
 #include "compilertype.h"
 #include "ifiles.h"
+#include "targets.h"
 
 #include <map>
 
@@ -59,20 +60,24 @@ struct BuildTarget: public IBuildTarget {
 
 	void assign(Token propertyName, Tokens value) override {
 		property(propertyName) = value;
+	}
+
+	void assign(Token propertyName, Tokens value, const Targets& targets) override {
+		property(propertyName) = value;
 
 		if (propertyName == "inherit") {
-			auto parent = getParent();
+			auto parent = getParent(targets);
 			if (parent) {
 				inherit(*parent);
 			}
 		}
 
-		if (propertyName == "dll") {
-			auto n = property(propertyName);
-			cout << "dll property is deprecated, plese use .out = shared " << n.concat() << endl;
-			value.insert(value.begin(), Token("shared "));
-			property("out") = value;
-		}
+//		if (propertyName == "dll") {
+//			auto n = property(propertyName);
+//			cout << "dll property is deprecated, plese use .out = shared " << n.concat() << endl;
+//			value.insert(value.begin(), Token("shared "));
+//			property("out") = value;
+//		}
 	}
 
 	void append(Token propertyName, Tokens value) override {
@@ -165,7 +170,7 @@ struct BuildTarget: public IBuildTarget {
 
 
 	//! Returns all files in a property
-	Tokens getGroups(const Token &propertyName, IFiles &files) const {
+	Tokens getGroups(const Token &propertyName, const IFiles &files) const {
 		auto sourceString = get(propertyName);
 
 		auto groups = sourceString.groups();
@@ -187,9 +192,9 @@ struct BuildTarget: public IBuildTarget {
 	//! Get the parent inherited from
 	//! This differs from the _parent member
 	//! #TODO: Fix naming
-	IBuildTarget *getParent()  {
+	IBuildTarget *getParent(const Targets& targets) const {
 		auto inheritFrom = get("inherit").concat();
-		return env().findTarget(inheritFrom);
+		return targets.find(inheritFrom);
 	}
 
 	void print() override {
@@ -212,7 +217,8 @@ struct BuildTarget: public IBuildTarget {
 		}
 	}
 
-	std::vector<std::unique_ptr<IDependency>> calculateDependencies(IFiles &files) {
+	std::vector<std::unique_ptr<IDependency>> calculateDependencies(
+			const IFiles &files, const Targets& targets) override {
 		if (name() == "root") {
 			return {};
 		}
@@ -241,7 +247,7 @@ struct BuildTarget: public IBuildTarget {
 				continue;
 			}
 			link = preprocessCommand(link);
-			auto dependencyTarget = _env->findTarget(link);
+			auto dependencyTarget = targets.find(link);
 			if (dependencyTarget && dependencyTarget->outputFile()) {
 				_outputFile->addDependency(dependencyTarget->outputFile());
 			}
