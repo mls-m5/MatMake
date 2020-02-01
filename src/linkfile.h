@@ -17,16 +17,13 @@ class LinkFile: public Dependency {
 public:
 	LinkFile(const LinkFile &) = delete;
 	LinkFile(LinkFile &&) = delete;
-	LinkFile(Token filename, IBuildTarget *target, class IEnvironment *env,
-			ICompiler* compilerType) :
-			Dependency(env, target),
+	LinkFile(Token filename, IBuildTarget *target, ICompiler* compilerType) :
+			Dependency(target),
 			_compilerType(compilerType) {
-		output(
-				env->fileHandler().removeDoubleDots(
-						target->getOutputDir() + filename));
+		output(removeDoubleDots(target->getOutputDir() + filename));
 	}
 
-	void build() override {
+	void build(const IFiles& files) override {
 		if (_isBuildCalled) {
 			return;
 		}
@@ -42,7 +39,7 @@ public:
 
 		time_t lastDependency = 0;
 		for (auto &d: dependencies()) {
-			auto t = changedTime();
+			auto t = changedTime(files);
 			if (d->dirty()) {
 				d->addSubscriber(this);
 				std::lock_guard<Dependency> g(*this);
@@ -55,7 +52,7 @@ public:
 			}
 		}
 
-		if (lastDependency > getTimeChanged()) {
+		if (lastDependency > getTimeChanged(files)) {
 			dirty(true);
 		}
 		else if (!dirty()) {
@@ -84,7 +81,7 @@ public:
 			}
 			else if (buildType == Static) {
 				cmd = "ar -rs " + exe + " "  + fileList;
-				if (env().globals().verbose) {
+				if (globals.verbose) {
 					cmd += " -v ";
 				}
 			}
@@ -132,7 +129,5 @@ public:
 		}
 		return false;
 	}
-
-
 };
 

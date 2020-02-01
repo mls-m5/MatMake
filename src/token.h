@@ -65,7 +65,7 @@ struct Token: public std::string {
 		return Token(::trim(str()), location);
 	}
 
-	std::string getLocationDescription() {
+	std::string getLocationDescription() const {
 		std::stringstream ss;
 		ss << "Matmakefile:" << location.line << ":" << location.col;
 		return ss.str();
@@ -92,7 +92,7 @@ struct Tokens: public std::vector<Token> {
 	}
 
 	//Find groups without spaces between them
-	vector<Tokens> groups() {
+	vector<Tokens> groups() const {
 		if (empty()) {
 			return {};
 		}
@@ -116,7 +116,7 @@ struct Tokens: public std::vector<Token> {
 		return ret;
 	}
 
-	Token concat() {
+	Token concat() const {
 		if (empty()) {
 			return {};
 		}

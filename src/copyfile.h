@@ -12,8 +12,8 @@ class CopyFile: public Dependency {
 public:
 	CopyFile(const CopyFile &) = delete;
 	CopyFile(CopyFile &&) = delete;
-	CopyFile(Token source, IBuildTarget *target, IEnvironment *envi):
-			Dependency(envi, target) {
+	CopyFile(Token source, IBuildTarget *target):
+			Dependency(target) {
 		auto o = joinPaths(target->getOutputDir(), source);
 		if (o != source) {
 			output(o);
@@ -24,25 +24,25 @@ public:
 		input(source);
 	}
 
-	time_t getSourceChangedTime() {
-		return env().fileHandler().getTimeChanged(input());
+	time_t getSourceChangedTime(const IFiles& files) const {
+		return files.getTimeChanged(input());
 	}
 
-	void build() override {
+	void build(const IFiles &files) override {
 		if (output().empty()) {
 			return;
 		}
 		if (output() == input()) {
 			vout << "file " << output() << " source and target is on same place. skipping" << endl;
 		}
-		auto timeChanged = getTimeChanged();
+		auto timeChanged = getTimeChanged(files);
 
-		if (getSourceChangedTime() > timeChanged) {
+		if (getSourceChangedTime(files) > timeChanged) {
 			dirty(true);
 		}
 	}
 
-	void work() override {
+	void work(const IFiles &/*files*/) override {
 		ifstream src(input());
 		if (!src.is_open()) {
 			cout << "could not open file " << input() << " for copy for target " << target()->name() << endl;

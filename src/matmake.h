@@ -247,7 +247,7 @@ struct Locals {
 //!
 //! Also alters globals object if any options related to that is used
 std::tuple<ShouldQuitT, IsErrorT> parseArguments(
-		vector<string> args, Globals &globals, Locals &locals) {
+		vector<string> args, Locals &locals) {
 	ShouldQuitT shouldQuit = false;
 	IsErrorT isError = false;
 
@@ -330,15 +330,15 @@ std::tuple<ShouldQuitT, IsErrorT> parseArguments(
 
 //! Parse the Matmakefile (obviously). Put result in environment.
 std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
-                                                   IEnvironment &environment) {
+                                                   IEnvironment &environment,
+												   const IFiles &files) {
     ShouldQuitT shouldQuit = false;
     IsErrorT isError = false;
     auto env = [&] () -> IEnvironment& { return environment; }; // For dout and vout
-	auto &files = environment.fileHandler();
 
 	ifstream matmakefile("Matmakefile");
 	if (!matmakefile.is_open()) {
-		if (environment.fileHandler().getTimeChanged("Makefile") || environment.fileHandler().getTimeChanged("makefile")) {
+		if (files.getTimeChanged("Makefile") || files.getTimeChanged("makefile")) {
 			cout << "makefile in " << files.getCurrentWorkingDirectory() << endl;
 			string arguments = "make";
 			for (auto arg: locals.args) {
@@ -428,7 +428,7 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
 
 
 //! Do what operation was given in command line arguments and saved in locals
-ShouldQuitT work(const Locals &locals, const Globals &globals, IEnvironment &environment) {
+ShouldQuitT work(const Locals &locals, IEnvironment &environment) {
 	try {
 		if (locals.operation == "build") {
 			environment.compile(locals.targets);
@@ -462,14 +462,14 @@ ShouldQuitT work(const Locals &locals, const Globals &globals, IEnvironment &env
 //!
 //! Runs once in the working directory and once in each directory specified
 //! with the import keyword
-int start(vector<string> args, Globals &globals) {
+int start(vector<string> args) {
 	auto startTime = time(nullptr);
 
 	Locals locals;
 	{
 		ShouldQuitT shouldQuit;
 		IsErrorT isError;
-		std::tie(shouldQuit, isError) = parseArguments(args, globals, locals);
+		std::tie(shouldQuit, isError) = parseArguments(args, locals);
 
 		if (isError) {
 			return -1;
@@ -480,12 +480,13 @@ int start(vector<string> args, Globals &globals) {
 		}
 	}
 
-	Environment environment(globals, make_shared<Files>());
+	auto files = make_shared<Files>();
+	Environment environment(files);
 
 	{
 		ShouldQuitT shouldQuit;
 		IsErrorT isError;
-		std::tie(shouldQuit, isError) = parseMatmakeFile(locals, environment);
+		std::tie(shouldQuit, isError) = parseMatmakeFile(locals, environment, *files);
 
 		if (shouldQuit) {
 			return 0;
@@ -496,7 +497,7 @@ int start(vector<string> args, Globals &globals) {
 	}
 
 	if (!globals.bailout) {
-		if (work(locals, globals, environment)) {
+		if (work(locals, environment)) {
 			return 0;
 		}
 	}

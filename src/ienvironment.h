@@ -9,14 +9,10 @@ class IEnvironment {
 public:
 	virtual ~IEnvironment() = default;
 
-	virtual const class IFiles &fileHandler() const = 0;
-
 	virtual class IBuildTarget *findTarget(Token name) const = 0;
 
 	virtual void addTask(IDependency *t) = 0;
 	virtual void addTaskCount() = 0;
-
-	virtual const Globals &globals() const = 0;
 
 	//! Add references to other folders with matmake or makefiles in them
 	virtual void addExternalDependency(bool shouldCompileBefore,

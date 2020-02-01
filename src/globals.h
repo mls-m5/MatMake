@@ -13,3 +13,5 @@ struct Globals {
 	size_t numberOfThreads = std::thread::hardware_concurrency(); //Get the maximal number of threads
 	bool bailout = false; // when true: exit the program in a controlled way
 };
+
+extern Globals globals;

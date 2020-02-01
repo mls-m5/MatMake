@@ -61,13 +61,13 @@ public:
 	// ------- Commands that is executed on the build target -------------------
 
 	//! Calculate and return all files used by this target
-	virtual std::vector<std::unique_ptr<class IDependency>> calculateDependencies() = 0;
+	virtual std::vector<std::unique_ptr<class IDependency>> calculateDependencies(IFiles &files) = 0;
 
-	virtual void build() = 0;
+//	virtual void build() = 0;
 
 	virtual void print() = 0;
 
-	virtual void clean() = 0;
+//	virtual void clean() = 0;
 
 	virtual Token filename() = 0;
 };

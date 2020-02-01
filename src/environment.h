@@ -30,21 +30,8 @@ public:
 	int taskFinished = 0;
 	int lastProgress = 0;
 	bool finished = false;
-	Globals _globals;
 
 	std::vector<ExternalMatmakeType> externalDependencies;
-
-	const IFiles &fileHandler() const override {
-		return *_fileHandler;
-	}
-
-	const IEnvironment &env() const {
-		return *this;
-	}
-
-	const Globals &globals() const override {
-		return _globals;
-	}
 
 	void addExternalDependency(bool shouldCompileBefore,
 							   const Token &name,
@@ -68,12 +55,12 @@ public:
 
 				if (operation == "clean") {
 					cout << endl << "cleaning external " << dependency.name << endl;
-					start({"clean"}, _globals);
+					start({"clean"}, globals);
 				}
 				else {
 					cout << endl << "Building external " << dependency.name << endl;
-					start(newArgs, _globals);
-					if (_globals.bailout) {
+					start(newArgs, globals);
+					if (globals.bailout) {
 						break;
 					}
 					cout << endl;
@@ -105,11 +92,10 @@ public:
 		++maxTasks;
 	}
 
-	Environment (Globals &globals, shared_ptr<IFiles> fileHandler):
-		  _fileHandler(fileHandler),
-		  _globals(globals)
+	Environment (shared_ptr<IFiles> fileHandler):
+		  _fileHandler(fileHandler)
 	{
-		targets.emplace_back(new BuildTarget("root", this));
+		targets.emplace_back(new BuildTarget("root"));
 	}
 
 	BuildTarget *findTarget(Token name) const override {
@@ -151,7 +137,7 @@ public:
 			return *v;
 		}
 		else {
-			targets.emplace_back(new BuildTarget(name, this));
+			targets.emplace_back(new BuildTarget(name));
 			return *targets.back();
 		}
 	}
@@ -187,7 +173,7 @@ public:
 
 		stringstream ss;
 
-		if (!_globals.debugOutput && !_globals.verbose) {
+		if (!globals.debugOutput && !globals.verbose) {
 			ss << "[";
 			for (int i = 0; i < amount / 4; ++i) {
 				ss << "-";
@@ -251,7 +237,7 @@ public:
 			dout << "target " << target->name() << " src "
 					<< target->get("src").concat() << endl;
 
-			auto targetDependencies = target->calculateDependencies();
+			auto targetDependencies = target->calculateDependencies(*_fileHandler);
 
 			typedef decltype (files)::iterator iter_t;
 
@@ -295,7 +281,7 @@ public:
 		auto files = calculateDependencies(parseTargetArguments(targetArguments));
 
 		for (auto& file: files) {
-			file->build();
+			file->build(*_fileHandler);
 		}
 
 		createDirectories(files);
@@ -330,7 +316,7 @@ public:
 			tasks.pop();
 			workAssignMutex.unlock();
 			try {
-				t->work();
+				t->work(*_fileHandler);
 				stringstream ss;
 				ss << "[" << getBuildProgress() << "%] ";
 				vout << ss.str();
@@ -338,7 +324,7 @@ public:
 			}
 			catch (MatmakeError &e) {
 				cerr << e.what() << endl;
-				_globals.bailout = true;
+				globals.bailout = true;
 			}
 			printProgress();
 
@@ -354,7 +340,7 @@ public:
 	}
 
 	void workMultiThreaded() {
-		vout << "running with " << _globals.numberOfThreads << " threads" << endl;
+		vout << "running with " << globals.numberOfThreads << " threads" << endl;
 
 		vector<thread> threads;
 		numberOfActiveThreads = 0;
@@ -363,9 +349,9 @@ public:
 			workThreadFunction(i);
 		};
 
-		threads.reserve(_globals.numberOfThreads);
+		threads.reserve(globals.numberOfThreads);
 		auto startTaskNum = tasks.size();
-		for (size_t i = 0 ;i < _globals.numberOfThreads && i < startTaskNum; ++i) {
+		for (size_t i = 0 ;i < globals.numberOfThreads && i < startTaskNum; ++i) {
 			++ numberOfActiveThreads;
 			threads.emplace_back(f, static_cast<int>(numberOfActiveThreads));
 		}
@@ -374,7 +360,7 @@ public:
 			t.detach();
 		}
 
-		while (numberOfActiveThreads > 0 && !_globals.bailout) {
+		while (numberOfActiveThreads > 0 && !globals.bailout) {
 			workMutex.lock();
 			dout << "remaining tasks " << tasks.size() << " tasks" << endl;
 			dout << "number of active threads at this point " << numberOfActiveThreads << endl;
@@ -382,7 +368,7 @@ public:
 				std::lock_guard<mutex> guard(workAssignMutex);
 				auto numTasks = tasks.size();
 				if (numTasks > numberOfActiveThreads) {
-					for (auto i = numberOfActiveThreads.load(); i < _globals.numberOfThreads && i < numTasks; ++i) {
+					for (auto i = numberOfActiveThreads.load(); i < globals.numberOfThreads && i < numTasks; ++i) {
 						dout << "Creating new worker thread to manage tasks" << endl;
 						++ numberOfActiveThreads;
 						thread t(f, static_cast<int>(numberOfActiveThreads));
@@ -394,21 +380,21 @@ public:
 	}
 
 	void work(vector<unique_ptr<IDependency>> files) {
-		if (_globals.numberOfThreads > 1) {
+		if (globals.numberOfThreads > 1) {
 			workMultiThreaded();
 		}
 		else {
-			_globals.numberOfThreads = 1;
+			globals.numberOfThreads = 1;
 			vout << "running with 1 thread" << endl;
 			while(!tasks.empty()) {
 				auto t = tasks.front();
 				tasks.pop();
 				try {
-					t->work();
+					t->work(*_fileHandler);
 				}
 				catch (MatmakeError &e) {
 					dout << e.what() << endl;
-					_globals.bailout = true;
+					globals.bailout = true;
 				}
 			}
 		}
@@ -434,14 +420,14 @@ public:
 			buildExternal(true, "clean");
 
 			for (auto& file: files) {
-				file->clean();
+				file->clean(*_fileHandler);
 			}
 
 			buildExternal(false, "clean");
 		}
 		else {
 			for (auto& file: files) {
-				file->clean();
+				file->clean(*_fileHandler);
 			}
 		}
 

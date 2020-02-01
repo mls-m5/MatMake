@@ -3,7 +3,6 @@
 #pragma once
 
 #include <chrono>
-#include "ienvironment.h"
 #include "idependency.h"
 #include "matmake-common.h"
 #include "globals.h"
@@ -14,7 +13,6 @@
 class IBuildTarget;
 
 class Dependency: public IDependency {
-	IEnvironment *_env;
 	set<class IDependency*> _dependencies; // Dependencies from matmakefile
 	set<IDependency*> _subscribers;
 	mutex _accessMutex;
@@ -27,22 +25,20 @@ class Dependency: public IDependency {
 	IBuildTarget* _target;
 
 public:
-	Dependency(IEnvironment *env, IBuildTarget *target) :
-			_env(env), _target(target) {
+	Dependency(IBuildTarget *target) :
+			_target(target) {
 	}
 
 	virtual ~Dependency() override = default;
 
-	virtual time_t getTimeChanged() const {
-		return env().fileHandler().getTimeChanged(output());
+	virtual time_t getTimeChanged(const IFiles &files) const {
+		return files.getTimeChanged(output());
 	}
 
-	virtual void build() override = 0;
-
-	virtual void work() override {
+	virtual void work(const IFiles &files) override {
 		if (!command().empty()) {
 			vout << command() << endl;
-			pair <int, string> res = env().fileHandler().popenWithResult(command());
+			pair <int, string> res = files.popenWithResult(command());
 			if (res.first) {
 				throw MatmakeError(command(), "could not build object:\n" + command() + "\n" + res.second);
 			}
@@ -55,11 +51,11 @@ public:
 	}
 
 	//! Returns the changed time of the oldest of all output files
-	virtual time_t changedTime() const override {
+	virtual time_t changedTime(const IFiles &files) const override {
 		time_t outputChangedTime = std::numeric_limits<time_t>::max();
 
 		for (auto &out: _outputs) {
-			auto changedTime = env().fileHandler().getTimeChanged(out);
+			auto changedTime = files.getTimeChanged(out);
 
 			outputChangedTime = std::min(outputChangedTime, changedTime);
 		}
@@ -83,13 +79,13 @@ public:
 		}
 	}
 
-	void clean() override {
+	void clean(const IFiles &files) override {
 		for (auto &out: outputs()) {
 			if (std::find(_inputs.begin(), _inputs.end(), out) != _inputs.end()) {
 				continue; // Do not remove source files
 			}
 			vout << "removing file " << out << endl;
-			remove(out.c_str());
+			files.remove(out.c_str());
 		}
 	}
 
@@ -111,20 +107,12 @@ public:
 		_subscribers.clear();
 	}
 
-	virtual class IEnvironment &env() override {
-		return *_env;
-	}
-
-	virtual const class IEnvironment &env() const override {
-		return *_env;
-	}
-
 	//! A message from a object being subscribed to
 	//! This is used by targets to know when all dependencies
 	//! is built
 	void notice(IDependency *d, bool pruned = false) override {
 		_dependencies.erase(d);
-		if (env().globals().debugOutput) {
+		if (globals.debugOutput) {
 			dout << "removing dependency " << d->output() << " from " << output() << endl;
 			dout << "   " << _dependencies.size() << " remains ";
 			for (auto d: _dependencies) {
@@ -155,8 +143,6 @@ public:
 	}
 
 	const set <IDependency*> & subscribers() const { return _subscribers; }
-
-	IEnvironment *environment() { return _env; }
 
 	const Token &command() const {
 		return _command;
@@ -194,7 +180,7 @@ public:
 		_inputs = {std::move(in)};
 	}
 
-	Token input() {
+	Token input() const {
 		if (_inputs.empty()) {
 			return "";
 		}

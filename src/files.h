@@ -272,26 +272,33 @@ public:
         return ret;
     }
 
-    virtual std::string removeDoubleDots(std::string str) const override {
-        auto findStr = ".." + pathSeparator;
-        auto replaceStr = "_" + pathSeparator;
+    int remove(std::string filename) const override {
+    	return remove(filename.c_str());
 
-        for (auto found = str.find(findStr);
-             found != string::npos;
-             found = str.find(findStr)) {
-
-            str.replace(found, findStr.length(), replaceStr);
-
-            found += replaceStr.length();
-        }
-
-        if (str.length() == 2 && str == "..") {
-            str = "_";
-        }
-        else if (str.substr(str.length() - 2, 2) == "..") {
-            str.replace(str.length() - 2, 2, "_");
-        }
-
-        return str;
     }
+
 };
+
+
+std::string removeDoubleDots(std::string str) {
+    auto findStr = ".." + pathSeparator;
+    auto replaceStr = "_" + pathSeparator;
+
+    for (auto found = str.find(findStr);
+         found != string::npos;
+         found = str.find(findStr)) {
+
+        str.replace(found, findStr.length(), replaceStr);
+
+        found += replaceStr.length();
+    }
+
+    if (str.length() == 2 && str == "..") {
+        str = "_";
+    }
+    else if (str.substr(str.length() - 2, 2) == "..") {
+        str.replace(str.length() - 2, 2, "_");
+    }
+
+    return str;
+}

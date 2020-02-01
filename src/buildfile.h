@@ -16,8 +16,8 @@ class BuildFile: public Dependency {
 public:
 	BuildFile(const BuildFile &) = delete;
 	BuildFile(BuildFile &&) = delete;
-	BuildFile(Token filename, IBuildTarget *target, class IEnvironment *env):
-		  Dependency(env, target),
+	BuildFile(Token filename, IBuildTarget *target):
+		  Dependency(target),
 		  _filename(filename),
 		  _filetype(stripFileEnding(filename).second) {
 		auto withoutEnding = stripFileEnding(target->getBuildDirectory() + filename);
@@ -26,9 +26,9 @@ public:
 											 "' . Is the file ending right?");
 		}
 
-		Dependency::output(env->fileHandler().removeDoubleDots(
+		Dependency::output(removeDoubleDots(
 					  fixObjectEnding(target->getBuildDirectory() + filename)));
-		depFile(env->fileHandler().removeDoubleDots(
+		depFile(removeDoubleDots(
 					  fixDepEnding(target->getBuildDirectory() + filename)));
 		if (filename.empty()) {
 			throw MatmakeError(filename, "empty buildfile added");
@@ -50,8 +50,8 @@ public:
 		return filename + ".d";
 	}
 
-	time_t getInputChangedTime() {
-		return env().fileHandler().getTimeChanged(_filename);
+	time_t getInputChangedTime(const IFiles& files) {
+		return files.getTimeChanged(_filename);
 	}
 
 	Token preprocessCommand(Token command) const {
@@ -88,10 +88,10 @@ public:
 	}
 
 
-	void build() override {
-		auto inputChangedTime = getInputChangedTime();
+	void build(const IFiles &files) override {
+		auto inputChangedTime = getInputChangedTime(files);
 		auto dependencyFiles = parseDepFile();
-		time_t outputChangedTime = changedTime();
+		time_t outputChangedTime = changedTime(files);
 
 		if (outputChangedTime < inputChangedTime) {
 			dirty(true);
@@ -108,7 +108,7 @@ public:
 		}
 		else {
 			for (auto &d: dependencyFiles) {
-				auto dependencyTimeChanged = env().fileHandler().getTimeChanged(d);
+				auto dependencyTimeChanged = files.getTimeChanged(d);
 				if (   dependencyTimeChanged == 0
 						|| dependencyTimeChanged > outputChangedTime) {
 					dout << "rebuilding because older than " << d;

@@ -7,18 +7,16 @@
 class IDependency {
 public:
 	virtual ~IDependency() = default;
-	virtual class IEnvironment &env() = 0;
-	virtual const class IEnvironment &env() const = 0;
 
 	virtual void dirty(bool) = 0;
 	virtual bool dirty() const = 0;
-	virtual void clean() = 0;
-	virtual void build() = 0;
-	virtual void work() = 0;
+	virtual void clean(const IFiles& files) = 0;
+	virtual void build(const IFiles& files) = 0;
+	virtual void work(const IFiles& files) = 0;
 
 	//! Get the time when the file was latest changed
 	//! 0 means that the file is not built at all
-	virtual time_t changedTime() const = 0;
+	virtual time_t changedTime(const IFiles &files) const = 0;
 
 	//! Tell a dependency that the built of this file is finished
 	//! Set pruned to true if

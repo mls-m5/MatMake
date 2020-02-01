@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "globals.h"
+
 //verbose output
-#define vout if(env().globals().verbose) std::cout
-#define dout if(env().globals().debugOutput) std::cout
+#define vout if(globals.verbose) std::cout
+#define dout if(globals.debugOutput) std::cout

@@ -27,5 +27,9 @@ public:
 
     virtual std::vector<std::string> listRecursive(std::string directory) const = 0;
 
-    virtual std::string removeDoubleDots(std::string string) const = 0;
+    virtual int remove(std::string filename) const = 0;
+
+
 };
+
+std::string removeDoubleDots(std::string string);

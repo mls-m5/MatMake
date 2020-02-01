@@ -17,10 +17,10 @@
 
 #include "matmake.h"
 
+Globals globals;
 
 int main(int argc, char **argv) {
-	Globals globals;
 	vector<string> args(argv + 1, argv + argc);
-	start(args, globals);
+	start(args);
 }
 

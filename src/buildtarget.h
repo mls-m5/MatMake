@@ -20,13 +20,12 @@
 struct BuildTarget: public IBuildTarget {
 	std::map<Token, Tokens> _properties;
 	Token _name;
-	IEnvironment *_env;
 
 	shared_ptr<ICompiler> _compilerType = make_shared<GCCCompiler>();
 	LinkFile *_outputFile = nullptr;
 	bool _isBuildCalled = false;
 
-	BuildTarget(Token name, class IEnvironment *env): _name(name), _env(env) {
+	BuildTarget(Token name): _name(name) {
 		if (_name != "root") {
 			assign("inherit", Token("root"));
 		}
@@ -37,11 +36,11 @@ struct BuildTarget: public IBuildTarget {
 		}
 	}
 
-	BuildTarget(class IEnvironment *env): _env(env) {
+	BuildTarget() {
 		assign("inherit", Token("root"));
 	}
 
-	BuildTarget(NameDescriptor n, Tokens v, IEnvironment *env): BuildTarget(n.rootName, env) {
+	BuildTarget(NameDescriptor n, Tokens v): BuildTarget(n.rootName) {
 		assign(n.propertyName, v);
 	}
 
@@ -53,11 +52,6 @@ struct BuildTarget: public IBuildTarget {
 			assign(v.first, v.second);
 		}
 	}
-
-	IEnvironment &env() {
-		return *_env;
-	}
-
 
 	Tokens &property(Token propertyName) override {
 		return _properties[propertyName];
@@ -171,14 +165,14 @@ struct BuildTarget: public IBuildTarget {
 
 
 	//! Returns all files in a property
-	Tokens getGroups(const Token &propertyName) {
+	Tokens getGroups(const Token &propertyName, IFiles &files) const {
 		auto sourceString = get(propertyName);
 
 		auto groups = sourceString.groups();
 
 		Tokens ret;
 		for (auto g: groups) {
-			auto sourceFiles = env().fileHandler().findFiles(g.concat());
+			auto sourceFiles = files.findFiles(g.concat());
 			ret.insert(ret.end(), sourceFiles.begin(), sourceFiles.end());
 		}
 
@@ -218,31 +212,31 @@ struct BuildTarget: public IBuildTarget {
 		}
 	}
 
-	std::vector<std::unique_ptr<IDependency>> calculateDependencies() {
+	std::vector<std::unique_ptr<IDependency>> calculateDependencies(IFiles &files) {
 		if (name() == "root") {
 			return {};
 		}
 
 		std::vector<std::unique_ptr<IDependency>> dependencies;
 
-		_outputFile = new LinkFile(filename(), this, _env, _compilerType.get());
+		_outputFile = new LinkFile(filename(), this, _compilerType.get());
 
-		for (auto filename: getGroups("src")) {
+		for (auto filename: getGroups("src", files)) {
 			if (filename.empty()) {
 				continue;
 			}
 			filename = preprocessCommand(filename);
 			dependencies.emplace_back(
-					new BuildFile(filename, this, _env));
+					new BuildFile(filename, this));
 		}
-		for (auto &filename: getGroups("copy")) {
+		for (auto &filename: getGroups("copy", files)) {
 			if (filename.empty()) {
 				continue;
 			}
 			filename = preprocessCommand(filename);
-			dependencies.emplace_back(new CopyFile(filename, this, _env));
+			dependencies.emplace_back(new CopyFile(filename, this));
 		}
-		for (auto &link: getGroups("link")) {
+		for (auto &link: getGroups("link", files)) {
 			if (link.empty()) {
 				continue;
 			}
@@ -278,9 +272,9 @@ struct BuildTarget: public IBuildTarget {
 		return Executable;
 	}
 
-	void build() override {
-		outputFile()->build();
-	}
+//	void build(IFiles &files) override {
+//		outputFile()->build(files);
+//	}
 
 
 	//! Path minus directory
@@ -381,9 +375,4 @@ struct BuildTarget: public IBuildTarget {
 	IDependency *outputFile() const override {
 		return _outputFile;
 	}
-
-	void clean() override {
-		outputFile()->clean();
-	}
-
 };
