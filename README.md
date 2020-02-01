@@ -8,14 +8,15 @@ Design goals:
 * Automatic dependency checks
 	* Source files is parsed to find dependencies
 * Single command builds
-	* Configure step is and should allways be optional
+	* Configure step is and should always be optional
 * Fast to setup new c++ projects
 	* one single command to generate a start for a project
 * Should handle when the project and complexity grows
 * Simple beautiful syntax
 	* A minimal amount of function names is used
 	* Built in commands are lower case
-	* Built in syntax, and most commands should be available through `matmake --help'
+	* Built in syntax, and most commands should be available through `matmake --help` 
+	* Example commands is available through `matmake --example` 
 * Fast compile times.
 	* Standard is to compile multi threaded
 	* Dependency checks is similar to makefiles
@@ -92,9 +93,8 @@ How does it look?
 compiles to executable `program`:
 
 ```
-flags += -std=c++14       # global flags added to all targets
-program.src += src/*.cpp  # include all sources in src
-program.exe = %           # set the output to the same name as the target (this line can be omitted)
+config += c++14 Wall      # configurations converted to compile flags
+program.src += src/*.cpp  # include all cpp files in folder src to target program
 ```
 
 #### More complex examples.
@@ -117,7 +117,7 @@ sdl.src +=                 # multiline arguments start line with whitespace
 
 sdl.libs += -pthread -ldl  # argument at link time
 
-sdl.dll = SDL2             # sets output to be a library
+sdl.out = shared SDL2      # sets output to be a library
                            # -fPIC is automatically added for g++ and clang
 sdl.dir = bin              # set output directory
 
@@ -140,7 +140,7 @@ bullet.src +=
 
 bullet.libs += -pthread -ldl
 
-bullet.dll = bullet
+bullet.out = shared bullet # creates a so file (linux) or dll (windows)
 ```
 
 #### Inheritance:
@@ -150,7 +150,7 @@ Create several projects with shared settings
 
 # global settings are inherited by all targets by default
 flags += -Wall             # global c++ and c flags
-cppflags += -std=c++14     # global flags for c++ only
+config += c++14 Wall       # configuration of the project
 
 main.src = src/**.cpp      # ** means recursive search
 
