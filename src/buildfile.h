@@ -100,10 +100,11 @@ public:
 
 		Token depCommand;
 
+		depCommand = " -MMD -MF " + depFile() + " ";
+		depCommand.location = _filename.location;
+		
 		if (dependencyFiles.empty()) {
 			dout << "file is dirty" << endl;
-			depCommand = " -MMD -MF " + depFile() + " ";
-			depCommand.location = _filename.location;
 			dirty(true);
 		}
 		else {
