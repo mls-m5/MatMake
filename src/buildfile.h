@@ -88,7 +88,7 @@ public:
 	}
 
 
-	void build(const IFiles &files) override {
+	void prepare(const IFiles &files) override {
 		auto inputChangedTime = getInputChangedTime(files);
 		auto dependencyFiles = parseDepFile();
 		time_t outputChangedTime = changedTime(files);

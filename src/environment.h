@@ -201,7 +201,7 @@ public:
 		auto files = calculateDependencies(parseTargetArguments(targetArguments));
 
 		for (auto& file: files) {
-			file->build(*_fileHandler);
+			file->prepare(*_fileHandler);
 		}
 
 		createDirectories(files);

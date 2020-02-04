@@ -23,7 +23,7 @@ public:
 		output(removeDoubleDots(target->getOutputDir() + filename));
 	}
 
-	void build(const IFiles& files) override {
+	void prepare(const IFiles& files) override {
 		if (_isBuildCalled) {
 			return;
 		}
@@ -39,9 +39,6 @@ public:
 
 		time_t lastDependency = 0;
 		for (auto &d: dependencies()) {
-			if (!d->includeInBinary()) {
-				continue;
-			}
 			auto t = d->changedTime(files);
 			if (d->dirty()) {
 				d->addSubscriber(this);

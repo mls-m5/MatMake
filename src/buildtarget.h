@@ -72,7 +72,7 @@ struct BuildTarget: public IBuildTarget {
 		property(propertyName) = value;
 
 		if (propertyName == "inherit") {
-			auto parent = getParent(targets);
+			auto parent = targets.find(value.concat());
 			if (parent) {
 				inherit(parent);
 			}
@@ -188,13 +188,6 @@ struct BuildTarget: public IBuildTarget {
 		return ret;
 	}
 
-	//! Get the parent inherited from
-	//! This differs from the _parent member
-	//! #TODO: Fix naming
-	IBuildTarget *getParent(const Targets& targets) const {
-		auto inheritFrom = get("inherit").concat();
-		return targets.find(inheritFrom);
-	}
 
 	void print() override {
 		vout << "target " << _name << ": " << endl;
@@ -256,7 +249,9 @@ struct BuildTarget: public IBuildTarget {
 		}
 
 		for (auto& dep: dependencies) {
-			_outputFile->addDependency(dep.get());
+			if (dep->includeInBinary()) {
+				_outputFile->addDependency(dep.get());
+			}
 		}
 
 		dependencies.push_back(unique_ptr<IDependency>(_outputFile));

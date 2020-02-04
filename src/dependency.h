@@ -43,20 +43,6 @@ public:
 		return time;
 	}
 
-	virtual void work(const IFiles &files, ThreadPool& pool) override {
-		if (!command().empty()) {
-			vout << command() << endl;
-			pair <int, string> res = files.popenWithResult(command());
-			if (res.first) {
-				throw MatmakeError(command(), "could not build object:\n" + command() + "\n" + res.second);
-			}
-			else if (!res.second.empty()) {
-				cout << (command() + "\n" + res.second + "\n") << std::flush;
-			}
-			dirty(false);
-			sendSubscribersNotice(pool);
-		}
-	}
 
 	//! Returns the changed time of the oldest of all output files
 	virtual time_t changedTime(const IFiles &files) const override {
@@ -141,8 +127,8 @@ public:
 		_accessMutex.unlock();
 	}
 
-	bool dirty() const override { return _dirty; }
-	void dirty(bool value) override { _dirty = value; }
+	bool dirty() const final { return _dirty; }
+	void dirty(bool value) final { _dirty = value; }
 
 	const set<class IDependency*> dependencies() const override {
 		return _dependencies;
@@ -199,15 +185,27 @@ public:
 		}
 	}
 
-	std::string createNinjaDescription() const {
-		std::string outputsString, inputsString;
-		for (auto &out: _outputs) {
-			outputsString += (" " + out);
+	Token linkString() const override {
+		return output();
+	}
+
+	IBuildTarget *target() const override {
+		return _target;
+	}
+
+	virtual void work(const IFiles &files, ThreadPool& pool) override {
+		if (!command().empty()) {
+			vout << command() << endl;
+			pair <int, string> res = files.popenWithResult(command());
+			if (res.first) {
+				throw MatmakeError(command(), "could not build object:\n" + command() + "\n" + res.second);
+			}
+			else if (!res.second.empty()) {
+				cout << (command() + "\n" + res.second + "\n") << std::flush;
+			}
+			dirty(false);
+			sendSubscribersNotice(pool);
 		}
-		for (auto &in: _inputs) {
-			inputsString += (" " + in);
-		}
-		return "build" + outputsString + ":???_??? " + inputsString;
 	}
 
 	void prune() override {
@@ -222,13 +220,5 @@ public:
 			dout << "removing dependency " << d->output() << endl;
 			_dependencies.erase(d);
 		}
-	}
-
-	Token linkString() const override {
-		return output();
-	}
-
-	IBuildTarget *target() const override {
-		return _target;
 	}
 };

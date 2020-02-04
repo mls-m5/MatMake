@@ -24,7 +24,7 @@ public:
 		input(source);
 	}
 
-	void build(const IFiles &files) override {
+	void prepare(const IFiles &files) override {
 		if (output().empty()) {
 			return;
 		}
