@@ -24,10 +24,6 @@ public:
 		input(source);
 	}
 
-	time_t getSourceChangedTime(const IFiles& files) const {
-		return files.getTimeChanged(input());
-	}
-
 	void build(const IFiles &files) override {
 		if (output().empty()) {
 			return;
@@ -35,9 +31,8 @@ public:
 		if (output() == input()) {
 			vout << "file " << output() << " source and target is on same place. skipping" << endl;
 		}
-		auto timeChanged = getTimeChanged(files);
 
-		if (getSourceChangedTime(files) > timeChanged) {
+		if (inputChangedTime(files) > changedTime(files)) {
 			dirty(true);
 		}
 	}

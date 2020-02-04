@@ -32,8 +32,15 @@ public:
 
 	virtual ~Dependency() override = default;
 
-	virtual time_t getTimeChanged(const IFiles &files) const {
-		return files.getTimeChanged(output());
+	// Get the latest time of times changed for input files
+	virtual time_t inputChangedTime(const IFiles &files) const {
+		time_t time = 0;
+
+		for (auto &input: inputs()) {
+			time = std::max(time, files.getTimeChanged(input));
+		}
+
+		return time;
 	}
 
 	virtual void work(const IFiles &files, ThreadPool& pool) override {
@@ -179,6 +186,10 @@ public:
 		_inputs = {std::move(in)};
 	}
 
+	vector<Token> inputs() const {
+		return _inputs;
+	}
+
 	Token input() const {
 		if (_inputs.empty()) {
 			return "";
@@ -200,6 +211,7 @@ public:
 	}
 
 	void prune() override {
+		dout << "pruning " << output() << endl;
 		vector<IDependency*> toRemove;
 		for (auto* dep: _dependencies) {
 			if (!dep->dirty()) {
@@ -207,6 +219,7 @@ public:
 			}
 		}
 		for (auto d: toRemove) {
+			dout << "removing dependency " << d->output() << endl;
 			_dependencies.erase(d);
 		}
 	}

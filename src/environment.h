@@ -207,10 +207,10 @@ public:
 		createDirectories(files);
 
 		for (auto &file: files) {
+			file->prune();
 			if (file->dirty()) {
 				dout << "file " << file->output() << " is dirty" << endl;
 				tasks.addTaskCount();
-				file->prune();
 				if (file->dependencies().empty()) {
 					tasks.addTask(file.get());
 				}

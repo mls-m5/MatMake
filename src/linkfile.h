@@ -39,20 +39,21 @@ public:
 
 		time_t lastDependency = 0;
 		for (auto &d: dependencies()) {
-			auto t = changedTime(files);
+			if (!d->includeInBinary()) {
+				continue;
+			}
+			auto t = d->changedTime(files);
 			if (d->dirty()) {
 				d->addSubscriber(this);
-				std::lock_guard<Dependency> g(*this);
+				dirty(true);
 			}
-			if (t > lastDependency) {
-				lastDependency = t;
-			}
+			lastDependency = std::max(t, lastDependency);
 			if (t == 0) {
 				dirty(true);
 			}
 		}
 
-		if (lastDependency > getTimeChanged(files)) {
+		if (lastDependency > changedTime(files)) {
 			dirty(true);
 		}
 		else if (!dirty()) {
