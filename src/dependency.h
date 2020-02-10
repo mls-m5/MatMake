@@ -10,6 +10,7 @@
 #include "files.h"
 #include <mutex>
 #include <set>
+#include <fstream>
 
 class IBuildTarget;
 
@@ -198,10 +199,19 @@ public:
 			vout << command() << endl;
 			pair <int, string> res = files.popenWithResult(command());
 			if (res.first) {
-				throw MatmakeError(command(), "could not build object:\n" + command() + "\n" + res.second);
+				throw MatmakeError(command(), "could not build object:\n" +
+						command() + "\n" + res.second);
 			}
-			else if (!res.second.empty()) {
-				cout << (command() + "\n" + res.second + "\n") << std::flush;
+			else {
+				auto depFile = this->depFile();
+				if (!depFile.empty() && files.getTimeChanged(depFile)) {
+					ofstream file(depFile, fstream::app);
+					file << "\t" << command();
+				}
+
+				if (!res.second.empty()) {
+					cout << (command() + "\n" + res.second + "\n") << std::flush;
+				}
 			}
 			dirty(false);
 			sendSubscribersNotice(pool);

@@ -55,7 +55,7 @@ public:
 	}
 
 	Token preprocessCommand(Token command) const {
-		return target()->preprocessCommand(command);
+		return Token(trim(target()->preprocessCommand(command)), command.location);
 	}
 
 	Token getFlags() {
@@ -68,18 +68,35 @@ public:
 
 	//! Calculate dependencies from makefile styled .d files generated
 	//! by the compiler
-	vector<string> parseDepFile() const {
+	pair<vector<string>, string> parseDepFile() const {
 		ifstream file(target()->preprocessCommand(depFile()));
 		if (file.is_open()) {
 			vector <string> ret;
-			string d;
-			file >> d; //The first is the target path
-			while (file >> d) {
-				if (d != "\\") { // Skip backslash (is used before newlines)
-					ret.push_back(d);
+			string command;
+
+			string line;
+			bool firstLine = true;
+			while (getline(file, line)) {
+				istringstream ss(line);
+
+				if (!line.empty() && line.front() == '\t') {
+					command = trim(line);
+					break;
+				}
+				else {
+					string d;
+					if (firstLine) {
+						ss >> d; //The first is the target path --> ignore
+						firstLine = false;
+					}
+					while (ss >> d) {
+						if (d != "\\") { // Skip backslash (is used before newlines)
+							ret.push_back(d);
+						}
+					}
 				}
 			}
-			return ret;
+			return {ret, command};
 		}
 		else {
 			dout << "could not find .d file for " << output() << " --> " << depFile() << endl;
@@ -90,7 +107,9 @@ public:
 
 	void prepare(const IFiles &files) override {
 		auto inputChangedTime = getInputChangedTime(files);
-		auto dependencyFiles = parseDepFile();
+		vector<string> dependencyFiles;
+		string oldCommand;
+		tie(dependencyFiles, oldCommand) = parseDepFile();
 		time_t outputChangedTime = changedTime(files);
 
 		if (outputChangedTime < inputChangedTime) {
@@ -112,21 +131,24 @@ public:
 				auto dependencyTimeChanged = files.getTimeChanged(d);
 				if (   dependencyTimeChanged == 0
 						|| dependencyTimeChanged > outputChangedTime) {
-					dout << "rebuilding because older than " << d;
+					dout << "rebuilding because older than " << d << endl;
 					dirty(true);
 					break;
 				}
 			}
 		}
 
-		if (dirty()) {
-			auto flags = getFlags();
-			Token command = target()->getCompiler(_filetype) + " -c -o " + output()
-					  + " " + _filename + " " + flags + depCommand;
+		auto flags = getFlags();
+		Token command = target()->getCompiler(_filetype) + " -c -o " + output()
+							  + " " + _filename + " " + flags + depCommand;
 
-			command = preprocessCommand(command);
-			command.location = _filename.location;
-			this->command(command);
+		command = preprocessCommand(command);
+		command.location = _filename.location;
+		this->command(command);
+
+		if (!dirty() && command != oldCommand) {
+			dout << "command is changed for " << output() << endl;
+			dirty(true);
 		}
 	}
 };
