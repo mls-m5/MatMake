@@ -5,9 +5,4 @@
  *      Author: Mattias Larsson Sköld
  */
 
-
 #pragma once
-
-
-
-

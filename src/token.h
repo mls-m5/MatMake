@@ -1,226 +1,222 @@
 #pragma once
 
-#include <string>
-#include <sstream>
-#include <vector>
 #include <algorithm>
-
+#include <sstream>
+#include <string>
+#include <vector>
 
 // trim from both ends (copying)
 inline std::string trim(std::string s) {
-	auto front = find_if(s.begin(), s.end(), [] (int ch) {
-		return !isspace(ch);
-	});
-	auto back = find_if(s.rbegin(), s.rend(), [] (int ch) {
-					return !isspace(ch);
-				}).base();
+    auto front =
+        find_if(s.begin(), s.end(), [](int ch) { return !isspace(ch); });
+    auto back = find_if(s.rbegin(), s.rend(), [](int ch) {
+                    return !isspace(ch);
+                }).base();
 
-	return std::string(front, back);
+    return std::string(front, back);
 }
-
 
 inline bool isSpecialChar(char c) {
-	using std::string;
-	const string special = "+=.-:*";
-	return special.find(c) != string::npos;
+    using std::string;
+    const string special = "+=.-:*";
+    return special.find(c) != string::npos;
 }
 
+struct Token : public std::string {
+    std::string trailingSpace;
+    struct Location {
+        Location() = default;
+        Location(long line, long col) : line(line), col(col) {}
+        long line = 0;
+        long col = 0;
+    } location;
 
-struct Token: public std::string {
-	std::string trailingSpace;
-	struct Location {
-		Location() = default;
-		Location (long line, long col): line(line), col(col) {}
-		long line = 0;
-		long col = 0;
-	} location;
+    Token(const Token &t) = default;
+    Token() = default;
+    Token(Token &&t) = default;
+    Token &operator=(const Token &) = default;
+    Token(const std::string str, Location l = {0, 0})
+        : std::string(str), location(l) {}
+    Token(const char *c, Location l = {0, 0}) : std::string(c), location(l) {}
+    Token(std::string::iterator begin,
+          std::string::iterator end,
+          Location l = {0, 0})
+        : std::string(begin, end), location(l) {}
 
-	Token(const Token &t) = default;
-	Token() = default;
-	Token(Token && t) = default;
-	Token &operator = (const Token &) = default;
-	Token(const std::string str, Location l = {0, 0}): std::string(str), location(l) {}
-	Token(const char* c, Location l = {0,0 }): std::string(c), location(l) {}
-	Token(std::string::iterator begin, std::string::iterator end, Location l = {0,0 }): std::string(begin, end), location(l) {}
+    friend std::ostream &operator<<(std::ostream &s, const Token &t) {
+        if (t.empty()) {
+            s << "(empty) ";
+        }
+        s << std::string(t) << t.trailingSpace;
+        return s;
+    }
 
-	friend std::ostream &operator << (std::ostream &s, const Token &t) {
-		if (t.empty()) {
-			s << "(empty) ";
-		}
-		s << std::string(t) << t.trailingSpace;
-		return s;
-	}
+    //! Access the string part of the token
+    std::string &str() {
+        return *this;
+    }
 
-	//! Access the string part of the token
-	std::string &str() {
-		return *this;
-	}
+    const std::string &str() const {
+        return *this;
+    }
 
-	const std::string &str() const {
-		return *this;
-	}
+    //! returns the token without surrounding whitespaces
+    Token trim() const {
+        return Token(::trim(str()), location);
+    }
 
-	//! returns the token without surrounding whitespaces
-	Token trim() const {
-		return Token(::trim(str()), location);
-	}
-
-	std::string getLocationDescription() const {
-		std::stringstream ss;
-		ss << "Matmakefile:" << location.line << ":" << location.col;
-		return ss.str();
-	}
+    std::string getLocationDescription() const {
+        std::stringstream ss;
+        ss << "Matmakefile:" << location.line << ":" << location.col;
+        return ss.str();
+    }
 };
 
+struct Tokens : public std::vector<Token> {
+    Tokens() = default;
+    Tokens(Tokens &&t) = default;
+    Tokens(const Tokens &t) = default;
+    Tokens(const Token &t) {
+        emplace_back(t);
+    }
+    Tokens &operator=(const Tokens &) = default;
+    Tokens(vector<Token>::iterator begin, vector<Token>::iterator end)
+        : vector<Token>(begin, end) {}
 
-struct Tokens: public std::vector<Token> {
-	Tokens() = default;
-	Tokens(Tokens &&t) = default;
-	Tokens(const Tokens &t) = default;
-	Tokens(const Token &t) {
-		emplace_back(t);
-	}
-	Tokens& operator=(const Tokens&) = default;
-	Tokens(vector<Token>::iterator begin, vector<Token>::iterator end): vector<Token>(begin, end) {
-	}
+    friend std::ostream &operator<<(std::ostream &s, const Tokens &t) {
+        for (auto it = t.begin(); it != t.end(); ++it) {
+            s << *it << it->trailingSpace;
+        }
+        return s;
+    }
 
-	friend std::ostream &operator << (std::ostream &s, const Tokens &t) {
-		for (auto it = t.begin(); it != t.end(); ++it) {
-			s << *it << it->trailingSpace;
-		}
-		return s;
-	}
+    // Find groups without spaces between them
+    vector<Tokens> groups() const {
+        if (empty()) {
+            return {};
+        }
 
-	//Find groups without spaces between them
-	vector<Tokens> groups() const {
-		if (empty()) {
-			return {};
-		}
+        vector<Tokens> ret;
+        ret.emplace_back();
 
-		vector<Tokens> ret;
-		ret.emplace_back();
+        for (auto &t : *this) {
+            ret.back().emplace_back(t);
+            if (!t.trailingSpace.empty()) {
+                ret.emplace_back();
+            }
+        }
 
-		for (auto &t: *this) {
-			ret.back().emplace_back(t);
-			if (!t.trailingSpace.empty()) {
-				ret.emplace_back();
-			}
-		}
+        if (!ret.empty()) {
+            if (ret.back().empty()) {
+                ret.pop_back();
+            }
+        }
 
-		if (!ret.empty()) {
-			if (ret.back().empty()) {
-				ret.pop_back();
-			}
-		}
+        return ret;
+    }
 
-		return ret;
-	}
+    Token concat() const {
+        if (empty()) {
+            return {};
+        }
 
-	Token concat() const {
-		if (empty()) {
-			return {};
-		}
+        Token ret;
 
-		Token ret;
+        for (size_t i = 0; i < size() - 1; ++i) {
+            auto &it = at(i);
+            ret += it + it.trailingSpace;
+        }
+        ret += back();
 
-		for (size_t i = 0; i < size() - 1; ++i) {
-			auto &it = at(i);
-			ret += it + it.trailingSpace;
-		}
-		ret += back();
+        ret.location = front().location;
+        return ret;
+    }
 
-		ret.location = front().location;
-		return ret;
-	}
-
-	Tokens &append (const Tokens &other) {
-		if (!empty() && back().trailingSpace.empty()) {
-			back().trailingSpace += " ";
-		}
-		insert(end(), other.begin(), other.end());
-		return *this;
-	}
+    Tokens &append(const Tokens &other) {
+        if (!empty() && back().trailingSpace.empty()) {
+            back().trailingSpace += " ";
+        }
+        insert(end(), other.begin(), other.end());
+        return *this;
+    }
 };
-
-
 
 Tokens tokenize(std::string line, int lineNumber) {
-	using std::string;
-	std::istringstream ss(line);
-	Tokens ret;
+    using std::string;
+    std::istringstream ss(line);
+    Tokens ret;
 
-	// The column index for the current character
-	int col = 1;
+    // The column index for the current character
+    int col = 1;
 
-	auto get = [&] () {
-		++col;
-		return static_cast<char>(ss.get());
-	};
+    auto get = [&]() {
+        ++col;
+        return static_cast<char>(ss.get());
+    };
 
-	auto newWord = [&] () {
-		if (ret.empty() || !ret.back().empty()) {
-			ret.emplace_back();
-			ret.back().location.line = lineNumber;
-			ret.back().location.col = col;
-		}
-	};
+    auto newWord = [&]() {
+        if (ret.empty() || !ret.back().empty()) {
+            ret.emplace_back();
+            ret.back().location.line = lineNumber;
+            ret.back().location.col = col;
+        }
+    };
 
-	newWord();
+    newWord();
 
-	while (ss && isspace(ss.peek())) {
-		ss.get(); //Clear spaces in beginning of line
-	}
+    while (ss && isspace(ss.peek())) {
+        ss.get(); // Clear spaces in beginning of line
+    }
 
-	while (ss) {
-		auto c = get();
-		if (c == -1) {
-			continue;
-		}
-		if (isspace(c)) {
-			ret.back().trailingSpace.push_back(c);
-			while (isspace(ss.peek())) {
-				ret.back().trailingSpace.push_back(get());
-			}
-			newWord();
-			continue;
-		}
-		else if (isSpecialChar(c)) {
-			newWord();
-			ret.back().push_back(c);
-			while (isSpecialChar(static_cast<char>(ss.peek()))) {
-				ret.back().push_back(get());
-				if (ret.back().back() == '=') {
-					break;
-				}
-			}
-			if (!isspace(ss.peek())) {
-				newWord();
-			}
-			continue;
-		}
-		else if (c == '#') {
-			string line;
-			getline(ss, line); //Remove the rest of the line
-			continue;
-		}
+    while (ss) {
+        auto c = get();
+        if (c == -1) {
+            continue;
+        }
+        if (isspace(c)) {
+            ret.back().trailingSpace.push_back(c);
+            while (isspace(ss.peek())) {
+                ret.back().trailingSpace.push_back(get());
+            }
+            newWord();
+            continue;
+        }
+        else if (isSpecialChar(c)) {
+            newWord();
+            ret.back().push_back(c);
+            while (isSpecialChar(static_cast<char>(ss.peek()))) {
+                ret.back().push_back(get());
+                if (ret.back().back() == '=') {
+                    break;
+                }
+            }
+            if (!isspace(ss.peek())) {
+                newWord();
+            }
+            continue;
+        }
+        else if (c == '#') {
+            string line;
+            getline(ss, line); // Remove the rest of the line
+            continue;
+        }
 
-		ret.back().push_back(c);
-	}
-	if (ret.back().empty()) {
-		ret.pop_back();
-	}
-	return ret;
+        ret.back().push_back(c);
+    }
+    if (ret.back().empty()) {
+        ret.pop_back();
+    }
+    return ret;
 }
 
-
-Token concatTokens(const std::vector<Token>::iterator begin, const std::vector<Token>::iterator end) {
-	Token ret;
-	for (auto it = begin; it != end; ++it) {
-		ret += ((*it) + it->trailingSpace);
-	}
-	if (begin != end) {
-		ret.location = begin->location;
-	}
-	return ret;
+Token concatTokens(const std::vector<Token>::iterator begin,
+                   const std::vector<Token>::iterator end) {
+    Token ret;
+    for (auto it = begin; it != end; ++it) {
+        ret += ((*it) + it->trailingSpace);
+    }
+    if (begin != end) {
+        ret.location = begin->location;
+    }
+    return ret;
 }
-

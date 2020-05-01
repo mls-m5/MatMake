@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include "token.h"
+#include <vector>
 
 class IFiles {
 public:
@@ -9,7 +9,8 @@ public:
 
     virtual std::vector<Token> findFiles(Token pattern) const = 0;
 
-    virtual std::pair<int, std::string> popenWithResult(std::string command) const = 0;
+    virtual std::pair<int, std::string> popenWithResult(
+        std::string command) const = 0;
 
     virtual time_t getTimeChanged(const std::string &path) const = 0;
 
@@ -25,11 +26,10 @@ public:
 
     virtual std::string getDirectory(std::string filename) const = 0;
 
-    virtual std::vector<std::string> listRecursive(std::string directory) const = 0;
+    virtual std::vector<std::string> listRecursive(
+        std::string directory) const = 0;
 
     virtual int remove(std::string filename) const = 0;
-
-
 };
 
 std::string removeDoubleDots(std::string string);

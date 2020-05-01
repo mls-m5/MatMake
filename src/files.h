@@ -1,13 +1,13 @@
 #pragma once
 
-#include "mdebug.h"
-#include <string>
-#include <stdexcept>
-#include <vector>
-#include "token.h"
-#include "merror.h"
 #include "matmake-common.h"
+#include "mdebug.h"
+#include "merror.h"
+#include "token.h"
 #include <array>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include <stdio.h> //For FILENAME_MAX
 
@@ -25,8 +25,8 @@
 #else
 #include <unistd.h>
 #define GetCurrentDir getcwd
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #include <dirent.h>
 #include <unistd.h>
@@ -36,37 +36,39 @@ using namespace std;
 
 #include "ifiles.h"
 
-
 // Joins two paths and makes sure that the path separator does not
 // end up in the beginning of the new path
 std::string joinPaths(std::string a, std::string b) {
-	if (a.empty()) {
-		return b;
-	}
-	else {
-		return a.back() == '/'? a + b: (a + pathSeparator + b);
-	}
+    if (a.empty()) {
+        return b;
+    }
+    else {
+        return a.back() == '/' ? a + b : (a + pathSeparator + b);
+    }
 }
 
-
-inline std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch = false) {
+inline std::pair<Token, Token> stripFileEnding(Token filename,
+                                               bool allowNoMatch = false) {
     filename = trim(filename);
 
     auto matchEnding = [&filename](const std::string &ending) {
-        return filename.length() > ending.length()
-               && filename.find(ending) == filename.length() - ending.length();
+        return filename.length() > ending.length() &&
+               filename.find(ending) == filename.length() - ending.length();
     };
 
     if (matchEnding(".cpp")) {
-        filename = Token(filename.begin(), filename.end() - 4, filename.location);
+        filename =
+            Token(filename.begin(), filename.end() - 4, filename.location);
         return {filename, "cpp"};
     }
     else if (matchEnding(".c")) {
-        filename = Token(filename.begin(), filename.end() - 2, filename.location);
+        filename =
+            Token(filename.begin(), filename.end() - 2, filename.location);
         return {filename, "c"};
     }
     else if (matchEnding(".so")) {
-        filename = Token(filename.begin(), filename.end() - 3, filename.location);
+        filename =
+            Token(filename.begin(), filename.end() - 3, filename.location);
         return {filename, "so"};
     }
     else {
@@ -74,14 +76,13 @@ inline std::pair<Token, Token> stripFileEnding(Token filename, bool allowNoMatch
             return {filename, Token("", filename.location)};
         }
         else {
-            throw MatmakeError(filename, "unknown filetype in file " + filename);
+            throw MatmakeError(filename,
+                               "unknown filetype in file " + filename);
         }
     }
 }
 
-
-
-class Files: public IFiles {
+class Files : public IFiles {
 public:
     vector<Token> findFiles(Token pattern) const override {
         pattern = Token(trim(pattern), pattern.location);
@@ -95,8 +96,11 @@ public:
             string fileNameBeginning;
             auto directoryEnding = directory.rfind('/');
             if (directoryEnding != string::npos && directoryEnding < found) {
-                fileNameBeginning = string(directory.begin() + directoryEnding + 1, directory.begin() + found);
-                directory = string(directory.begin(), directory.begin() + directoryEnding);
+                fileNameBeginning =
+                    string(directory.begin() + directoryEnding + 1,
+                           directory.begin() + found);
+                directory = string(directory.begin(),
+                                   directory.begin() + directoryEnding);
             }
 
             vector<string> fileList;
@@ -115,7 +119,7 @@ public:
                     ret.push_back(filename);
                 }
             };
-            for (auto &file: fileList) {
+            for (auto &file : fileList) {
                 if (ending.empty()) {
                     addIfFile(joinPaths(directory, file));
                 }
@@ -136,7 +140,7 @@ public:
         return ret;
     }
 
-    std::pair<int, string> popenWithResult(string command) const override  {
+    std::pair<int, string> popenWithResult(string command) const override {
         pair<int, string> ret;
 
         FILE *file = popen((command + " 2>&1").c_str(), "r");
@@ -152,7 +156,8 @@ public:
             ret.second += buffer;
         }
 
-        auto result = pclose(file); // On some systems, not creating a variable for the result leads to a error.
+        auto result = pclose(file); // On some systems, not creating a variable
+                                    // for the result leads to a error.
 #ifdef _WIN32
         ret.first = result;
 #else
@@ -160,7 +165,6 @@ public:
 #endif
         return ret;
     }
-
 
     time_t getTimeChanged(const std::string &path) const override {
         struct stat file_stat;
@@ -172,7 +176,8 @@ public:
         return file_stat.st_mtime;
     }
 
-    // adapted from https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
+    // adapted from
+    // https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
     string getCurrentWorkingDirectory() const override {
         std::array<char, FILENAME_MAX> currentPath;
         if (!GetCurrentDir(currentPath.data(), sizeof(currentPath))) {
@@ -181,7 +186,7 @@ public:
         return currentPath.data();
     }
 
-    bool setCurrentDirectory(std::string directory) const override  {
+    bool setCurrentDirectory(std::string directory) const override {
         return chdir(directory.c_str());
     }
 
@@ -230,14 +235,14 @@ public:
         struct stat file_stat;
         int err = stat(path.c_str(), &file_stat);
         if (err != 0) {
-            // dout << "file or directory " << path << " does not exist" << endl;
+            // dout << "file or directory " << path << " does not exist" <<
+            // endl;
             return false;
         }
         return file_stat.st_mode & S_IFDIR;
     }
 
-
-    //Creates a directory if it does not exist
+    // Creates a directory if it does not exist
     void createDirectory(std::string dir) const override {
         if (system(("mkdir -p " + dir).c_str())) {
             std::runtime_error("could not create directory " + dir);
@@ -259,10 +264,10 @@ public:
         auto list = listFiles(directory);
         auto ret = list;
 
-        for (auto &f: list) {
+        for (auto &f : list) {
             if (isDirectory(directory + "/" + f)) {
                 auto subList = listRecursive(directory + "/" + f);
-                for (auto &s: subList) {
+                for (auto &s : subList) {
                     s = f + "/" + s;
                 }
                 ret.insert(ret.end(), subList.begin(), subList.end());
@@ -273,19 +278,15 @@ public:
     }
 
     int remove(std::string filename) const override {
-    	return ::remove(filename.c_str());
-
+        return ::remove(filename.c_str());
     }
-
 };
-
 
 std::string removeDoubleDots(std::string str) {
     auto findStr = ".." + pathSeparator;
     auto replaceStr = "_" + pathSeparator;
 
-    for (auto found = str.find(findStr);
-         found != string::npos;
+    for (auto found = str.find(findStr); found != string::npos;
          found = str.find(findStr)) {
 
         str.replace(found, findStr.length(), replaceStr);

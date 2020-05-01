@@ -1,26 +1,24 @@
-//Copyright Mattias Larsson Sköld 2019
+// Copyright Mattias Larsson Sköld 2019
 
 #pragma once
 
-
-#include "files.h"
-#include "token.h"
 #include "buildtarget.h"
 #include "dependency.h"
-#include "buildtarget.h"
 #include "environment.h"
+#include "files.h"
+#include "token.h"
 
 #include "globals.h" // Global variables
 
 using namespace std;
 
 bool isOperator(string &op) {
-	vector<string> opList = {
-		"=",
-		"+=",
-		"-=",
-		};
-	return find(opList.begin(), opList.end(), op) != opList.end();
+    vector<string> opList = {
+        "=",
+        "+=",
+        "-=",
+    };
+    return find(opList.begin(), opList.end(), op) != opList.end();
 }
 
 typedef bool IsErrorT;
@@ -28,7 +26,7 @@ typedef bool ShouldQuitT;
 
 namespace {
 
-const char * helpText = R"_(
+const char *helpText = R"_(
 Matmake
 
 A fast simple build system. It can be installed on the system or included with the source code
@@ -53,8 +51,7 @@ rebuild           first run clean and then build
 Matmake defaults to use optimal number of threads for the computer to match the number of cores.
 )_";
 
-
-const char * exampleMain = R"_(
+const char *exampleMain = R"_(
 #include <iostream>
 
 using namespace std;
@@ -68,7 +65,7 @@ int main(int argc, char **argv) {
 )_";
 
 const char *exampleMatmakefile =
-R"_(# Matmake file
+    R"_(# Matmake file
 # https://github.com/mls-m5/matmake
 
 cppflags +=                 # c++ only flags
@@ -113,411 +110,409 @@ clean:
 
 )_";
 
-}
+} // namespace
 
 std::string stripComments(const std::string code) {
-	std::istringstream ss(code);
-	std::ostringstream out;
+    std::istringstream ss(code);
+    std::ostringstream out;
 
-	auto parseLine = [](std::string line) -> std::string {
-		if (line.empty()) {
-			return "";
-		}
-		else if(line.front() == '#') {
-			return "x";
-		}
-		else {
-			return line;
-		}
-	};
+    auto parseLine = [](std::string line) -> std::string {
+        if (line.empty()) {
+            return "";
+        }
+        else if (line.front() == '#') {
+            return "x";
+        }
+        else {
+            return line;
+        }
+    };
 
-	string line;
+    string line;
 
-	for (size_t i = 0; i < 3; ++i) {
-		// Keep the comments on the first three lines
-		std::getline(ss, line);
-		out << line << endl;
-	}
+    for (size_t i = 0; i < 3; ++i) {
+        // Keep the comments on the first three lines
+        std::getline(ss, line);
+        out << line << endl;
+    }
 
-	while (std::getline(ss, line)) {
-		line = parseLine(line);
-		if (line != "x") {
-			out << line << endl;
-		}
-	}
+    while (std::getline(ss, line)) {
+        line = parseLine(line);
+        if (line != "x") {
+            out << line << endl;
+        }
+    }
 
-	return out.str();
+    return out.str();
 }
 
 //! Creates a project in the current folder
 //!
 //! @returns 0 on success anything else on error
 int createProject(string dir) {
-	Files files;
-	if (!dir.empty()) {
-		files.createDirectory(dir);
+    Files files;
+    if (!dir.empty()) {
+        files.createDirectory(dir);
 
-		if (chdir(dir.c_str())) {
-			cerr << "could not create directory " << dir << endl;
-			return -1;
-		}
-	}
+        if (chdir(dir.c_str())) {
+            cerr << "could not create directory " << dir << endl;
+            return -1;
+        }
+    }
 
-	if (files.getTimeChanged("Matmakefile") > 0) {
-		cerr << "Matmakefile already exists. Exiting..." << endl;
-		return -1;
-	}
+    if (files.getTimeChanged("Matmakefile") > 0) {
+        cerr << "Matmakefile already exists. Exiting..." << endl;
+        return -1;
+    }
 
-	{
-		ofstream file("Matmakefile");
-//		file << exampleMatmakefile;
-		file << stripComments(exampleMatmakefile);
-	}
+    {
+        ofstream file("Matmakefile");
+        //		file << exampleMatmakefile;
+        file << stripComments(exampleMatmakefile);
+    }
 
+    if (files.getTimeChanged("Makefile") > 0) {
+        cerr << "Makefile already exists. Exiting..." << endl;
+        return -1;
+    }
 
-	if (files.getTimeChanged("Makefile") > 0) {
-		cerr << "Makefile already exists. Exiting..." << endl;
-		return -1;
-	}
+    {
+        ofstream file("Makefile");
+        file << exampleMakefile;
+    }
 
-	{
-		ofstream file("Makefile");
-		file << exampleMakefile;
-	}
+    files.createDirectory("src");
 
-	files.createDirectory("src");
+    if (files.getTimeChanged("src/main.cpp") > 0) {
+        cerr << "src/main.cpp file already exists. Exiting..." << endl;
+        return -1;
+    }
 
-	if (files.getTimeChanged("src/main.cpp") > 0) {
-		cerr << "src/main.cpp file already exists. Exiting..." << endl;
-		return -1;
-	}
+    files.createDirectory("include");
 
-	files.createDirectory("include");
+    {
+        ofstream file("src/main.cpp");
+        file << exampleMain;
+    }
 
-	{
-		ofstream file("src/main.cpp");
-		file << exampleMain;
-	}
-
-	cout << "project created";
-	if (!dir.empty()) {
-		cout << " in " << dir;
-	}
-	cout << "..." << endl;
-	return 0;
+    cout << "project created";
+    if (!dir.empty()) {
+        cout << " in " << dir;
+    }
+    cout << "..." << endl;
+    return 0;
 }
-
 
 IsErrorT tokenizeMatmakeFile() {
-	ifstream matmakefile("Matmakefile");
+    ifstream matmakefile("Matmakefile");
 
-	if (!matmakefile.is_open()) {
-		return true;
-	}
+    if (!matmakefile.is_open()) {
+        return true;
+    }
 
-	for (int lineNumber = 1;
-		   matmakefile;
-		   ++lineNumber) {
-		std::string line;
-		getline(matmakefile, line);
-		auto words = tokenize(line, lineNumber);
+    for (int lineNumber = 1; matmakefile; ++lineNumber) {
+        std::string line;
+        getline(matmakefile, line);
+        auto words = tokenize(line, lineNumber);
 
-		for (auto word: words) {
-			cout << word.location.line << ":"
-				 << word.location.col << " " << word
-				 << " '"  << word.trailingSpace << "'" << endl;
-		}
-	}
+        for (auto word : words) {
+            cout << word.location.line << ":" << word.location.col << " "
+                 << word << " '" << word.trailingSpace << "'" << endl;
+        }
+    }
 
-	return false;
+    return false;
 }
-
 
 //! Variables that is to be used by each start function
 struct Locals {
-	vector<string> targets; // What to build
-	vector<string> args; // Copy of command line arguments
-	vector<string> externalDependencies; // Dependencies to build before main build
-	vector<string> external; // External dependencies to build after main build
-	string operation = "build";
-	bool localOnly = false;
+    vector<string> targets; // What to build
+    vector<string> args;    // Copy of command line arguments
+    vector<string>
+        externalDependencies; // Dependencies to build before main build
+    vector<string> external;  // External dependencies to build after main build
+    string operation = "build";
+    bool localOnly = false;
 };
 
 //! Parse arguments and produce a new Locals object containing the result
 //!
 //! Also alters globals object if any options related to that is used
-std::tuple<ShouldQuitT, IsErrorT> parseArguments(
-		vector<string> args, Locals &locals) {
-	ShouldQuitT shouldQuit = false;
-	IsErrorT isError = false;
-
-	locals.args = args;
-
-	for (size_t i = 0; i < args.size(); ++i) {
-		string arg = args[i];
-		if (arg == "clean") {
-			locals.operation = "clean";
-		}
-		else if (arg == "rebuild") {
-			locals.operation = "rebuild";
-		}
-		else if(arg == "--local") {
-			locals.localOnly = true;
-		}
-		else if (arg == "-v" || arg == "--verbose") {
-			globals.verbose = true;
-		}
-		else if (arg == "--list" || arg == "-l") {
-			locals.operation = "list";
-		}
-		else if (arg == "--help" || arg == "-h") {
-			cout << helpText << endl;
-			shouldQuit = true;
-			break;
-		}
-		else if (arg == "--example") {
-			cout << "### Example matmake file (Matmakefile): " << endl;
-			cout << "'#' means comment" << endl;
-			cout << exampleMatmakefile << endl;
-			cout << "### Example main file (src/main.cpp):" << endl;
-			cout << exampleMain << endl;
-			shouldQuit = true;
-			break;
-		}
-		else if (arg == "--debug" || arg == "-d") {
-			globals.debugOutput = true;
-			globals.verbose = true;
-		}
-		else if (arg == "-j") {
-			++i;
-			if (i < args.size()) {
-				globals.numberOfThreads = static_cast<unsigned>(atoi(args[i].c_str()));
-			}
-			else {
-				cerr << "expected number of threads after -j argument" << endl;
-				isError = true;
-				break;
-			}
-		}
-		else if (arg == "--init") {
-			++i;
-			if (i < args.size()) {
-				string arg = args[i];
-				if (arg[0] != '-') {
-					isError = createProject(args[i]);
-					break;
-				}
-			}
-			isError = createProject("");
-			break;
-		}
-		else if (arg == "all") {
-			//Do nothing. Default is te build all
-		}
-		else if (arg == "--tokenize") {
-			// For debugging
-			tokenizeMatmakeFile();
-			shouldQuit = true;
-			break;
-		}
-		else {
-			locals.targets.push_back(arg);
-		}
-	}
-
-	return std::tuple<ShouldQuitT, IsErrorT> {shouldQuit, isError};
-}
-
-//! Parse the Matmakefile (obviously). Put result in environment.
-std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals& locals,
-                                                   IEnvironment &environment,
-												   const IFiles &files) {
+std::tuple<ShouldQuitT, IsErrorT> parseArguments(vector<string> args,
+                                                 Locals &locals) {
     ShouldQuitT shouldQuit = false;
     IsErrorT isError = false;
 
-	ifstream matmakefile("Matmakefile");
-	if (!matmakefile.is_open()) {
-		if (files.getTimeChanged("Makefile") || files.getTimeChanged("makefile")) {
-			cout << "makefile in " << files.getCurrentWorkingDirectory() << endl;
-			string arguments = "make";
-			for (auto arg: locals.args) {
-				arguments += (" " + arg);
-			}
-			arguments += " -j";
-			system(arguments.c_str());
-			cout << endl;
-		}
-		else {
-			cout << "matmake: could not find Matmakefile in " << files.getCurrentWorkingDirectory() << endl;
-		}
-		shouldQuit = true;
-		return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
-	}
+    locals.args = args;
 
-	int lineNumber = 1;
+    for (size_t i = 0; i < args.size(); ++i) {
+        string arg = args[i];
+        if (arg == "clean") {
+            locals.operation = "clean";
+        }
+        else if (arg == "rebuild") {
+            locals.operation = "rebuild";
+        }
+        else if (arg == "--local") {
+            locals.localOnly = true;
+        }
+        else if (arg == "-v" || arg == "--verbose") {
+            globals.verbose = true;
+        }
+        else if (arg == "--list" || arg == "-l") {
+            locals.operation = "list";
+        }
+        else if (arg == "--help" || arg == "-h") {
+            cout << helpText << endl;
+            shouldQuit = true;
+            break;
+        }
+        else if (arg == "--example") {
+            cout << "### Example matmake file (Matmakefile): " << endl;
+            cout << "'#' means comment" << endl;
+            cout << exampleMatmakefile << endl;
+            cout << "### Example main file (src/main.cpp):" << endl;
+            cout << exampleMain << endl;
+            shouldQuit = true;
+            break;
+        }
+        else if (arg == "--debug" || arg == "-d") {
+            globals.debugOutput = true;
+            globals.verbose = true;
+        }
+        else if (arg == "-j") {
+            ++i;
+            if (i < args.size()) {
+                globals.numberOfThreads =
+                    static_cast<unsigned>(atoi(args[i].c_str()));
+            }
+            else {
+                cerr << "expected number of threads after -j argument" << endl;
+                isError = true;
+                break;
+            }
+        }
+        else if (arg == "--init") {
+            ++i;
+            if (i < args.size()) {
+                string arg = args[i];
+                if (arg[0] != '-') {
+                    isError = createProject(args[i]);
+                    break;
+                }
+            }
+            isError = createProject("");
+            break;
+        }
+        else if (arg == "all") {
+            // Do nothing. Default is te build all
+        }
+        else if (arg == "--tokenize") {
+            // For debugging
+            tokenizeMatmakeFile();
+            shouldQuit = true;
+            break;
+        }
+        else {
+            locals.targets.push_back(arg);
+        }
+    }
 
-	auto getMultilineArgument = [&lineNumber, &matmakefile]() {
-		Tokens ret;
-		string line;
-		// Continue as long as the line starts with a space character
-		while (matmakefile && isspace(matmakefile.peek())) {
-			++lineNumber;
-			getline(matmakefile, line);
-			auto words = tokenize(line, lineNumber);
-			ret.append(words);
-			if (!ret.empty()) {
-				ret.back().trailingSpace += " ";
-			}
-		}
-
-		return ret;
-	};
-
-
-	for (string line; getline(matmakefile, line); ++lineNumber) {
-		auto words = tokenize(line, lineNumber);
-
-		if (!words.empty()) {
-			auto it = words.begin() + 1;
-			for (; it != words.end(); ++it) {
-				if (isOperator(*it)) {
-					break;
-				}
-			}
-			if (it != words.end()) {
-				auto argumentStart = it + 1;
-				vector<Token> variableName(words.begin(), it);
-				Tokens value(argumentStart, words.end());
-				auto variableNameString = concatTokens(words.begin(), it);
-
-				if (value.empty()) {
-					value = getMultilineArgument();
-				}
-
-				if (*it == "=") {
-					environment.setVariable(variableName, value);
-				}
-				else if (*it == "+=") {
-					environment.appendVariable(variableName, value);
-				}
-			}
-			else if (!locals.localOnly && words.size() >= 2 && words.front() == "external") {
-				vout << "external dependency to " << words[1] << endl;
-
-				environment.addExternalDependency(false,
-												  words[1],
-												  Tokens(words.begin() + 2, words.end()));
-			}
-			else if (!locals.localOnly && words.size() >= 2 && words.front() == "dependency") {
-				environment.addExternalDependency(true,
-												  words[1],
-												  Tokens(words.begin() + 2, words.end()));
-			}
-			else if (words.empty()) {
-			}
-			else {
-				std::cerr << words.front().getLocationDescription() << ":";
-				std::cerr << "'" << line << "': are you missing operator?" << endl;
-			}
-		}
-	}
-
-	return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
+    return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
 }
 
+//! Parse the Matmakefile (obviously). Put result in environment.
+std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals &locals,
+                                                   IEnvironment &environment,
+                                                   const IFiles &files) {
+    ShouldQuitT shouldQuit = false;
+    IsErrorT isError = false;
+
+    ifstream matmakefile("Matmakefile");
+    if (!matmakefile.is_open()) {
+        if (files.getTimeChanged("Makefile") ||
+            files.getTimeChanged("makefile")) {
+            cout << "makefile in " << files.getCurrentWorkingDirectory()
+                 << endl;
+            string arguments = "make";
+            for (auto arg : locals.args) {
+                arguments += (" " + arg);
+            }
+            arguments += " -j";
+            system(arguments.c_str());
+            cout << endl;
+        }
+        else {
+            cout << "matmake: could not find Matmakefile in "
+                 << files.getCurrentWorkingDirectory() << endl;
+        }
+        shouldQuit = true;
+        return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
+    }
+
+    int lineNumber = 1;
+
+    auto getMultilineArgument = [&lineNumber, &matmakefile]() {
+        Tokens ret;
+        string line;
+        // Continue as long as the line starts with a space character
+        while (matmakefile && isspace(matmakefile.peek())) {
+            ++lineNumber;
+            getline(matmakefile, line);
+            auto words = tokenize(line, lineNumber);
+            ret.append(words);
+            if (!ret.empty()) {
+                ret.back().trailingSpace += " ";
+            }
+        }
+
+        return ret;
+    };
+
+    for (string line; getline(matmakefile, line); ++lineNumber) {
+        auto words = tokenize(line, lineNumber);
+
+        if (!words.empty()) {
+            auto it = words.begin() + 1;
+            for (; it != words.end(); ++it) {
+                if (isOperator(*it)) {
+                    break;
+                }
+            }
+            if (it != words.end()) {
+                auto argumentStart = it + 1;
+                vector<Token> variableName(words.begin(), it);
+                Tokens value(argumentStart, words.end());
+                auto variableNameString = concatTokens(words.begin(), it);
+
+                if (value.empty()) {
+                    value = getMultilineArgument();
+                }
+
+                if (*it == "=") {
+                    environment.setVariable(variableName, value);
+                }
+                else if (*it == "+=") {
+                    environment.appendVariable(variableName, value);
+                }
+            }
+            else if (!locals.localOnly && words.size() >= 2 &&
+                     words.front() == "external") {
+                vout << "external dependency to " << words[1] << endl;
+
+                environment.addExternalDependency(
+                    false, words[1], Tokens(words.begin() + 2, words.end()));
+            }
+            else if (!locals.localOnly && words.size() >= 2 &&
+                     words.front() == "dependency") {
+                environment.addExternalDependency(
+                    true, words[1], Tokens(words.begin() + 2, words.end()));
+            }
+            else if (words.empty()) {
+            }
+            else {
+                std::cerr << words.front().getLocationDescription() << ":";
+                std::cerr << "'" << line << "': are you missing operator?"
+                          << endl;
+            }
+        }
+    }
+
+    return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
+}
 
 //! Do what operation was given in command line arguments and saved in locals
 ShouldQuitT work(const Locals &locals, IEnvironment &environment) {
-	try {
-		if (locals.operation == "build") {
-			environment.compile(locals.targets);
-		}
-		else if (locals.operation == "list") {
-			environment.listAlternatives();
-			return true;
-		}
-		else if (locals.operation == "clean") {
-			environment.clean(locals.targets);
-		}
-		else if (locals.operation == "rebuild") {
-			environment.clean(locals.targets);
-			if (!globals.bailout) {
-				environment.compile(locals.targets);
-			}
-		}
-	}
-	catch (MatmakeError &e) {
-		cerr << e.what() << endl;
-	}
-	catch (std::runtime_error &e) {
-		cerr << e.what() << endl;
-	}
+    try {
+        if (locals.operation == "build") {
+            environment.compile(locals.targets);
+        }
+        else if (locals.operation == "list") {
+            environment.listAlternatives();
+            return true;
+        }
+        else if (locals.operation == "clean") {
+            environment.clean(locals.targets);
+        }
+        else if (locals.operation == "rebuild") {
+            environment.clean(locals.targets);
+            if (!globals.bailout) {
+                environment.compile(locals.targets);
+            }
+        }
+    }
+    catch (MatmakeError &e) {
+        cerr << e.what() << endl;
+    }
+    catch (std::runtime_error &e) {
+        cerr << e.what() << endl;
+    }
 
-	return false;
+    return false;
 }
-
 
 //! The main entry point for a project.
 //!
 //! Runs once in the working directory and once in each directory specified
 //! with the import keyword
 int start(vector<string> args) {
-	auto startTime = time(nullptr);
+    auto startTime = time(nullptr);
 
-	Locals locals;
-	{
-		ShouldQuitT shouldQuit;
-		IsErrorT isError;
-		std::tie(shouldQuit, isError) = parseArguments(args, locals);
+    Locals locals;
+    {
+        ShouldQuitT shouldQuit;
+        IsErrorT isError;
+        std::tie(shouldQuit, isError) = parseArguments(args, locals);
 
-		if (isError) {
-			return -1;
-		}
+        if (isError) {
+            return -1;
+        }
 
-		if (shouldQuit) {
-			return 0;
-		}
-	}
+        if (shouldQuit) {
+            return 0;
+        }
+    }
 
-	auto files = make_shared<Files>();
-	Environment environment(files);
+    auto files = make_shared<Files>();
+    Environment environment(files);
 
-	{
-		ShouldQuitT shouldQuit;
-		IsErrorT isError;
-		std::tie(shouldQuit, isError) = parseMatmakeFile(locals, environment, *files);
+    {
+        ShouldQuitT shouldQuit;
+        IsErrorT isError;
+        std::tie(shouldQuit, isError) =
+            parseMatmakeFile(locals, environment, *files);
 
-		if (shouldQuit) {
-			return 0;
-		}
-		if (isError) {
-			globals.bailout = true;
-		}
-	}
+        if (shouldQuit) {
+            return 0;
+        }
+        if (isError) {
+            globals.bailout = true;
+        }
+    }
 
-	if (!globals.bailout) {
-		if (work(locals, environment)) {
-			return 0;
-		}
-	}
+    if (!globals.bailout) {
+        if (work(locals, environment)) {
+            return 0;
+        }
+    }
 
-	auto endTime = time(nullptr);
+    auto endTime = time(nullptr);
 
-	auto duration = endTime - startTime;
-	auto m = duration / 60;
-	auto s = duration - m * 60;
+    auto duration = endTime - startTime;
+    auto m = duration / 60;
+    auto s = duration - m * 60;
 
-	cout << endl;
-	if (globals.bailout) {
-		cout << "failed... " << m << "m " << s << "s" << endl;
-		return -1;
-	}
-	else {
-		string doneMessage = "done...";
-		if (locals.operation == "clean") {
-			doneMessage = "cleaned...";
-		}
-		cout << doneMessage << " " << m << "m " << s << "s" << endl;
-		return 0;
-	}
+    cout << endl;
+    if (globals.bailout) {
+        cout << "failed... " << m << "m " << s << "s" << endl;
+        return -1;
+    }
+    else {
+        string doneMessage = "done...";
+        if (locals.operation == "clean") {
+            doneMessage = "cleaned...";
+        }
+        cout << doneMessage << " " << m << "m " << s << "s" << endl;
+        return 0;
+    }
 }

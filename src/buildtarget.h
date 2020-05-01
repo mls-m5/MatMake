@@ -2,373 +2,370 @@
 
 #pragma once
 
-#include "ibuildtarget.h"
-#include "dependency.h"
 #include "buildfile.h"
 #include "copyfile.h"
+#include "dependency.h"
+#include "ibuildtarget.h"
 #include "linkfile.h"
 
-#include "globals.h"
 #include "compilertype.h"
+#include "globals.h"
 #include "ifiles.h"
 #include "targets.h"
 
 #include <map>
 
-
 //! A build target is a executable, dll or similar that depends
 //! on one or more build targets, build files or copy files
-struct BuildTarget: public IBuildTarget {
-	std::map<Token, Tokens> _properties;
-	Token _name;
+struct BuildTarget : public IBuildTarget {
+    std::map<Token, Tokens> _properties;
+    Token _name;
 
-	shared_ptr<ICompiler> _compilerType = make_shared<GCCCompiler>();
-	LinkFile *_outputFile = nullptr;
-	bool _isBuildCalled = false;
+    shared_ptr<ICompiler> _compilerType = make_shared<GCCCompiler>();
+    LinkFile *_outputFile = nullptr;
+    bool _isBuildCalled = false;
 
-	BuildTarget(Token name, IBuildTarget *root): _name(name) {
-		if (_name != "root") {
-			inherit(root);
-		}
-		else {
-			assign("cpp", Token("c++"));
-			assign("cc", Token("cc"));
-			assign("includes", Token(""));
-		}
-	}
+    BuildTarget(Token name, IBuildTarget *root) : _name(name) {
+        if (_name != "root") {
+            inherit(root);
+        }
+        else {
+            assign("cpp", Token("c++"));
+            assign("cc", Token("cc"));
+            assign("includes", Token(""));
+        }
+    }
 
-	BuildTarget(IBuildTarget *root) {
-		inherit(root);
-	}
+    BuildTarget(IBuildTarget *root) {
+        inherit(root);
+    }
 
-	BuildTarget(NameDescriptor n, Tokens v, IBuildTarget *root): BuildTarget(n.rootName, root) {
-		assign(n.propertyName, v);
-	}
+    BuildTarget(NameDescriptor n, Tokens v, IBuildTarget *root)
+        : BuildTarget(n.rootName, root) {
+        assign(n.propertyName, v);
+    }
 
-	void inherit(const IBuildTarget *parent) {
-		if (!parent) {
-			return;
-		}
-		for (auto v: parent->properties()) {
-			if (v.first == "inherit") {
-				continue;
-			}
-			assign(v.first, v.second);
-		}
-	}
+    void inherit(const IBuildTarget *parent) {
+        if (!parent) {
+            return;
+        }
+        for (auto v : parent->properties()) {
+            if (v.first == "inherit") {
+                continue;
+            }
+            assign(v.first, v.second);
+        }
+    }
 
-	Tokens &property(Token propertyName) override {
-		return _properties[propertyName];
-	}
+    Tokens &property(Token propertyName) override {
+        return _properties[propertyName];
+    }
 
-	void assign(Token propertyName, Tokens value) override {
-		if (propertyName == "inherit") {
-			cout << "Target " << name() << " tries to inherit wrong" << endl;
-		}
-		property(propertyName) = value;
-	}
+    void assign(Token propertyName, Tokens value) override {
+        if (propertyName == "inherit") {
+            cout << "Target " << name() << " tries to inherit wrong" << endl;
+        }
+        property(propertyName) = value;
+    }
 
-	void assign(Token propertyName, Tokens value, const Targets& targets) override {
-		property(propertyName) = value;
+    void assign(Token propertyName,
+                Tokens value,
+                const Targets &targets) override {
+        property(propertyName) = value;
 
-		if (propertyName == "inherit") {
-			auto parent = targets.find(value.concat());
-			if (parent) {
-				inherit(parent);
-			}
-		}
-	}
+        if (propertyName == "inherit") {
+            auto parent = targets.find(value.concat());
+            if (parent) {
+                inherit(parent);
+            }
+        }
+    }
 
-	void append(Token propertyName, Tokens value) override {
-		property(propertyName).append(value);
-	}
+    void append(Token propertyName, Tokens value) override {
+        property(propertyName).append(value);
+    }
 
-	Tokens get(const Token &propertyName) const override {
-		try {
-			return properties().at(propertyName);
-		}
-		catch (out_of_range &) {
-			return {};
-		}
-	}
+    Tokens get(const Token &propertyName) const override {
+        try {
+            return properties().at(propertyName);
+        }
+        catch (out_of_range &) {
+            return {};
+        }
+    }
 
-	const map<Token, Tokens> &properties() const override {
-		return _properties;
-	}
+    const map<Token, Tokens> &properties() const override {
+        return _properties;
+    }
 
-	Token getLibs() const override {
-		auto libs = get("libs");
+    Token getLibs() const override {
+        auto libs = get("libs");
 
-		return libs.concat();
-	}
+        return libs.concat();
+    }
 
-	Token preprocessCommand(Token command) const override {
-		for (size_t find = command.find('%');
-			 find != string::npos;
-			 find = command.find('%', find + 1)) {
-			command.replace(find, 1, name());
-		}
+    Token preprocessCommand(Token command) const override {
+        for (size_t find = command.find('%'); find != string::npos;
+             find = command.find('%', find + 1)) {
+            command.replace(find, 1, name());
+        }
 
-		return command;
-	}
+        return command;
+    }
 
-	Token getFlags() const override {
-		return get("flags").concat();
-	}
+    Token getFlags() const override {
+        return get("flags").concat();
+    }
 
-	Token getIncludeFlags() const {
-		Token ret;
+    Token getIncludeFlags() const {
+        Token ret;
 
-		auto includes = get("includes").groups();
-		for (auto &include: includes) {
-			auto includeStr = include.concat();
-			if (includeStr.empty()) {
-				continue;
-			}
-			ret += (" "
-					+ _compilerType->getString(CompilerString::IncludePrefix)
-					+ includeStr);
-		}
+        auto includes = get("includes").groups();
+        for (auto &include : includes) {
+            auto includeStr = include.concat();
+            if (includeStr.empty()) {
+                continue;
+            }
+            ret +=
+                (" " + _compilerType->getString(CompilerString::IncludePrefix) +
+                 includeStr);
+        }
 
-		auto sysincludes = get("sysincludes").groups();
-		for (auto &include: sysincludes) {
-			auto includeStr = include.concat().trim();
-			if (includeStr.empty()) {
-				continue;
-			}
-			ret += (" "
-					+ _compilerType->getString(CompilerString::SystemIncludePrefix)
-					+ include.concat());
-		}
+        auto sysincludes = get("sysincludes").groups();
+        for (auto &include : sysincludes) {
+            auto includeStr = include.concat().trim();
+            if (includeStr.empty()) {
+                continue;
+            }
+            ret +=
+                (" " +
+                 _compilerType->getString(CompilerString::SystemIncludePrefix) +
+                 include.concat());
+        }
 
-		return ret;
-	}
+        return ret;
+    }
 
-	Token getDefineFlags() const {
-		Token ret;
+    Token getDefineFlags() const {
+        Token ret;
 
-		auto defines = get("define").groups();
-		for (auto &def: defines) {
-			ret += (" "
-					+ _compilerType->getString(CompilerString::DefinePrefix)
-					+ def.concat());
-		}
+        auto defines = get("define").groups();
+        for (auto &def : defines) {
+            ret +=
+                (" " + _compilerType->getString(CompilerString::DefinePrefix) +
+                 def.concat());
+        }
 
+        return ret;
+    }
 
-		return ret;
-	}
+    Token getConfigFlags() const {
+        Token ret;
+        auto configs = get("config").groups();
+        for (auto &config : configs) {
+            ret += (" " + _compilerType->translateConfig(config.concat()));
+        }
+        return ret;
+    }
 
-	Token getConfigFlags() const {
-		Token ret;
-		auto configs = get("config").groups();
-		for (auto &config: configs) {
-			ret += (" " + _compilerType->translateConfig(config.concat()));
-		}
-		return ret;
-	}
+    //! Returns all files in a property
+    Tokens getGroups(const Token &propertyName, const IFiles &files) const {
+        auto sourceString = get(propertyName);
 
+        auto groups = sourceString.groups();
 
-	//! Returns all files in a property
-	Tokens getGroups(const Token &propertyName, const IFiles &files) const {
-		auto sourceString = get(propertyName);
+        Tokens ret;
+        for (auto g : groups) {
+            auto sourceFiles = files.findFiles(g.concat());
+            ret.insert(ret.end(), sourceFiles.begin(), sourceFiles.end());
+        }
 
-		auto groups = sourceString.groups();
+        if (ret.size() == 1) {
+            if (ret.front().empty()) {
+                vout << " no pattern matching for " << propertyName << endl;
+            }
+        }
+        return ret;
+    }
 
-		Tokens ret;
-		for (auto g: groups) {
-			auto sourceFiles = files.findFiles(g.concat());
-			ret.insert(ret.end(), sourceFiles.begin(), sourceFiles.end());
-		}
+    void print() override {
+        vout << "target " << _name << ": " << endl;
+        for (auto &m : properties()) {
+            vout << "\t" << m.first << " = " << m.second << " " << endl;
+        }
+        vout << endl;
+    }
 
-		if (ret.size() == 1) {
-			if (ret.front().empty()) {
-				vout << " no pattern matching for " << propertyName << endl;
-			}
-		}
-		return ret;
-	}
+    Token getCompiler(const Token &filetype) const override {
+        if (filetype == "cpp") {
+            return get("cpp").concat();
+        }
+        else if (filetype == "c") {
+            return get("cc").concat();
+        }
+        else {
+            return "echo";
+        }
+    }
 
+    std::vector<std::unique_ptr<IDependency>> calculateDependencies(
+        const IFiles &files, const Targets &targets) override {
+        if (name() == "root") {
+            return {};
+        }
 
-	void print() override {
-		vout << "target " << _name << ": " << endl;
-		for (auto &m: properties()) {
-			vout << "\t" << m.first << " = " << m.second << " " << endl;
-		}
-		vout << endl;
-	}
+        std::vector<std::unique_ptr<IDependency>> dependencies;
 
-	Token getCompiler(const Token &filetype) const override {
-		if (filetype == "cpp") {
-			return get("cpp").concat();
-		}
-		else if (filetype == "c") {
-			return get("cc").concat();
-		}
-		else {
-			return "echo";
-		}
-	}
+        _outputFile = new LinkFile(filename(), this, _compilerType.get());
 
-	std::vector<std::unique_ptr<IDependency>> calculateDependencies(
-			const IFiles &files, const Targets& targets) override {
-		if (name() == "root") {
-			return {};
-		}
+        for (auto filename : getGroups("src", files)) {
+            if (filename.empty()) {
+                continue;
+            }
+            filename = preprocessCommand(filename);
+            dependencies.emplace_back(new BuildFile(filename, this));
+        }
+        for (auto &filename : getGroups("copy", files)) {
+            if (filename.empty()) {
+                continue;
+            }
+            filename = preprocessCommand(filename);
+            dependencies.emplace_back(new CopyFile(filename, this));
+        }
+        for (auto &link : getGroups("link", files)) {
+            if (link.empty()) {
+                continue;
+            }
+            link = preprocessCommand(link);
+            auto dependencyTarget = targets.find(link);
+            if (dependencyTarget && dependencyTarget->outputFile()) {
+                _outputFile->addDependency(dependencyTarget->outputFile());
+            }
+            else {
+                throw MatmakeError(link, " Could not find target " + link);
+            }
+        }
 
-		std::vector<std::unique_ptr<IDependency>> dependencies;
+        for (auto &dep : dependencies) {
+            if (dep->includeInBinary()) {
+                _outputFile->addDependency(dep.get());
+            }
+        }
 
-		_outputFile = new LinkFile(filename(), this, _compilerType.get());
+        dependencies.push_back(unique_ptr<IDependency>(_outputFile));
 
-		for (auto filename: getGroups("src", files)) {
-			if (filename.empty()) {
-				continue;
-			}
-			filename = preprocessCommand(filename);
-			dependencies.emplace_back(
-					new BuildFile(filename, this));
-		}
-		for (auto &filename: getGroups("copy", files)) {
-			if (filename.empty()) {
-				continue;
-			}
-			filename = preprocessCommand(filename);
-			dependencies.emplace_back(new CopyFile(filename, this));
-		}
-		for (auto &link: getGroups("link", files)) {
-			if (link.empty()) {
-				continue;
-			}
-			link = preprocessCommand(link);
-			auto dependencyTarget = targets.find(link);
-			if (dependencyTarget && dependencyTarget->outputFile()) {
-				_outputFile->addDependency(dependencyTarget->outputFile());
-			}
-			else {
-				throw MatmakeError(link, " Could not find target " + link);
-			}
-		}
+        return dependencies;
+    }
 
-		for (auto& dep: dependencies) {
-			if (dep->includeInBinary()) {
-				_outputFile->addDependency(dep.get());
-			}
-		}
+    BuildType buildType() const override {
+        auto out = get("out");
+        if (!out.empty()) {
+            if (out.front() == "shared") {
+                return Shared;
+            }
+            else if (out.front() == "static") {
+                return Static;
+            }
+        }
+        return Executable;
+    }
 
-		dependencies.push_back(unique_ptr<IDependency>(_outputFile));
+    //! Path minus directory
+    Token filename() override {
+        auto out = get("out").groups();
+        if (out.empty()) {
+            return _name;
+        }
+        else if (out.size() == 1) {
+            return preprocessCommand(out.front().concat());
+        }
+        else if (out.size() > 1) {
+            auto type = out.front().concat();
+            auto striped =
+                stripFileEnding(preprocessCommand(out[1].concat()), true);
+            auto outName = striped.first;
 
-		return dependencies;
-	}
+            if (type == "shared") {
+                return outName + _compilerType->getString(
+                                     CompilerString::SharedFileEnding);
+            }
+            else if (type == "static") {
+                return outName + _compilerType->getString(
+                                     CompilerString::StaticFileEnding);
+            }
+            else if (type == "exe") {
+                return outName;
+            }
+            else {
+                throw MatmakeError(type, "Unknown type " + type);
+            }
+        }
+        throw std::runtime_error("this should never happend");
+    }
 
-	BuildType buildType() const override {
-		auto out = get("out");
-		if (!out.empty()) {
-			if (out.front() == "shared") {
-				return Shared;
-			}
-			else if (out.front() == "static") {
-				return Static;
-			}
-		}
-		return Executable;
-	}
+    Token name() const override {
+        return _name;
+    }
 
+    //! Where the final product will be placed
+    Token getOutputDir() const override {
+        auto outputDir = get("dir").concat();
+        if (!outputDir.empty()) {
+            outputDir = outputDir.trim();
+            outputDir += "/";
+        }
+        return outputDir;
+    }
 
-	//! Path minus directory
-	Token filename() override {
-		auto out = get("out").groups();
-		if (out.empty()) {
-			return _name;
-		}
-		else if (out.size() == 1) {
-			return preprocessCommand(out.front().concat());
-		}
-		else if (out.size() > 1) {
-			auto type = out.front().concat();
-			auto striped = stripFileEnding(preprocessCommand(out[1].concat()),
-										   true);
-			auto outName = striped.first;
+    //! If where the tmp build-files is placed
+    Token getBuildDirectory() const override {
+        auto outputDir = get("objdir").concat();
+        if (!outputDir.empty()) {
+            outputDir = outputDir.trim();
+            outputDir += "/";
+        }
+        else {
+            return getOutputDir();
+        }
+        return outputDir;
+    }
 
-			if (type == "shared") {
-				return outName + _compilerType->getString(
-						   CompilerString::SharedFileEnding);
-			}
-			else if (type == "static") {
-				return outName + _compilerType->getString(
-						   CompilerString::StaticFileEnding);
-			}
-			else if (type == "exe") {
-				return outName;
-			}
-			else {
-				throw MatmakeError(type, "Unknown type " + type);
-			}
-		}
-		throw std::runtime_error("this should never happend");
-	}
+    //! Return flags used by a file
+    virtual Token getBuildFlags(const Token &filetype) const override {
+        auto flags = get("flags").concat();
+        if (filetype == "cpp") {
+            auto cppflags = get("cppflags");
+            if (!cppflags.empty()) {
+                flags += (" " + cppflags.concat());
+            }
+        }
+        if (filetype == "c") {
+            auto cflags = get("cflags");
+            if (!cflags.empty()) {
+                flags += (" " + cflags.concat());
+            }
+        }
 
-	Token name() const override {
-		return _name;
-	}
+        flags += getDefineFlags();
 
-	//! Where the final product will be placed
-	Token getOutputDir() const override {
-		auto outputDir = get("dir").concat();
-		if (!outputDir.empty()) {
-			outputDir = outputDir.trim();
-			outputDir += "/";
-		}
-		return outputDir;
-	}
+        flags += getConfigFlags();
 
-	//!If where the tmp build-files is placed
-	Token getBuildDirectory() const override {
-		auto outputDir = get("objdir").concat();
-		if (!outputDir.empty()) {
-			outputDir = outputDir.trim();
-			outputDir += "/";
-		}
-		else {
-			return getOutputDir();
-		}
-		return outputDir;
-	}
+        flags += getIncludeFlags();
+        auto buildType = this->buildType();
+        if (buildType == Shared) {
+            if (_compilerType->getFlag(
+                    CompilerFlagType::RequiresPICForLibrary)) {
+                flags +=
+                    (" " + _compilerType->getString(CompilerString::PICFlag));
+            }
+        }
 
+        // Todo: optimize performance
+        //		return (_buildFlags = flags);
+        return flags;
+    }
 
-	//! Return flags used by a file
-	virtual Token getBuildFlags(const Token& filetype) const override {
-		auto flags = get("flags").concat();
-		if (filetype == "cpp") {
-			auto cppflags = get("cppflags");
-			if (!cppflags.empty()) {
-				flags += (" " + cppflags.concat());
-			}
-		}
-		if (filetype == "c") {
-			auto cflags = get("cflags");
-			if (!cflags.empty()) {
-				flags += (" " + cflags.concat());
-			}
-		}
-
-		flags += getDefineFlags();
-
-		flags += getConfigFlags();
-
-		flags += getIncludeFlags();
-		auto buildType = this->buildType();
-		if (buildType == Shared) {
-			if (_compilerType->getFlag(CompilerFlagType::RequiresPICForLibrary)) {
-				flags += (" " + _compilerType->getString(CompilerString::PICFlag));
-			}
-		}
-
-
-		//Todo: optimize performance
-//		return (_buildFlags = flags);
-		return flags;
-	}
-
-	IDependency *outputFile() const override {
-		return _outputFile;
-	}
+    IDependency *outputFile() const override {
+        return _outputFile;
+    }
 };
