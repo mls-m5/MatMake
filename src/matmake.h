@@ -46,6 +46,7 @@ rebuild           first run clean and then build
 --init            create a cpp project in current directory
 --init [dir]      create a cpp project in the specified directory
 --example         show a example of a Matmakefile
+config=debug      example: add debug to default config flag.
 
 
 Matmake defaults to use optimal number of threads for the computer to match the number of cores.
@@ -226,8 +227,9 @@ IsErrorT tokenizeMatmakeFile() {
 
 //! Variables that is to be used by each start function
 struct Locals {
-    vector<string> targets; // What to build
-    vector<string> args;    // Copy of command line arguments
+    vector<string> targets;           // What to build
+    vector<string> args;              // Copy of command line arguments
+    map<string, vector<string>> vars; // Variables with values from commandline
     vector<string>
         externalDependencies; // Dependencies to build before main build
     vector<string> external;  // External dependencies to build after main build
@@ -305,13 +307,27 @@ std::tuple<ShouldQuitT, IsErrorT> parseArguments(vector<string> args,
             break;
         }
         else if (arg == "all") {
-            // Do nothing. Default is te build all
+            // Do nothing. Default is to build all
         }
         else if (arg == "--tokenize") {
             // For debugging
             tokenizeMatmakeFile();
             shouldQuit = true;
             break;
+        }
+        else if (arg.find("=") != string::npos) {
+            auto f = arg.find("=");
+            if (f == 0) {
+                continue;
+            }
+            if (f == arg.size() - 1) {
+                continue;
+            }
+
+            auto varName = arg.substr(0, f);
+            auto value = arg.substr(f + 1);
+
+            locals.vars[varName].push_back(value);
         }
         else {
             locals.targets.push_back(arg);
@@ -349,6 +365,8 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals &locals,
         shouldQuit = true;
         return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
     }
+
+    environment.setCommandLineVars(locals.vars);
 
     int lineNumber = 1;
 

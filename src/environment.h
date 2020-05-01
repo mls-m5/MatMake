@@ -75,6 +75,14 @@ public:
         }
     }
 
+    void setCommandLineVars(const map<string, vector<string>> &vars) override {
+        for (auto element : vars) {
+            for (auto var : element.second) {
+                targets.root->append(element.first, Token(var));
+            }
+        }
+    }
+
     Environment(shared_ptr<IFiles> fileHandler) : _fileHandler(fileHandler) {
         targets.emplace_back(new BuildTarget("root", nullptr));
         targets.root = targets.back().get();

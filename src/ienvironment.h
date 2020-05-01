@@ -2,6 +2,8 @@
 
 #include "token.h"
 
+#include <map>
+
 class IDependency;
 class Globals;
 
@@ -24,6 +26,10 @@ public:
 
     virtual void setVariable(const class NameDescriptor &name,
                              Tokens value) = 0;
+
+    //! Add variables to root target to be inherited from
+    virtual void setCommandLineVars(
+        const map<string, vector<string>> &vars) = 0;
 
     virtual void compile(std::vector<std::string> targetArguments) = 0;
     virtual void clean(std::vector<std::string> targetArguments) = 0;
