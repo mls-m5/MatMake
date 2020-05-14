@@ -130,6 +130,50 @@ public:
         _accessMutex.unlock();
     }
 
+    static Token fixDepEnding(Token filename) {
+        return filename + ".d";
+    }
+
+    //! Calculate dependencies from makefile styled .d files generated
+    //! by the compiler
+    pair<vector<string>, string> parseDepFile() const {
+        ifstream file(target()->preprocessCommand(depFile()));
+        if (file.is_open()) {
+            vector<string> ret;
+            string command;
+
+            string line;
+            bool firstLine = true;
+            while (getline(file, line)) {
+                istringstream ss(line);
+
+                if (!line.empty() && line.front() == '\t') {
+                    command = trim(line);
+                    break;
+                }
+                else {
+                    string d;
+                    if (firstLine) {
+                        ss >> d; // The first is the target path --> ignore
+                        firstLine = false;
+                    }
+                    while (ss >> d) {
+                        if (d !=
+                            "\\") { // Skip backslash (is used before newlines)
+                            ret.push_back(d);
+                        }
+                    }
+                }
+            }
+            return {ret, command};
+        }
+        else {
+            dout << "could not find .d file for " << output() << " --> "
+                 << depFile() << endl;
+            return {};
+        }
+    }
+
     bool dirty() const final {
         return _dirty;
     }
@@ -169,7 +213,7 @@ public:
         return _depFile;
     }
 
-    const vector<Token> &outputs() const {
+    const vector<Token> &outputs() const override {
         return _outputs;
     }
 
@@ -202,7 +246,7 @@ public:
         return _target;
     }
 
-    virtual void work(const IFiles &files, ThreadPool &pool) override {
+    void work(const IFiles &files, ThreadPool &pool) override {
         if (!command().empty()) {
             vout << command() << endl;
             pair<int, string> res = files.popenWithResult(command());

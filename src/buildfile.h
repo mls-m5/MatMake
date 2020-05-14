@@ -30,8 +30,8 @@ public:
 
         Dependency::output(removeDoubleDots(
             fixObjectEnding(target->getBuildDirectory() + filename)));
-        depFile(removeDoubleDots(
-            fixDepEnding(target->getBuildDirectory() + filename)));
+        depFile(fixDepEnding(output()));
+
         if (filename.empty()) {
             throw MatmakeError(filename, "empty buildfile added");
         }
@@ -48,9 +48,6 @@ public:
 
     static Token fixObjectEnding(Token filename) {
         return stripFileEnding(filename).first + ".o";
-    }
-    static Token fixDepEnding(Token filename) {
-        return filename + ".d";
     }
 
     time_t getInputChangedTime(const IFiles &files) {
@@ -70,46 +67,6 @@ public:
         return Object;
     }
 
-    //! Calculate dependencies from makefile styled .d files generated
-    //! by the compiler
-    pair<vector<string>, string> parseDepFile() const {
-        ifstream file(target()->preprocessCommand(depFile()));
-        if (file.is_open()) {
-            vector<string> ret;
-            string command;
-
-            string line;
-            bool firstLine = true;
-            while (getline(file, line)) {
-                istringstream ss(line);
-
-                if (!line.empty() && line.front() == '\t') {
-                    command = trim(line);
-                    break;
-                }
-                else {
-                    string d;
-                    if (firstLine) {
-                        ss >> d; // The first is the target path --> ignore
-                        firstLine = false;
-                    }
-                    while (ss >> d) {
-                        if (d !=
-                            "\\") { // Skip backslash (is used before newlines)
-                            ret.push_back(d);
-                        }
-                    }
-                }
-            }
-            return {ret, command};
-        }
-        else {
-            dout << "could not find .d file for " << output() << " --> "
-                 << depFile() << endl;
-            return {};
-        }
-    }
-
     void prepare(const IFiles &files) override {
         auto inputChangedTime = getInputChangedTime(files);
         vector<string> dependencyFiles;
@@ -122,9 +79,7 @@ public:
             dout << "file is dirty" << endl;
         }
 
-        Token depCommand;
-
-        depCommand = " -MMD -MF " + depFile() + " ";
+        Token depCommand = " -MMD -MF " + depFile() + " ";
         depCommand.location = _filename.location;
 
         if (dependencyFiles.empty()) {

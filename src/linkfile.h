@@ -13,6 +13,7 @@
 class LinkFile : public Dependency {
     bool _isBuildCalled = false;
     ICompiler *_compilerType;
+    std::string _dependencyString;
 
 public:
     LinkFile(const LinkFile &) = delete;
@@ -20,6 +21,9 @@ public:
     LinkFile(Token filename, IBuildTarget *target, ICompiler *compilerType)
         : Dependency(target), _compilerType(compilerType) {
         output(removeDoubleDots(target->getOutputDir() + filename));
+
+        depFile(removeDoubleDots(
+            fixDepEnding(target->getBuildDirectory() + filename)));
     }
 
     void prepare(const IFiles &files) override {
@@ -55,47 +59,85 @@ public:
             cout << output() << " is fresh " << endl;
         }
 
-        if (dirty()) {
-            Token fileList;
+        prepareCommand();
 
-            for (auto f : dependencies()) {
-                if (f->includeInBinary()) {
-                    fileList += (f->linkString() + " ");
-                }
-            }
-
-            auto cpp = target()->getCompiler("cpp");
-
-            auto out = target()->get("out");
-            auto buildType = target()->buildType();
-            Token cmd;
-            if (buildType == Shared) {
-                cmd = cpp + " -shared -o " + exe + " -Wl,--start-group " +
-                      fileList + " " + target()->getLibs() +
-                      "  -Wl,--end-group  " + target()->getFlags();
-            }
-            else if (buildType == Static) {
-                cmd = "ar -rs " + exe + " " + fileList;
-                if (globals.verbose) {
-                    cmd += " -v ";
-                }
-            }
-            else {
-                cmd = cpp + " -o " + exe + " -Wl,--start-group " + fileList +
-                      " " + target()->getLibs() + "  -Wl,--end-group  " +
-                      target()->getFlags();
-            }
-            cmd = target()->preprocessCommand(cmd);
-
-            if (buildType == Executable || buildType == Shared) {
-                if (hasReferencesToSharedLibrary()) {
-                    cmd += (" " + _compilerType->getString(
-                                      CompilerString::RPathOriginFlag));
-                }
-            }
-            cmd.location = cpp.location;
-            command(cmd);
+        vector<string> oldDependencies;
+        std::string oldCommand;
+        tie(oldDependencies, oldCommand) = parseDepFile();
+        if (command() != oldCommand) {
+            dout << output() << " command differs \n";
+            dout << command() << "\n";
+            dout << oldCommand << "\n\n";
+            dirty(true);
         }
+    }
+
+    void work(const IFiles &files, ThreadPool &pool) override {
+        if (!command().empty()) {
+            {
+                ofstream file(depFile());
+                file << _dependencyString;
+            }
+            Dependency::work(files, pool);
+        }
+    }
+
+    void prepareCommand() {
+        Token fileList;
+
+        for (auto f : dependencies()) {
+            if (f->includeInBinary()) {
+                fileList += (f->linkString() + " ");
+            }
+        }
+
+        _dependencyString = prepareDependencyString();
+
+        auto cpp = target()->getCompiler("cpp");
+
+        auto exe = output();
+        auto buildType = target()->buildType();
+        Token cmd;
+        if (buildType == Shared) {
+            cmd = cpp + " -shared -o " + exe + " -Wl,--start-group " +
+                  fileList + " " + target()->getLibs() + "  -Wl,--end-group  " +
+                  target()->getFlags();
+        }
+        else if (buildType == Static) {
+            cmd = "ar -rs " + exe + " " + fileList;
+            if (globals.verbose) {
+                cmd += " -v ";
+            }
+        }
+        else {
+            cmd = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " +
+                  target()->getLibs() + "  -Wl,--end-group  " +
+                  target()->getFlags();
+        }
+        cmd = target()->preprocessCommand(cmd);
+
+        if (buildType == Executable || buildType == Shared) {
+            if (hasReferencesToSharedLibrary()) {
+                cmd += (" " + _compilerType->getString(
+                                  CompilerString::RPathOriginFlag));
+            }
+        }
+        cmd.location = cpp.location;
+        while (!cmd.empty() && isspace(cmd.back())) {
+            cmd.pop_back();
+        }
+
+        command(cmd);
+    }
+
+    std::string prepareDependencyString() const {
+        ostringstream ss;
+        ss << output() << ":";
+        for (auto &d : dependencies()) {
+            ss << " " << d->output();
+        }
+        ss << "\n";
+        return ss.str();
     }
 
     Token linkString() const override {
