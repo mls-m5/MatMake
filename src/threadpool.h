@@ -145,8 +145,8 @@ public:
 
         for (auto &file : files) {
             if (file->dirty()) {
-                cout << "file " << file->output() << " was never built" << endl;
-                cout << "depending on: " << endl;
+                dout << "file " << file->output() << " was never built" << endl;
+                dout << "depending on: " << endl;
                 for (auto dependency : file->dependencies()) {
                     dependency->output();
                 }

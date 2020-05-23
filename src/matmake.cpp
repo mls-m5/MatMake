@@ -14,13 +14,11 @@
  * `c++ matmake.cpp -std=c++14 -o ../matmake`
  */
 
-
 #include "matmake.h"
 
 Globals globals;
 
 int main(int argc, char **argv) {
-	vector<string> args(argv + 1, argv + argc);
-	start(args);
+    vector<string> args(argv + 1, argv + argc);
+    return start(args);
 }
-
