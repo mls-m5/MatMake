@@ -69,30 +69,13 @@ make install
 ```
 
 
-To use the older makefile based system "matdep"
-----------------------------------------------
-In the example below the variable CPP_FILES contains names to all source files that you want to include in the project
-in the script above all the source files is located in a folder named "src"
-An example of content of makefile can be found in Makefile-example.txt
-
-
-```sh
-git init
-git submodule add https://github.com/mls-m5/matmake.git
-make -C matmake/ init-matdep-project
-```
-
-And matmake will create a simple matmake project for you. You never have to change anything inside the matmake folder, all the other files belongs to your project.
-
-
-
 How does it look?
 ==========
 
 #### A very simple Matmakefile
 compiles to executable `program`:
 
-```
+```bash
 config += c++14 Wall      # configurations converted to compile flags
 program.src += src/*.cpp  # include all cpp files in folder src to target program
 ```
@@ -101,7 +84,7 @@ program.src += src/*.cpp  # include all cpp files in folder src to target progra
 
 Heres how to compile the the SDL2 (https://www.libsdl.org/download-2.0.php) source code to a so-file:
 
-```
+```bash
 sdl.includes = include
 
 sdl.src +=                 # multiline arguments start line with whitespace
@@ -125,7 +108,7 @@ sdl.dir = bin              # set output directory
 
 Compile Bullet Physics (https://github.com/bulletphysics/bullet3):
 
-```
+```bash
 
 bullet.includes +=
 	include
@@ -146,7 +129,7 @@ bullet.out = shared bullet # creates a so file (linux) or dll (windows)
 #### Inheritance:
 Create several projects with shared settings
 
-```
+```bash
 
 # global settings are inherited by all targets by default
 flags += -Wall             # global c++ and c flags

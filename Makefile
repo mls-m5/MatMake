@@ -43,22 +43,11 @@ init-project:
 	@echo successfully created project
 	@echo now, configure your Matmakefile and run 'make' or 'matmake/matmake' to build project
 
-
 install: matmake
 	sudo cp -i matmake  /usr/local/bin
 	
 remove: matmake
 	sudo cp -i /usr/local/bin
-
-init-matdep-project:
-	mkdir -p ../src
-	mkdir -p ../include
-	cp -i examples/Makefile-example.txt ../Makefile
-	cp -i examples/main.cpp ../src/
-	cp -i examples/common.h ../include/
-	cp -i examples/gitignore ../.gitignore
-	@echo successfully created project
-	@echo now, configure your makefile and run make to build project
 
 init-cmake-project:
 	mkdir -p ../src
