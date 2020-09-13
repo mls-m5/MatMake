@@ -5,7 +5,4 @@
  *      Author: Mattias Larsson Sköld
  */
 
-
-
 #include "test2.h"
-
