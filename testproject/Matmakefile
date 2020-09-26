@@ -14,7 +14,7 @@ flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
 main.includes +=
     include
 main.sysincludes +=
-    systemincludedir
+    lib/matmath/include
 
 main.flags += -g
 main.src = 

@@ -102,15 +102,13 @@ TEST(Files, match_files) {
 }
 
 TEST(Files, remove_dots) {
-	Files files;
-
 	{
-		auto result = files.removeDoubleDots("../..");
+		auto result = removeDoubleDots("../..");
 		EXPECT_EQ(result, "_/_");
 	}
 
 	{
-		auto result = files.removeDoubleDots("..");
+		auto result = removeDoubleDots("..");
 		EXPECT_EQ(result, "_");
 	}
 }

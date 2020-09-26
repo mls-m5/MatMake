@@ -13,5 +13,5 @@ vector<shared_ptr<string>> randomFunction2() {
     for (size_t i = 0; i < 10; ++i) {
         ret.push_back(make_shared<string>("hej"));
     }
-    //return ret;
+    return ret;
 }
