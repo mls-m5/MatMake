@@ -300,7 +300,10 @@ std::string removeDoubleDots(std::string str) {
         found += replaceStr.length();
     }
 
-    if (str.length() == 2 && str == "..") {
+    if (str.length() == 1) {
+        return str;
+    }
+    else if (str.length() == 2 && str == "..") {
         str = "_";
     }
     else if (str.substr(str.length() - 2, 2) == "..") {

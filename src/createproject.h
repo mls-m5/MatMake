@@ -62,7 +62,6 @@ int createProject(std::string dir) {
 
     {
         std::ofstream file("Matmakefile");
-        //		file << exampleMatmakefile;
         file << stripComments(exampleMatmakefile);
     }
 

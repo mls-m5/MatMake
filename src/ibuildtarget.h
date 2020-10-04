@@ -1,6 +1,7 @@
 #pragma once
 
 #include "buildtype.h"
+#include "ifiles.h"
 #include "token.h"
 #include <map>
 #include <memory>
