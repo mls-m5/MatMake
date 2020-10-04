@@ -18,8 +18,7 @@ public:
             output(o);
         }
         else {
-            dout << o << " does not need copying, same source and output"
-                 << endl;
+            dout << o << " does not need copying, same source and output\n";
         }
         input(source);
     }
@@ -30,7 +29,7 @@ public:
         }
         if (output() == input()) {
             vout << "file " << output()
-                 << " source and target is on same place. skipping" << endl;
+                 << " source and target is on same place. skipping\n";
         }
 
         if (inputChangedTime(files) > changedTime(files)) {
@@ -39,6 +38,7 @@ public:
     }
 
     void work(const IFiles & /*files*/, ThreadPool &pool) override {
+        using namespace std;
         ifstream src(input());
         if (!src.is_open()) {
             cout << "could not open file " << input() << " for copy for target "

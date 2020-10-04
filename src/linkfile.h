@@ -56,12 +56,12 @@ public:
             dirty(true);
         }
         else if (!dirty()) {
-            cout << output() << " is fresh " << endl;
+            std::cout << output() << " is fresh " << std::endl;
         }
 
         prepareCommand();
 
-        vector<string> oldDependencies;
+        std::vector<std::string> oldDependencies;
         std::string oldCommand;
         tie(oldDependencies, oldCommand) = parseDepFile();
         if (command() != oldCommand) {
@@ -75,7 +75,7 @@ public:
     void work(const IFiles &files, ThreadPool &pool) override {
         if (!command().empty()) {
             {
-                ofstream file(depFile());
+                std::ofstream file(depFile());
                 file << _dependencyString;
             }
             Dependency::work(files, pool);
@@ -131,7 +131,7 @@ public:
     }
 
     std::string prepareDependencyString() const {
-        ostringstream ss;
+        std::ostringstream ss;
         ss << output() << ":";
         for (auto &d : dependencies()) {
             ss << " " << d->output();

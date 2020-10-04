@@ -21,7 +21,7 @@ struct BuildTarget : public IBuildTarget {
     std::map<Token, Tokens> _properties;
     Token _name;
 
-    shared_ptr<ICompiler> _compilerType = make_shared<GCCCompiler>();
+    std::shared_ptr<ICompiler> _compilerType = std::make_shared<GCCCompiler>();
     LinkFile *_outputFile = nullptr;
     bool _isBuildCalled = false;
 
@@ -63,7 +63,7 @@ struct BuildTarget : public IBuildTarget {
 
     void assign(Token propertyName, Tokens value) override {
         if (propertyName == "inherit") {
-            cout << "Target " << name() << " tries to inherit wrong" << endl;
+            std::cout << "Target " << name() << " tries to inherit wrong\n";
         }
         property(propertyName) = value;
     }
@@ -89,12 +89,12 @@ struct BuildTarget : public IBuildTarget {
         try {
             return properties().at(propertyName);
         }
-        catch (out_of_range &) {
+        catch (std::out_of_range &) {
             return {};
         }
     }
 
-    const map<Token, Tokens> &properties() const override {
+    const std::map<Token, Tokens> &properties() const override {
         return _properties;
     }
 
@@ -105,7 +105,7 @@ struct BuildTarget : public IBuildTarget {
     }
 
     Token preprocessCommand(Token command) const override {
-        for (size_t find = command.find('%'); find != string::npos;
+        for (size_t find = command.find('%'); find != std::string::npos;
              find = command.find('%', find + 1)) {
             command.replace(find, 1, name());
         }
@@ -182,18 +182,18 @@ struct BuildTarget : public IBuildTarget {
 
         if (ret.size() == 1) {
             if (ret.front().empty()) {
-                vout << " no pattern matching for " << propertyName << endl;
+                vout << " no pattern matching for " << propertyName << "\n";
             }
         }
         return ret;
     }
 
     void print() override {
-        vout << "target " << _name << ": " << endl;
+        vout << "target " << _name << ": \n";
         for (auto &m : properties()) {
-            vout << "\t" << m.first << " = " << m.second << " " << endl;
+            vout << "\t" << m.first << " = " << m.second << " \n";
         }
-        vout << endl;
+        vout << "\n";
     }
 
     Token getCompiler(const Token &filetype) const override {
@@ -216,7 +216,9 @@ struct BuildTarget : public IBuildTarget {
 
         std::vector<std::unique_ptr<IDependency>> dependencies;
 
-        _outputFile = new LinkFile(filename(), this, _compilerType.get());
+        auto oFile =
+            std::make_unique<LinkFile>(filename(), this, _compilerType.get());
+        _outputFile = oFile.get();
 
         for (auto filename : getGroups("src", files)) {
             if (filename.empty()) {
@@ -252,7 +254,7 @@ struct BuildTarget : public IBuildTarget {
             }
         }
 
-        dependencies.push_back(unique_ptr<IDependency>(_outputFile));
+        dependencies.push_back(move(oFile));
 
         return dependencies;
     }

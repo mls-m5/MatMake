@@ -32,8 +32,6 @@
 #include <unistd.h>
 #endif
 
-using namespace std;
-
 #include "ifiles.h"
 
 // Joins two paths and makes sure that the path separator does not
@@ -84,11 +82,13 @@ inline std::pair<Token, Token> stripFileEnding(Token filename,
 
 class Files : public IFiles {
 public:
-    vector<Token> findFiles(Token pattern) const override {
+    std::vector<Token> findFiles(Token pattern) const override {
+        using namespace std;
+
         pattern = Token(trim(pattern), pattern.location);
         auto found = pattern.find('*');
 
-        vector<Token> ret;
+        std::vector<Token> ret;
         if (found != string::npos) {
             string beginning(pattern.begin(), pattern.begin() + found);
             string ending;
@@ -140,8 +140,10 @@ public:
         return ret;
     }
 
-    std::pair<int, string> popenWithResult(string command) const override {
-        pair<int, string> ret;
+    std::pair<int, std::string> popenWithResult(
+        std::string command) const override {
+
+        std::pair<int, std::string> ret;
 
         FILE *file = popen((command + " 2>&1").c_str(), "r");
 
@@ -178,10 +180,10 @@ public:
 
     // adapted from
     // https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
-    string getCurrentWorkingDirectory() const override {
+    std::string getCurrentWorkingDirectory() const override {
         std::array<char, FILENAME_MAX> currentPath;
         if (!GetCurrentDir(currentPath.data(), sizeof(currentPath))) {
-            throw runtime_error("could not get current working directory");
+            throw std::runtime_error("could not get current working directory");
         }
         return currentPath.data();
     }
@@ -190,7 +192,9 @@ public:
         return chdir(directory.c_str());
     }
 
-    vector<string> listFiles(string directory) const override {
+    std::vector<std::string> listFiles(std::string directory) const override {
+        using namespace std;
+
         vector<string> ret;
 
         if (directory.empty()) {
@@ -231,7 +235,7 @@ public:
 #endif
     }
 
-    bool isDirectory(const string &path) const override {
+    bool isDirectory(const std::string &path) const override {
         struct stat file_stat;
         int err = stat(path.c_str(), &file_stat);
         if (err != 0) {
@@ -249,17 +253,19 @@ public:
         }
     }
 
-    string getDirectory(string filename) const override {
+    std::string getDirectory(std::string filename) const override {
         auto directoryFound = filename.rfind("/");
-        if (directoryFound != string::npos) {
-            return string(filename.begin(), filename.begin() + directoryFound);
+        if (directoryFound != std::string::npos) {
+            return std::string(filename.begin(),
+                               filename.begin() + directoryFound);
         }
         else {
             return "";
         }
     }
 
-    std::vector<string> listRecursive(string directory) const override {
+    std::vector<std::string> listRecursive(
+        std::string directory) const override {
 
         auto list = listFiles(directory);
         auto ret = list;
@@ -286,7 +292,7 @@ std::string removeDoubleDots(std::string str) {
     auto findStr = ".." + pathSeparator;
     auto replaceStr = "_" + pathSeparator;
 
-    for (auto found = str.find(findStr); found != string::npos;
+    for (auto found = str.find(findStr); found != std::string::npos;
          found = str.find(findStr)) {
 
         str.replace(found, findStr.length(), replaceStr);

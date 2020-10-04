@@ -68,6 +68,7 @@ public:
     }
 
     void prepare(const IFiles &files) override {
+        using namespace std;
         auto inputChangedTime = getInputChangedTime(files);
         vector<string> dependencyFiles;
         string oldCommand;

@@ -10,7 +10,7 @@
 #include "idependency.h"
 #include "ifiles.h"
 #include "mdebug.h"
-
+#include "merror.h"
 #include <atomic>
 #include <mutex>
 #include <queue>
@@ -23,7 +23,6 @@ class ThreadPool : std::queue<IDependency *> {
     int maxTasks = 0;
     int taskFinished = 0;
     int lastProgress = 0;
-    bool finished = false;
 
 public:
     void addTask(IDependency *t) {
@@ -171,7 +170,7 @@ public:
         }
         lastProgress = amount;
 
-        stringstream ss;
+        std::stringstream ss;
 
         if (!globals.debugOutput && !globals.verbose) {
             ss << "[";
@@ -193,7 +192,7 @@ public:
             // ss << "[" << amount << "%] ";
         }
 
-        cout << ss.str();
-        cout.flush();
+        std::cout << ss.str();
+        std::cout.flush();
     }
 };

@@ -29,7 +29,7 @@ public:
 
     //! Add variables to root target to be inherited from
     virtual void setCommandLineVars(
-        const map<string, vector<string>> &vars) = 0;
+        const std::map<std::string, std::vector<std::string>> &vars) = 0;
 
     virtual void compile(std::vector<std::string> targetArguments) = 0;
     virtual void clean(std::vector<std::string> targetArguments) = 0;

@@ -4,8 +4,10 @@
 
 #include "ienvironment.h"
 
+#include "buildtarget.h"
 #include "globals.h"
 #include "ibuildtarget.h"
+#include "matmake.h"
 #include "targets.h"
 #include "threadpool.h"
 #include "token.h"
@@ -31,7 +33,8 @@ public:
         externalDependencies.push_back({shouldCompileBefore, name, args});
     }
 
-    void buildExternal(bool isBefore, string operation) {
+    void buildExternal(bool isBefore, std::string operation) {
+        using namespace std;
         for (auto &dependency : externalDependencies) {
             if (dependency.compileBefore != isBefore) {
                 continue;
@@ -75,7 +78,8 @@ public:
         }
     }
 
-    void setCommandLineVars(const map<string, vector<string>> &vars) override {
+    void setCommandLineVars(
+        const std::map<std::string, std::vector<std::string>> &vars) override {
         for (auto element : vars) {
             for (auto var : element.second) {
                 targets.root->append(element.first, Token(var));
@@ -83,7 +87,8 @@ public:
         }
     }
 
-    Environment(shared_ptr<IFiles> fileHandler) : _fileHandler(fileHandler) {
+    Environment(std::shared_ptr<IFiles> fileHandler)
+        : _fileHandler(fileHandler) {
         targets.emplace_back(new BuildTarget("root", nullptr));
         targets.root = targets.back().get();
     }
@@ -124,9 +129,9 @@ public:
         }
     }
 
-    vector<IBuildTarget *> parseTargetArguments(
-        vector<string> targetArguments) const {
-        vector<IBuildTarget *> selectedTargets;
+    std::vector<IBuildTarget *> parseTargetArguments(
+        std::vector<std::string> targetArguments) const {
+        std::vector<IBuildTarget *> selectedTargets;
 
         if (targetArguments.empty()) {
             for (auto &target : targets) {
@@ -143,14 +148,14 @@ public:
                     matchFailed = false;
                 }
                 else {
-                    cout << "target '" << t << "' does not exist" << endl;
+                    std::cout << "target '" << t << "' does not exist\n";
                 }
 
                 if (matchFailed) {
-                    cout << "run matmake --help for help" << endl;
-                    cout << "targets: ";
+                    std::cout << "run matmake --help for help\n";
+                    std::cout << "targets: ";
                     listAlternatives();
-                    throw runtime_error("error when parsing targets");
+                    throw std::runtime_error("error when parsing targets");
                 }
             }
         }
@@ -158,12 +163,12 @@ public:
         return selectedTargets;
     }
 
-    vector<unique_ptr<IDependency>> calculateDependencies(
-        vector<IBuildTarget *> selectedTargets) const {
-        vector<unique_ptr<IDependency>> files;
+    std::vector<std::unique_ptr<IDependency>> calculateDependencies(
+        std::vector<IBuildTarget *> selectedTargets) const {
+        std::vector<std::unique_ptr<IDependency>> files;
         for (auto target : selectedTargets) {
             dout << "target " << target->name() << " src "
-                 << target->get("src").concat() << endl;
+                 << target->get("src").concat() << std::endl;
 
             auto targetDependencies =
                 target->calculateDependencies(*_fileHandler, targets);
@@ -178,8 +183,9 @@ public:
         return files;
     }
 
-    void createDirectories(const vector<unique_ptr<IDependency>> &files) const {
-        set<string> directories;
+    void createDirectories(
+        const std::vector<std::unique_ptr<IDependency>> &files) const {
+        std::set<std::string> directories;
         for (auto &file : files) {
             if (!file->dirty()) {
                 continue;
@@ -191,7 +197,7 @@ public:
         }
 
         for (auto dir : directories) {
-            dout << "output dir: " << dir << endl;
+            dout << "output dir: " << dir << std::endl;
             if (dir.empty()) {
                 continue;
             }
@@ -202,8 +208,8 @@ public:
         }
     }
 
-    void compile(vector<string> targetArguments) override {
-        dout << "compiling..." << endl;
+    void compile(std::vector<std::string> targetArguments) override {
+        dout << "compiling..." << std::endl;
         print();
 
         auto files =
@@ -218,14 +224,14 @@ public:
         for (auto &file : files) {
             file->prune();
             if (file->dirty()) {
-                dout << "file " << file->output() << " is dirty" << endl;
+                dout << "file " << file->output() << " is dirty" << std::endl;
                 tasks.addTaskCount();
                 if (file->dependencies().empty()) {
                     tasks.addTask(file.get());
                 }
             }
             else {
-                dout << "file " << file->output() << " is fresh" << endl;
+                dout << "file " << file->output() << " is fresh" << std::endl;
             }
         }
 
@@ -234,12 +240,12 @@ public:
         buildExternal(false, "");
     }
 
-    void work(vector<unique_ptr<IDependency>> files) {
+    void work(std::vector<std::unique_ptr<IDependency>> files) {
         tasks.work(std::move(files), *_fileHandler);
     }
 
-    void clean(vector<string> targetArguments) override {
-        dout << "cleaning " << endl;
+    void clean(std::vector<std::string> targetArguments) override {
+        dout << "cleaning " << std::endl;
         auto files =
             calculateDependencies(parseTargetArguments(targetArguments));
 
@@ -263,10 +269,9 @@ public:
     void listAlternatives() const override {
         for (auto &t : targets) {
             if (t->name() != "root") {
-                cout << t->name() << " ";
+                std::cout << t->name() << " ";
             }
         }
-        cout << "clean";
-        cout << endl;
+        std::cout << "clean\n";
     }
 };

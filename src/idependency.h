@@ -2,6 +2,7 @@
 
 #include "buildtype.h"
 #include "ibuildtarget.h"
+#include "ifiles.h"
 #include "token.h"
 #include <set>
 
@@ -42,7 +43,7 @@ public:
     virtual Token output() const = 0;
 
     //! The main target and implicit targets (often dependency files)
-    virtual const vector<Token> &outputs() const = 0;
+    virtual const std::vector<Token> &outputs() const = 0;
 
     //! A subscriber is a dependency that want a notice when the file is built
     virtual void addSubscriber(IDependency *s) = 0;

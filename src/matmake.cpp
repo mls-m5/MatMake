@@ -19,6 +19,6 @@
 Globals globals;
 
 int main(int argc, char **argv) {
-    vector<string> args(argv + 1, argv + argc);
+    std::vector<std::string> args(argv + 1, argv + argc);
     return start(args);
 }

@@ -15,13 +15,14 @@
 class IBuildTarget;
 
 class Dependency : public IDependency {
-    set<class IDependency *> _dependencies; // Dependencies from matmakefile
-    set<IDependency *> _subscribers;
-    mutex _accessMutex;
+    std::set<class IDependency *>
+        _dependencies; // Dependencies from matmakefile
+    std::set<IDependency *> _subscribers;
+    std::mutex _accessMutex;
     bool _dirty = false;
 
-    vector<Token> _outputs;
-    vector<Token> _inputs;
+    std::vector<Token> _outputs;
+    std::vector<Token> _inputs;
     Token _command;
     Token _depFile;
     IBuildTarget *_target;
@@ -57,7 +58,7 @@ public:
 
     void addDependency(IDependency *file) override {
         if (file) {
-            dout << "adding " << file->output() << " to " << output() << endl;
+            dout << "adding " << file->output() << " to " << output() << "\n";
             _dependencies.insert(file);
         }
     }
@@ -77,7 +78,7 @@ public:
                 _inputs.end()) {
                 continue; // Do not remove source files
             }
-            vout << "removing file " << out << endl;
+            vout << "removing file " << out << "\n";
             files.remove(out.c_str());
         }
     }
@@ -87,7 +88,7 @@ public:
     }
 
     void addSubscriber(IDependency *s) override {
-        lock_guard<mutex> guard(_accessMutex);
+        std::lock_guard<std::mutex> guard(_accessMutex);
         if (find(_subscribers.begin(), _subscribers.end(), s) ==
             _subscribers.end()) {
             _subscribers.insert(s);
@@ -96,7 +97,7 @@ public:
 
     //! Send a notice to all subscribers
     virtual void sendSubscribersNotice(ThreadPool &pool) {
-        lock_guard<mutex> guard(_accessMutex);
+        std::lock_guard<std::mutex> guard(_accessMutex);
         for (auto s : _subscribers) {
             s->notice(this, pool);
         }
@@ -110,15 +111,15 @@ public:
         _dependencies.erase(d);
         if (globals.debugOutput) {
             dout << "removing dependency " << d->output() << " from "
-                 << output() << endl;
+                 << output() << "\n";
             dout << "   " << _dependencies.size() << " remains ";
             for (auto d : _dependencies) {
-                dout << d->output() << " " << endl;
+                dout << d->output() << " " << std::endl;
             }
         }
         if (_dependencies.empty()) {
             pool.addTask(this);
-            dout << "Adding " << output() << " to task list " << endl;
+            dout << "Adding " << output() << " to task list " << std::endl;
         }
     }
 
@@ -136,7 +137,8 @@ public:
 
     //! Calculate dependencies from makefile styled .d files generated
     //! by the compiler
-    pair<vector<string>, string> parseDepFile() const {
+    std::pair<std::vector<std::string>, std::string> parseDepFile() const {
+        using namespace std;
         ifstream file(target()->preprocessCommand(depFile()));
         if (file.is_open()) {
             vector<string> ret;
@@ -181,11 +183,11 @@ public:
         _dirty = value;
     }
 
-    const set<class IDependency *> dependencies() const override {
+    const std::set<class IDependency *> dependencies() const override {
         return _dependencies;
     }
 
-    const set<IDependency *> &subscribers() const {
+    const std::set<IDependency *> &subscribers() const {
         return _subscribers;
     }
 
@@ -213,11 +215,11 @@ public:
         return _depFile;
     }
 
-    const vector<Token> &outputs() const override {
+    const std::vector<Token> &outputs() const override {
         return _outputs;
     }
 
-    void inputs(vector<Token> in) {
+    void inputs(std::vector<Token> in) {
         _inputs = std::move(in);
     }
 
@@ -225,7 +227,7 @@ public:
         _inputs = {std::move(in)};
     }
 
-    vector<Token> inputs() const {
+    std::vector<Token> inputs() const {
         return _inputs;
     }
 
@@ -247,6 +249,8 @@ public:
     }
 
     void work(const IFiles &files, ThreadPool &pool) override {
+        using namespace std;
+
         if (!command().empty()) {
             vout << command() << endl;
             pair<int, string> res = files.popenWithResult(command());
@@ -273,15 +277,15 @@ public:
     }
 
     void prune() override {
-        dout << "pruning " << output() << endl;
-        vector<IDependency *> toRemove;
+        dout << "pruning " << output() << std::endl;
+        std::vector<IDependency *> toRemove;
         for (auto *dep : _dependencies) {
             if (!dep->dirty()) {
                 toRemove.push_back(dep);
             }
         }
         for (auto d : toRemove) {
-            dout << "removing dependency " << d->output() << endl;
+            dout << "removing dependency " << d->output() << std::endl;
             _dependencies.erase(d);
         }
     }
