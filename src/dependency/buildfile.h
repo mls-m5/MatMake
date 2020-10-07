@@ -3,9 +3,9 @@
 #pragma once
 
 #include "dependency.h"
-#include "globals.h"
-#include "ibuildtarget.h"
-#include "mdebug.h"
+#include "environment/globals.h"
+#include "main/mdebug.h"
+#include "target/ibuildtarget.h"
 
 #include <fstream>
 

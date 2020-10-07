@@ -1,9 +1,9 @@
 #pragma once
 
-#include "matmake-common.h"
-#include "mdebug.h"
-#include "merror.h"
-#include "token.h"
+#include "main/matmake-common.h"
+#include "main/mdebug.h"
+#include "main/merror.h"
+#include "main/token.h"
 #include <array>
 #include <stdexcept>
 #include <string>
@@ -32,7 +32,7 @@
 #include <unistd.h>
 #endif
 
-#include "ifiles.h"
+#include "environment/ifiles.h"
 
 // Joins two paths and makes sure that the path separator does not
 // end up in the beginning of the new path

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "createproject.h"
-#include "globals.h"
-#include "help.h"
-#include "locals.h"
+#include "environment/globals.h"
+#include "environment/locals.h"
+#include "main/createproject.h"
+#include "main/help.h"
 #include <iostream>
 
 IsErrorT tokenizeMatmakeFile() {

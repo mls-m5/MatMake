@@ -1,9 +1,9 @@
 #pragma once
 
 #include "buildtype.h"
-#include "ibuildtarget.h"
-#include "ifiles.h"
-#include "token.h"
+#include "environment/ifiles.h"
+#include "main/token.h"
+#include "target/ibuildtarget.h"
 #include <set>
 
 class IDependency {

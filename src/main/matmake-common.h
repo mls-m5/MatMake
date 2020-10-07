@@ -1,7 +1,7 @@
 // Copyright Mattias Larsson Sköld 2019
 #pragma once
 
-#include "token.h"
+#include "main/token.h"
 
 //! Describes the full name of a variable,
 //! ie target.propertyName

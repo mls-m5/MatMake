@@ -14,7 +14,7 @@
  * `c++ matmake.cpp -std=c++14 -o ../matmake`
  */
 
-#include "matmake.h"
+#include "main/matmake.h"
 
 Globals globals;
 

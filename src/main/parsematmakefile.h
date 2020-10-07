@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ienvironment.h"
-#include "ifiles.h"
-#include "locals.h"
+#include "environment/ienvironment.h"
+#include "environment/ifiles.h"
+#include "environment/locals.h"
+#include "main/mdebug.h"
 #include "matmake-common.h"
-#include "mdebug.h"
 #include <fstream>
 #include <iostream>
 

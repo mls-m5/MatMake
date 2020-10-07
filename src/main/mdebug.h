@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "globals.h"
+#include "environment/globals.h"
 
 // verbose output
 #define vout                                                                   \

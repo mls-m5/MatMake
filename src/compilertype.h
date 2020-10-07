@@ -1,6 +1,7 @@
 // Copyright Mattias Larsson Sköld 2019
 #pragma once
 
+#include "main/merror.h"
 #include <map>
 #include <string>
 
@@ -24,7 +25,7 @@ public:
     virtual ~ICompiler() = default;
     virtual std::string getString(CompilerString) = 0;
     virtual bool getFlag(CompilerFlagType) = 0;
-    virtual std::string translateConfig(std::string) = 0;
+    virtual std::string translateConfig(Token) = 0;
     virtual std::string prepareLinkString(std::string dir,
                                           std::string name) = 0;
 };
@@ -62,10 +63,11 @@ class GCCCompiler : public ICompiler {
         return "-l:" + name + " -L " + dir;
     }
 
-    std::string translateConfig(std::string name) override {
+    std::string translateConfig(Token name) override {
         const std::map<std::string, std::string> translateMap = {
             {"Wall", "-Wall"},
             {"debug", "-g"},
+            {"modules", "-fmodules-ts"}, // Actually for clang... well well
         };
 
         if (name.substr(0, 3) == "c++") {
@@ -76,6 +78,7 @@ class GCCCompiler : public ICompiler {
             return translateMap.at(name);
         }
         catch (std::out_of_range &) {
+            throw MatmakeError(name, "Config not found");
             return "";
         }
     }

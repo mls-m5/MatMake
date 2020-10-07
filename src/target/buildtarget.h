@@ -2,15 +2,14 @@
 
 #pragma once
 
-#include "buildfile.h"
-#include "copyfile.h"
-#include "dependency.h"
-#include "ibuildtarget.h"
-#include "linkfile.h"
-
 #include "compilertype.h"
-#include "globals.h"
-#include "ifiles.h"
+#include "dependency/buildfile.h"
+#include "dependency/copyfile.h"
+#include "dependency/dependency.h"
+#include "dependency/linkfile.h"
+#include "environment/globals.h"
+#include "environment/ifiles.h"
+#include "target/ibuildtarget.h"
 #include "targets.h"
 
 #include <map>

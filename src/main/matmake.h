@@ -2,17 +2,17 @@
 
 #pragma once
 
-#include "buildtarget.h"
 #include "createproject.h"
-#include "dependency.h"
-#include "environment.h"
-#include "files.h"
-#include "globals.h" // Global variables
+#include "dependency/dependency.h"
+#include "environment/environment.h"
+#include "environment/files.h"
+#include "environment/globals.h" // Global variables
+#include "environment/locals.h"
 #include "help.h"
-#include "locals.h"
+#include "main/token.h"
 #include "parsearguments.h"
 #include "parsematmakefile.h"
-#include "token.h"
+#include "target/buildtarget.h"
 
 //! Do what operation was given in command line arguments and saved in locals
 ShouldQuitT work(const Locals &locals, IEnvironment &environment) {

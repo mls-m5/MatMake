@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "dependency.h"
-#include "globals.h"
-#include "ibuildtarget.h"
-#include "ienvironment.h"
+#include "dependency/dependency.h"
+#include "environment/globals.h"
+#include "environment/ienvironment.h"
+#include "target/ibuildtarget.h"
 #include <fstream>
 
 class CopyFile : public Dependency {

@@ -2,15 +2,15 @@
 
 #pragma once
 
-#include "ienvironment.h"
+#include "environment/ienvironment.h"
 
-#include "buildtarget.h"
 #include "globals.h"
-#include "ibuildtarget.h"
-#include "matmake.h"
-#include "targets.h"
+#include "main/matmake.h"
+#include "main/token.h"
+#include "target/buildtarget.h"
+#include "target/ibuildtarget.h"
+#include "target/targets.h"
 #include "threadpool.h"
-#include "token.h"
 
 #include <fstream>
 

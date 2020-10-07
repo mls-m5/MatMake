@@ -8,7 +8,7 @@
 #pragma once
 
 #include "compilertype.h"
-#include "dependency.h"
+#include "dependency/dependency.h"
 
 class LinkFile : public Dependency {
     bool _isBuildCalled = false;

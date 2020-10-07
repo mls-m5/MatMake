@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ibuildtarget.h"
+#include "target/ibuildtarget.h"
 
 #include <vector>
 

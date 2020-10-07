@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "files.h"
-#include "globals.h"
+#include "environment/files.h"
+#include "environment/globals.h"
+#include "environment/threadpool.h"
 #include "idependency.h"
-#include "matmake-common.h"
-#include "threadpool.h"
+#include "main/matmake-common.h"
 #include <chrono>
 #include <fstream>
 #include <mutex>
@@ -14,7 +14,7 @@
 
 class IBuildTarget;
 
-class Dependency : public IDependency {
+class Dependency : public virtual IDependency {
     std::set<class IDependency *>
         _dependencies; // Dependencies from matmakefile
     std::set<IDependency *> _subscribers;
@@ -196,7 +196,7 @@ public:
     }
 
     void command(Token command) {
-        _command = std::move(command);
+        _command = move(command);
     }
 
     //! Set the primary output file for the dependency
@@ -220,11 +220,11 @@ public:
     }
 
     void inputs(std::vector<Token> in) {
-        _inputs = std::move(in);
+        _inputs = move(in);
     }
 
     void input(Token in) {
-        _inputs = {std::move(in)};
+        _inputs = {move(in)};
     }
 
     std::vector<Token> inputs() const {

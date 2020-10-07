@@ -1,6 +1,6 @@
 #pragma once
 
-#include "token.h"
+#include "main/token.h"
 #include <vector>
 
 class IFiles {

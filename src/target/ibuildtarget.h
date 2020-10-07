@@ -1,12 +1,15 @@
 #pragma once
 
-#include "buildtype.h"
-#include "ifiles.h"
-#include "token.h"
+#include "dependency/buildtype.h"
+#include "environment/ifiles.h"
+#include "main/token.h"
 #include <map>
 #include <memory>
 #include <vector>
 
+//! A build target is a collection of properties used te create a executable
+//! build targets can "inherit" from eachother, and thereby share common
+//! properties
 class IBuildTarget {
 public:
     virtual ~IBuildTarget() = default;

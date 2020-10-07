@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include "idependency.h"
-#include "ifiles.h"
-#include "mdebug.h"
-#include "merror.h"
+#include "dependency/idependency.h"
+#include "environment/ifiles.h"
+#include "main/mdebug.h"
+#include "main/merror.h"
 #include <atomic>
 #include <mutex>
 #include <queue>
