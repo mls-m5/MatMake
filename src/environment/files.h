@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <stdio.h> //For FILENAME_MAX
+#include <cstdio> //For FILENAME_MAX
 
 #ifdef _WIN32
 #include <direct.h>

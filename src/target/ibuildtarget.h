@@ -62,14 +62,14 @@ public:
 
     virtual BuildType buildType() const = 0;
 
+    virtual bool hasModules() const = 0;
+
     // ------- Commands that is executed on the build target -------------------
 
     //! Calculate and return all files used by this target
     virtual std::vector<std::unique_ptr<class IDependency>>
     calculateDependencies(const IFiles &files,
                           const class Targets &targets) = 0;
-
-    //	virtual void build() = 0;
 
     virtual void print() = 0;
 

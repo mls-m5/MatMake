@@ -23,7 +23,8 @@ tests: all .depend $(TESTOBJ)
 matdep: matdep.cpp
 
 ${matmake}: CXXFLAGS += -pthread
-${matmake}: src/*.cpp src/*.h
+${matmake}: src/*.cpp src/*.h src/dependency/*.h src/environment/*.h \
+            src/target/*.h
 	${CXX} -o ${matmake} src/matmake.cpp -Isrc/ ${CXXFLAGS}
 
 .depend: Makefile $(TESTSRC)
