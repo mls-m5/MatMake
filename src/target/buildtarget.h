@@ -113,7 +113,7 @@ struct BuildTarget : public IBuildTarget {
     }
 
     Token getFlags() const override {
-        return get("flags").concat();
+        return get("flags").concat() + " " + getConfigFlags();
     }
 
     Token getIncludeFlags() const {

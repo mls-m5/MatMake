@@ -68,6 +68,8 @@ class GCCCompiler : public ICompiler {
             {"Wall", "-Wall"},
             {"debug", "-g"},
             {"modules", "-fmodules-ts"}, // Actually for clang... well well
+            {"threads", "-pthread"},
+            {"filesystem", "-lstdc++fs"},
         };
 
         if (name.substr(0, 3) == "c++") {
