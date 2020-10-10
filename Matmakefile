@@ -1,0 +1,14 @@
+
+config +=
+   c++17
+   threads
+   filesystem
+
+includes +=
+   matmake/src
+
+src = test/%.cpp
+
+dir = bin
+
+file_test.out = %

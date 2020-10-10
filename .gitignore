@@ -3,8 +3,17 @@
 .settings/
 file_test
 test1
-testproject/build/
+testprojects/testproject/build
+testprojects/testproject/build
+testprojects/moduleproject/build/
 *.pcm
+*.d
+*.tmp
+*.o
+*.a
+*.so
+*_test
+
 
 #project files
 *.cflags
