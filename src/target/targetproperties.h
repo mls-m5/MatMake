@@ -37,6 +37,22 @@ public:
         }
     }
 
+    //! Check if a config flag is present
+    bool hasConfig(const Token &name) {
+        try {
+            auto &prop = properties().at("config");
+            for (auto &token : prop) {
+                if (token == name) {
+                    return true;
+                }
+            }
+        }
+        catch (std::out_of_range &) {
+            return false;
+        }
+        return false;
+    }
+
     //! Return property, and create if it does not exist
     Tokens &operator[](const Token &propertyName) {
         return property(propertyName);

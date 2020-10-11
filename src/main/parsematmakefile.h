@@ -88,8 +88,6 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
                 }
 
                 if (*it == "=") {
-                    //                    environment.setVariable(variableName,
-                    //                    value);
                     properties.setVariable(variableName, value);
                 }
                 else if (*it == "+=") {

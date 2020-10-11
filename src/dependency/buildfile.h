@@ -4,6 +4,8 @@
 
 #include "dependency.h"
 #include "environment/globals.h"
+#include "environment/popenstream.h"
+#include "environment/prescan.h"
 #include "main/mdebug.h"
 #include "target/ibuildtarget.h"
 
@@ -11,14 +13,19 @@
 
 //! Represent a single source file to be built
 class BuildFile : public Dependency {
-    Token _filename; // The source of the file
     Token _filetype; // The ending of the filename
 public:
+    enum Type {
+        RegularCpp,
+        CppToPcm,
+        PcmToO,
+    };
+
     BuildFile(const BuildFile &) = delete;
     BuildFile(BuildFile &&) = delete;
-    BuildFile(Token filename, IBuildTarget *target)
-        : Dependency(target), _filename(filename),
-          _filetype(stripFileEnding(filename).second) {
+    BuildFile(Token filename, IBuildTarget *target, Type type)
+        : Dependency(target)
+        , _filetype(stripFileEnding(filename).second) {
         auto withoutEnding =
             stripFileEnding(target->getBuildDirectory() + filename);
         if (withoutEnding.first.empty()) {
@@ -28,9 +35,23 @@ public:
                                    "' . Is the file ending right?");
         }
 
-        Dependency::output(removeDoubleDots(
-            fixObjectEnding(target->getBuildDirectory() + filename)));
+        {
+            if (type == CppToPcm) {
+                output(fixPcmEnding(filename));
+            }
+            else {
+                output(fixObjectEnding(filename));
+            }
+        }
+
         depFile(fixDepEnding(output()));
+
+        if (type == PcmToO) {
+            input(fixPcmEnding(filename));
+        }
+        else {
+            input(filename);
+        }
 
         if (filename.empty()) {
             throw MatmakeError(filename, "empty buildfile added");
@@ -46,12 +67,14 @@ public:
         }
     }
 
-    static Token fixObjectEnding(Token filename) {
-        return stripFileEnding(filename).first + ".o";
+    Token fixObjectEnding(Token filename) {
+        return removeDoubleDots(target()->getBuildDirectory() + filename +
+                                ".o");
     }
 
-    time_t getInputChangedTime(const IFiles &files) {
-        return files.getTimeChanged(_filename);
+    Token fixPcmEnding(Token filename) {
+        return removeDoubleDots(target()->getBuildDirectory() + filename +
+                                ".pcm");
     }
 
     Token preprocessCommand(Token command) const {
@@ -67,24 +90,46 @@ public:
         return Object;
     }
 
-    void prepare(const IFiles &files) override {
-        using namespace std;
-        auto inputChangedTime = getInputChangedTime(files);
-        vector<string> dependencyFiles;
-        string oldCommand;
-        tie(dependencyFiles, oldCommand) = parseDepFile();
-        time_t outputChangedTime = changedTime(files);
+    void prescan(IFiles &files) override {
+        //        auto inputChangedTime = Dependency::inputChangedTime(files);
+        //        if (inputChangedTime < files.getTimeChanged(depFile())) {
+        //            return;
+        //        }
 
-        if (outputChangedTime < inputChangedTime) {
+        //        auto command = target()->getCompiler(_filetype) + " " +
+        //        input() +
+        //                       " " + getFlags();
+
+        //        POpenStream stream(command);
+
+        //        dout << "prescan command: " << command << std::endl;
+
+        //        auto deps = ::prescan(stream);
+    }
+
+    void prepare(const IFiles &files) override {
+        time_t outputChangedTime = changedTime(files);
+        if (outputChangedTime < inputChangedTime(files)) {
             dirty(true);
-            dout << "file is dirty" << endl;
+            dout << "file is dirty" << std::endl;
         }
 
-        Token depCommand = " -MMD -MF " + depFile() + " ";
-        depCommand.location = _filename.location;
+        Token depCommand;
+
+        if (target()->hasModules()) {
+            // Generate .d-file
+        }
+        else {
+            depCommand = " -MMD -MF " + depFile() + " ";
+            depCommand.location = input().location;
+        }
+
+        std::vector<std::string> dependencyFiles;
+        std::string oldCommand;
+        tie(dependencyFiles, oldCommand) = parseDepFile();
 
         if (dependencyFiles.empty()) {
-            dout << "file is dirty" << endl;
+            dout << "file is dirty" << std::endl;
             dirty(true);
         }
         else {
@@ -92,7 +137,7 @@ public:
                 auto dependencyTimeChanged = files.getTimeChanged(d);
                 if (dependencyTimeChanged == 0 ||
                     dependencyTimeChanged > outputChangedTime) {
-                    dout << "rebuilding because older than " << d << endl;
+                    dout << "rebuilding because older than " << d << std::endl;
                     dirty(true);
                     break;
                 }
@@ -101,14 +146,14 @@ public:
 
         auto flags = getFlags();
         Token command = target()->getCompiler(_filetype) + " -c -o " +
-                        output() + " " + _filename + " " + flags + depCommand;
+                        output() + " " + input() + " " + flags + depCommand;
 
         command = preprocessCommand(command);
-        command.location = _filename.location;
+        command.location = input().location;
         this->command(command);
 
         if (!dirty() && command != oldCommand) {
-            dout << "command is changed for " << output() << endl;
+            dout << "command is changed for " << output() << std::endl;
             dirty(true);
         }
     }

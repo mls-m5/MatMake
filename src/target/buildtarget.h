@@ -24,12 +24,13 @@ struct BuildTarget : public IBuildTarget {
     std::shared_ptr<ICompiler> _compilerType = std::make_shared<GCCCompiler>();
     LinkFile *_outputFile = nullptr;
     bool _isBuildCalled = false;
-    bool _hasModules = false; // Calculated in prescan step
+    bool _hasModules = false;
     std::unique_ptr<TargetProperties> _properties;
 
     BuildTarget(std::unique_ptr<TargetProperties> properties) {
         _properties = move(properties);
         _name = _properties->name();
+        _hasModules = _properties->hasConfig("modules");
     }
 
     const TargetProperties &properties() const override {
@@ -163,14 +164,23 @@ struct BuildTarget : public IBuildTarget {
                 continue;
             }
             filename = preprocessCommand(filename);
-            dependencies.emplace_back(new BuildFile(filename, this));
+            if (_hasModules) {
+                dependencies.push_back(std::make_unique<BuildFile>(
+                    filename, this, BuildFile::CppToPcm));
+                dependencies.push_back(std::make_unique<BuildFile>(
+                    filename, this, BuildFile::PcmToO));
+            }
+            else {
+                dependencies.push_back(std::make_unique<BuildFile>(
+                    filename, this, BuildFile::RegularCpp));
+            }
         }
         for (auto &filename : getGroups("copy", files)) {
             if (filename.empty()) {
                 continue;
             }
             filename = preprocessCommand(filename);
-            dependencies.emplace_back(new CopyFile(filename, this));
+            dependencies.push_back(std::make_unique<CopyFile>(filename, this));
         }
         for (auto &link : getGroups("link", files)) {
             if (link.empty()) {
@@ -284,7 +294,7 @@ struct BuildTarget : public IBuildTarget {
     //! Return flags used by a file
     virtual Token getBuildFlags(const Token &filetype) const override {
         auto flags = properties().get("flags").concat();
-        if (filetype == "cpp") {
+        if (filetype == "cpp" || filetype == "cppm") {
             auto cppflags = properties().get("cppflags");
             if (!cppflags.empty()) {
                 flags += (" " + cppflags.concat());
