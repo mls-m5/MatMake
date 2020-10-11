@@ -289,6 +289,10 @@ public:
 };
 
 std::string removeDoubleDots(std::string str) {
+    if (str.empty()) {
+        return {};
+    }
+
     auto findStr = ".." + pathSeparator;
     auto replaceStr = "_" + pathSeparator;
 

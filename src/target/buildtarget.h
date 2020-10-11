@@ -10,6 +10,7 @@
 #include "environment/globals.h"
 #include "environment/ifiles.h"
 #include "target/ibuildtarget.h"
+#include "target/targetproperties.h"
 #include "targets.h"
 
 #include <map>
@@ -17,88 +18,26 @@
 //! A build target is a executable, dll or similar that depends
 //! on one or more build targets, build files or copy files
 struct BuildTarget : public IBuildTarget {
-    std::map<Token, Tokens> _properties;
+    //    std::map<Token, Tokens> _properties;
     Token _name;
 
     std::shared_ptr<ICompiler> _compilerType = std::make_shared<GCCCompiler>();
     LinkFile *_outputFile = nullptr;
     bool _isBuildCalled = false;
+    bool _hasModules = false; // Calculated in prescan step
+    std::unique_ptr<TargetProperties> _properties;
 
-    BuildTarget(Token name, IBuildTarget *root) : _name(name) {
-        if (_name != "root") {
-            inherit(root);
-        }
-        else {
-            assign("cpp", Token("c++"));
-            assign("cc", Token("cc"));
-            assign("includes", Token(""));
-        }
+    BuildTarget(std::unique_ptr<TargetProperties> properties) {
+        _properties = move(properties);
+        _name = _properties->name();
     }
 
-    BuildTarget(IBuildTarget *root) {
-        inherit(root);
-    }
-
-    BuildTarget(NameDescriptor n, Tokens v, IBuildTarget *root)
-        : BuildTarget(n.rootName, root) {
-        assign(n.propertyName, v);
-    }
-
-    void inherit(const IBuildTarget *parent) {
-        if (!parent) {
-            return;
-        }
-        for (auto v : parent->properties()) {
-            if (v.first == "inherit") {
-                continue;
-            }
-            assign(v.first, v.second);
-        }
-    }
-
-    Tokens &property(Token propertyName) override {
-        return _properties[propertyName];
-    }
-
-    void assign(Token propertyName, Tokens value) override {
-        if (propertyName == "inherit") {
-            std::cout << "Target " << name() << " tries to inherit wrong\n";
-        }
-        property(propertyName) = value;
-    }
-
-    void assign(Token propertyName,
-                Tokens value,
-                const Targets &targets) override {
-        property(propertyName) = value;
-
-        if (propertyName == "inherit") {
-            auto parent = targets.find(value.concat());
-            if (parent) {
-                inherit(parent);
-            }
-        }
-    }
-
-    void append(Token propertyName, Tokens value) override {
-        property(propertyName).append(value);
-    }
-
-    Tokens get(const Token &propertyName) const override {
-        try {
-            return properties().at(propertyName);
-        }
-        catch (std::out_of_range &) {
-            return {};
-        }
-    }
-
-    const std::map<Token, Tokens> &properties() const override {
-        return _properties;
+    const TargetProperties &properties() const override {
+        return *_properties;
     }
 
     Token getLibs() const override {
-        auto libs = get("libs");
+        auto libs = properties().get("libs");
 
         return libs.concat();
     }
@@ -113,13 +52,13 @@ struct BuildTarget : public IBuildTarget {
     }
 
     Token getFlags() const override {
-        return get("flags").concat() + " " + getConfigFlags();
+        return properties().get("flags").concat() + " " + getConfigFlags();
     }
 
     Token getIncludeFlags() const {
         Token ret;
 
-        auto includes = get("includes").groups();
+        auto includes = properties().get("includes").groups();
         for (auto &include : includes) {
             auto includeStr = include.concat();
             if (includeStr.empty()) {
@@ -130,7 +69,7 @@ struct BuildTarget : public IBuildTarget {
                  includeStr);
         }
 
-        auto sysincludes = get("sysincludes").groups();
+        auto sysincludes = properties().get("sysincludes").groups();
         for (auto &include : sysincludes) {
             auto includeStr = include.concat().trim();
             if (includeStr.empty()) {
@@ -148,7 +87,7 @@ struct BuildTarget : public IBuildTarget {
     Token getDefineFlags() const {
         Token ret;
 
-        auto defines = get("define").groups();
+        auto defines = properties().get("define").groups();
         for (auto &def : defines) {
             ret +=
                 (" " + _compilerType->getString(CompilerString::DefinePrefix) +
@@ -160,7 +99,7 @@ struct BuildTarget : public IBuildTarget {
 
     Token getConfigFlags() const {
         Token ret;
-        auto configs = get("config").groups();
+        auto configs = properties().get("config").groups();
         for (auto &config : configs) {
             ret += (" " + _compilerType->translateConfig(config.concat()));
         }
@@ -169,7 +108,7 @@ struct BuildTarget : public IBuildTarget {
 
     //! Returns all files in a property
     Tokens getGroups(const Token &propertyName, const IFiles &files) const {
-        auto sourceString = get(propertyName);
+        auto sourceString = properties().get(propertyName);
 
         auto groups = sourceString.groups();
 
@@ -189,7 +128,7 @@ struct BuildTarget : public IBuildTarget {
 
     void print() override {
         vout << "target " << _name << ": \n";
-        for (auto &m : properties()) {
+        for (auto &m : properties().properties()) {
             vout << "\t" << m.first << " = " << m.second << " \n";
         }
         vout << "\n";
@@ -197,10 +136,10 @@ struct BuildTarget : public IBuildTarget {
 
     Token getCompiler(const Token &filetype) const override {
         if (filetype == "cpp") {
-            return get("cpp").concat();
+            return properties().get("cpp").concat();
         }
         else if (filetype == "c") {
-            return get("cc").concat();
+            return properties().get("cc").concat();
         }
         else {
             return "echo";
@@ -255,11 +194,22 @@ struct BuildTarget : public IBuildTarget {
 
         dependencies.push_back(move(oFile));
 
+        auto configs = properties().get("config");
+        for (const auto &config : configs) {
+            if (config == "modules") {
+                _hasModules = true;
+            }
+        }
+
         return dependencies;
     }
 
+    bool hasModules() const override {
+        return _hasModules;
+    }
+
     BuildType buildType() const override {
-        auto out = get("out");
+        auto out = properties().get("out");
         if (!out.empty()) {
             if (out.front() == "shared") {
                 return Shared;
@@ -273,7 +223,7 @@ struct BuildTarget : public IBuildTarget {
 
     //! Path minus directory
     Token filename() override {
-        auto out = get("out").groups();
+        auto out = properties().get("out").groups();
         if (out.empty()) {
             return _name;
         }
@@ -310,7 +260,7 @@ struct BuildTarget : public IBuildTarget {
 
     //! Where the final product will be placed
     Token getOutputDir() const override {
-        auto outputDir = get("dir").concat();
+        auto outputDir = properties().get("dir").concat();
         if (!outputDir.empty()) {
             outputDir = outputDir.trim();
             outputDir += "/";
@@ -320,7 +270,7 @@ struct BuildTarget : public IBuildTarget {
 
     //! If where the tmp build-files is placed
     Token getBuildDirectory() const override {
-        auto outputDir = get("objdir").concat();
+        auto outputDir = properties().get("objdir").concat();
         if (!outputDir.empty()) {
             outputDir = outputDir.trim();
             outputDir += "/";
@@ -333,15 +283,15 @@ struct BuildTarget : public IBuildTarget {
 
     //! Return flags used by a file
     virtual Token getBuildFlags(const Token &filetype) const override {
-        auto flags = get("flags").concat();
+        auto flags = properties().get("flags").concat();
         if (filetype == "cpp") {
-            auto cppflags = get("cppflags");
+            auto cppflags = properties().get("cppflags");
             if (!cppflags.empty()) {
                 flags += (" " + cppflags.concat());
             }
         }
         if (filetype == "c") {
-            auto cflags = get("cflags");
+            auto cflags = properties().get("cflags");
             if (!cflags.empty()) {
                 flags += (" " + cflags.concat());
             }

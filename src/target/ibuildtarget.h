@@ -3,6 +3,7 @@
 #include "dependency/buildtype.h"
 #include "environment/ifiles.h"
 #include "main/token.h"
+#include "target/targetproperties.h"
 #include <map>
 #include <memory>
 #include <vector>
@@ -16,25 +17,7 @@ public:
 
     //------------------ Property handling ------------------------------------
 
-    //! Gets a list of const properties to iterate over
-    virtual const std::map<Token, Tokens> &properties() const = 0;
-
-    //! Get a single editable property
-    virtual Tokens &property(Token) = 0;
-
-    //! Get but without reference
-    //! (This may very well be redundant
-    virtual Tokens get(const Token &propertyName) const = 0;
-
-    //! Used for setting _and handling_ properties on a build target
-    //! This handles for example "inherit" or "exe" rules in the right way
-    virtual void assign(Token propertyName,
-                        Tokens value,
-                        const class Targets &) = 0;
-    virtual void assign(Token propertyName, Tokens value) = 0;
-
-    //! Adding extra data to a variable (existing or non-existing)
-    virtual void append(Token propertyName, Tokens value) = 0;
+    virtual const TargetProperties &properties() const = 0;
 
     //-------- Values made from combining the buildtargets properties ---------
 
@@ -72,8 +55,6 @@ public:
                           const class Targets &targets) = 0;
 
     virtual void print() = 0;
-
-    //	virtual void clean() = 0;
 
     virtual Token filename() = 0;
 };

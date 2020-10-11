@@ -72,8 +72,9 @@ int start(std::vector<std::string> args) {
     {
         ShouldQuitT shouldQuit;
         IsErrorT isError;
-        std::tie(shouldQuit, isError) =
-            parseMatmakeFile(locals, environment, *files);
+        TargetPropertyCollection properties{};
+        std::tie(shouldQuit, isError, properties) =
+            parseMatmakeFile(locals, *files);
 
         if (shouldQuit) {
             return 0;
@@ -81,6 +82,8 @@ int start(std::vector<std::string> args) {
         if (isError) {
             globals.bailout = true;
         }
+
+        environment.setTargetProperties(move(properties));
     }
 
     if (!globals.bailout) {

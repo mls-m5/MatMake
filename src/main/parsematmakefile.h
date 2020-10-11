@@ -5,6 +5,7 @@
 #include "environment/locals.h"
 #include "main/mdebug.h"
 #include "matmake-common.h"
+#include "target/targetproperties.h"
 #include <fstream>
 #include <iostream>
 
@@ -18,9 +19,8 @@ bool isOperator(std::string &op) {
 }
 
 //! Parse the Matmakefile (obviously). Put result in environment.
-std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals &locals,
-                                                   IEnvironment &environment,
-                                                   const IFiles &files) {
+std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
+    const Locals &locals, const IFiles &files) {
     ShouldQuitT shouldQuit = false;
     IsErrorT isError = false;
 
@@ -43,10 +43,8 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals &locals,
                       << files.getCurrentWorkingDirectory() << "\n";
         }
         shouldQuit = true;
-        return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
+        return {shouldQuit, isError, TargetPropertyCollection{locals.vars}};
     }
-
-    environment.setCommandLineVars(locals.vars);
 
     int lineNumber = 1;
 
@@ -66,6 +64,8 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals &locals,
 
         return ret;
     };
+
+    TargetPropertyCollection properties(locals.vars);
 
     for (std::string line; getline(matmakefile, line); ++lineNumber) {
         auto words = tokenize(line, lineNumber);
@@ -88,23 +88,29 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals &locals,
                 }
 
                 if (*it == "=") {
-                    environment.setVariable(variableName, value);
+                    //                    environment.setVariable(variableName,
+                    //                    value);
+                    properties.setVariable(variableName, value);
                 }
                 else if (*it == "+=") {
-                    environment.appendVariable(variableName, value);
+                    properties.appendVariable(variableName, value);
                 }
             }
             else if (!locals.localOnly && words.size() >= 2 &&
                      words.front() == "external") {
                 vout << "external dependency to " << words[1] << "\n";
 
-                environment.addExternalDependency(
-                    false, words[1], Tokens(words.begin() + 2, words.end()));
+                // Todo: Fix this again
+                //                environment.addExternalDependency(
+                //                    false, words[1], Tokens(words.begin() + 2,
+                //                    words.end()));
             }
             else if (!locals.localOnly && words.size() >= 2 &&
                      words.front() == "dependency") {
-                environment.addExternalDependency(
-                    true, words[1], Tokens(words.begin() + 2, words.end()));
+                // Todo: fix this again
+                //                environment.addExternalDependency(
+                //                    true, words[1], Tokens(words.begin() + 2,
+                //                    words.end()));
             }
             else if (words.empty()) {
             }
@@ -116,5 +122,5 @@ std::tuple<ShouldQuitT, IsErrorT> parseMatmakeFile(const Locals &locals,
         }
     }
 
-    return std::tuple<ShouldQuitT, IsErrorT>{shouldQuit, isError};
+    return {shouldQuit, isError, move(properties)};
 }

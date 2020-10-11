@@ -80,6 +80,7 @@ struct Tokens : public std::vector<Token> {
         emplace_back(t);
     }
     Tokens &operator=(const Tokens &) = default;
+    Tokens &operator=(Tokens &&) = default;
     Tokens(vector<Token>::iterator begin, vector<Token>::iterator end)
         : vector<Token>(begin, end) {}
 

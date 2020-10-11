@@ -9,6 +9,7 @@
 #include "main/token.h"
 #include "target/buildtarget.h"
 #include "target/ibuildtarget.h"
+#include "target/targetproperties.h"
 #include "target/targets.h"
 #include "threadpool.h"
 
@@ -78,49 +79,19 @@ public:
         }
     }
 
-    void setCommandLineVars(
-        const std::map<std::string, std::vector<std::string>> &vars) override {
-        for (auto element : vars) {
-            for (auto var : element.second) {
-                targets.root->append(element.first, Token(var));
-            }
-        }
-    }
-
     Environment(std::shared_ptr<IFiles> fileHandler)
-        : _fileHandler(fileHandler) {
-        targets.emplace_back(new BuildTarget("root", nullptr));
-        targets.root = targets.back().get();
-    }
+        : _fileHandler(fileHandler) {}
 
-    IBuildTarget *findVariable(Token name) const {
-        if (name.empty()) {
-            return nullptr;
-        }
-        for (auto &v : targets) {
-            if (v->name() == name) {
-                return v.get();
+    //! Transfer all information parsed from the matmake-file
+    void setTargetProperties(TargetPropertyCollection properties) {
+        for (auto &property : properties) {
+            bool isRoot = property->name() == "root";
+            auto target = std::make_unique<BuildTarget>(move(property));
+            if (isRoot) {
+                targets.root = target.get();
             }
+            targets.push_back(move(target));
         }
-        return nullptr;
-    }
-
-    IBuildTarget &operator[](Token name) {
-        if (auto v = findVariable(name)) {
-            return *v;
-        }
-        else {
-            targets.emplace_back(new BuildTarget(name, targets.root));
-            return *targets.back();
-        }
-    }
-
-    void appendVariable(const NameDescriptor &name, Tokens value) override {
-        (*this)[name.rootName].append(name.propertyName, value);
-    }
-
-    void setVariable(const NameDescriptor &name, Tokens value) override {
-        (*this)[name.rootName].assign(name.propertyName, value, targets);
     }
 
     void print() {
@@ -168,7 +139,7 @@ public:
         std::vector<std::unique_ptr<IDependency>> files;
         for (auto target : selectedTargets) {
             dout << "target " << target->name() << " src "
-                 << target->get("src").concat() << std::endl;
+                 << target->properties().get("src").concat() << std::endl;
 
             auto targetDependencies =
                 target->calculateDependencies(*_fileHandler, targets);
