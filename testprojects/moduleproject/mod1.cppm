@@ -1,10 +1,12 @@
 
-import mod2;
-
-#import <cstdio>
-#import <string>
+// module;
 
 export module mod1;
+
+import mod2;
+
+//#import <cstdio>
+//#import <string>
 
 // clang-format off
 // Compile with

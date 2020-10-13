@@ -1,0 +1,8 @@
+
+cpp = clang++
+
+config +=
+   modules
+   c++17
+
+main.src += *.cpp *.cppm

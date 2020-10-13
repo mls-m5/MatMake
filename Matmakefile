@@ -12,3 +12,5 @@ src = test/%.cpp
 dir = bin
 
 file_test.out = %
+popenstream_test.out = %
+prescan_test.out = %
