@@ -12,6 +12,13 @@ public:
 
     // ----------- Higher level functions used as build steps -----------------
 
+    //! For c++20 modules create a .d-file containing all dependencies
+    //! For dependencies without modules enabled .d-file is created in
+    //! "prepare"-step
+    virtual void prescan(
+        IFiles &files,
+        const std::vector<std::unique_ptr<IDependency>> &buildFiles) = 0;
+
     //! Check if the file is dirty and setup build command
     virtual void prepare(const IFiles &files) = 0;
 
@@ -51,6 +58,8 @@ public:
     //! Add a file that this file will wait for
     virtual void addDependency(IDependency *file) = 0;
 
+    //! If the file should be used in the link step
+    //! This should be false for pcm files or copied resource files
     virtual bool includeInBinary() const = 0;
 
     virtual BuildType buildType() const = 0;

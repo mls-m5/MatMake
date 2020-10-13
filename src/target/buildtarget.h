@@ -7,6 +7,7 @@
 #include "dependency/copyfile.h"
 #include "dependency/dependency.h"
 #include "dependency/linkfile.h"
+#include "environment/files.h"
 #include "environment/globals.h"
 #include "environment/ifiles.h"
 #include "target/ibuildtarget.h"
@@ -136,7 +137,7 @@ struct BuildTarget : public IBuildTarget {
     }
 
     Token getCompiler(const Token &filetype) const override {
-        if (filetype == "cpp") {
+        if (filetype == "cpp" || filetype == "cppm") {
             return properties().get("cpp").concat();
         }
         else if (filetype == "c") {
@@ -164,7 +165,8 @@ struct BuildTarget : public IBuildTarget {
                 continue;
             }
             filename = preprocessCommand(filename);
-            if (_hasModules) {
+            auto ending = stripFileEnding(filename).second;
+            if (_hasModules && ending == "cppm") {
                 dependencies.push_back(std::make_unique<BuildFile>(
                     filename, this, BuildFile::CppToPcm));
                 dependencies.push_back(std::make_unique<BuildFile>(

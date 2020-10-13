@@ -12,7 +12,8 @@ class CopyFile : public Dependency {
 public:
     CopyFile(const CopyFile &) = delete;
     CopyFile(CopyFile &&) = delete;
-    CopyFile(Token source, IBuildTarget *target) : Dependency(target) {
+    CopyFile(Token source, IBuildTarget *target)
+        : Dependency(target) {
         auto o = joinPaths(target->getOutputDir(), source);
         if (o != source) {
             output(o);
@@ -22,6 +23,9 @@ public:
         }
         input(source);
     }
+
+    void prescan(IFiles &,
+                 const std::vector<std::unique_ptr<IDependency>> &) override {}
 
     void prepare(const IFiles &files) override {
         if (output().empty()) {

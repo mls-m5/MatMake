@@ -28,7 +28,8 @@ class Dependency : public virtual IDependency {
     IBuildTarget *_target;
 
 public:
-    Dependency(IBuildTarget *target) : _target(target) {}
+    Dependency(IBuildTarget *target)
+        : _target(target) {}
 
     virtual ~Dependency() override = default;
 
@@ -132,7 +133,7 @@ public:
     }
 
     static Token fixDepEnding(Token filename) {
-        return filename + ".d";
+        return removeDoubleDots(filename + ".d");
     }
 
     //! Calculate dependencies from makefile styled .d files generated
@@ -225,6 +226,10 @@ public:
 
     void input(Token in) {
         _inputs = {move(in)};
+    }
+
+    void addInput(Token in) {
+        _inputs.push_back(in);
     }
 
     std::vector<Token> inputs() const {

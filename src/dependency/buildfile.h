@@ -13,7 +13,6 @@
 
 //! Represent a single source file to be built
 class BuildFile : public Dependency {
-    Token _filetype; // The ending of the filename
 public:
     enum Type {
         RegularCpp,
@@ -25,7 +24,8 @@ public:
     BuildFile(BuildFile &&) = delete;
     BuildFile(Token filename, IBuildTarget *target, Type type)
         : Dependency(target)
-        , _filetype(stripFileEnding(filename).second) {
+        , _filetype(stripFileEnding(filename).second)
+        , _type(type) {
         auto withoutEnding =
             stripFileEnding(target->getBuildDirectory() + filename);
         if (withoutEnding.first.empty()) {
@@ -35,13 +35,11 @@ public:
                                    "' . Is the file ending right?");
         }
 
-        {
-            if (type == CppToPcm) {
-                output(fixPcmEnding(filename));
-            }
-            else {
-                output(fixObjectEnding(filename));
-            }
+        if (type == CppToPcm) {
+            output(fixPcmEnding(filename));
+        }
+        else {
+            output(fixObjectEnding(filename));
         }
 
         depFile(fixDepEnding(output()));
@@ -67,53 +65,88 @@ public:
         }
     }
 
-    Token fixObjectEnding(Token filename) {
-        return removeDoubleDots(target()->getBuildDirectory() + filename +
-                                ".o");
-    }
+    void prescan(
+        IFiles &files,
+        const std::vector<std::unique_ptr<IDependency>> &buildFiles) override {
+        if (_type == CppToPcm) {
+            //        auto inputChangedTime =
+            //        Dependency::inputChangedTime(files); if (inputChangedTime
+            //        < files.getTimeChanged(depFile())) {
+            //            return;
+            //        }
 
-    Token fixPcmEnding(Token filename) {
-        return removeDoubleDots(target()->getBuildDirectory() + filename +
-                                ".pcm");
-    }
+            auto command = target()->getCompiler(_filetype) + " " + input() +
+                           " -E " + getFlags() + " 2>/dev/null";
 
-    Token preprocessCommand(Token command) const {
-        return Token(trim(target()->preprocessCommand(command)),
-                     command.location);
-    }
+            POpenStream stream(command);
 
-    Token getFlags() {
-        return target()->getBuildFlags(_filetype);
-    }
+            dout << "prescan command: " << command << std::endl;
 
-    BuildType buildType() const override {
-        return Object;
-    }
+            auto deps = ::prescan(stream);
 
-    void prescan(IFiles &files) override {
-        //        auto inputChangedTime = Dependency::inputChangedTime(files);
-        //        if (inputChangedTime < files.getTimeChanged(depFile())) {
-        //            return;
-        //        }
+            dout << "this should be printed to .d-file\n";
+            for (auto &include : deps.includes) {
+                dout << include << " ";
+            }
 
-        //        auto command = target()->getCompiler(_filetype) + " " +
-        //        input() +
-        //                       " " + getFlags();
+            dout << "\n imports:\n";
 
-        //        POpenStream stream(command);
+            std::ofstream file;
 
-        //        dout << "prescan command: " << command << std::endl;
+            if (files.getTimeChanged(depFile()) < inputChangedTime(files)) {
+                //! A file that is not opened will just throw away everything
+                //! written to it
+                file.open(depFile());
+            }
 
-        //        auto deps = ::prescan(stream);
-    }
+            file << output() << ":";
 
-    void prepare(const IFiles &files) override {
-        time_t outputChangedTime = changedTime(files);
-        if (outputChangedTime < inputChangedTime(files)) {
-            dirty(true);
-            dout << "file is dirty" << std::endl;
+            for (auto &imp : deps.imports) {
+                dout << imp << " ";
+
+                file << " " << imp << ".pcm";
+
+                auto importFilename = imp + ".pcm"; // Fix mapping
+
+                //                addInput(importFilename); //
+                //                target->findInport(inp);
+
+                for (auto &bf : buildFiles) {
+                    if (bf->output() == importFilename) {
+                        addDependency(bf.get());
+                        bf->addSubscriber(this);
+                        break;
+                    }
+                }
+            }
+
+            file << " " << input();
+
+            for (auto &include : deps.includes) {
+                file << " " << include;
+            }
+
+            file << "\n";
+
+            dout << std::endl;
         }
+        else if (_type == PcmToO) {
+            std::ofstream file(depFile());
+            file << output() << ": " << input() << "\n";
 
+            for (auto &bf : buildFiles) {
+                if (bf->output() == input()) {
+                    dout << "adding own pcm dependency " << bf->output()
+                         << " to " << output() << "\n";
+                    addDependency(bf.get());
+                    bf->addSubscriber(this);
+                    break;
+                }
+            }
+        }
+    }
+
+    Token createCommand() {
         Token depCommand;
 
         if (target()->hasModules()) {
@@ -122,6 +155,29 @@ public:
         else {
             depCommand = " -MMD -MF " + depFile() + " ";
             depCommand.location = input().location;
+        }
+
+        Token command = target()->getCompiler(_filetype) +
+                        ((_type == CppToPcm) ? " --precompile " : " -c ") +
+                        " -o " + output() + " " + input() + " " + getFlags() +
+                        depCommand;
+
+        if (target()->hasModules()) {
+            if (_type == CppToPcm || _type == RegularCpp) {
+                command += " -fprebuilt-module-path=. ";
+            }
+        }
+
+        command.location = input().location;
+
+        return preprocessCommand(command);
+    }
+
+    void prepare(const IFiles &files) override {
+        time_t outputChangedTime = changedTime(files);
+        if (outputChangedTime < inputChangedTime(files)) {
+            dirty(true);
+            dout << "file is dirty" << std::endl;
         }
 
         std::vector<std::string> dependencyFiles;
@@ -144,17 +200,51 @@ public:
             }
         }
 
-        auto flags = getFlags();
-        Token command = target()->getCompiler(_filetype) + " -c -o " +
-                        output() + " " + input() + " " + flags + depCommand;
+        //        Token command = target()->getCompiler(_filetype) + " -c -o " +
+        //                        output() + " " + input() + " " + getFlags() +
+        //                        depCommand;
 
-        command = preprocessCommand(command);
-        command.location = input().location;
+        //        command = preprocessCommand(command);
+        //        command.location = input().location;
+
+        auto command = createCommand();
+
         this->command(command);
 
         if (!dirty() && command != oldCommand) {
             dout << "command is changed for " << output() << std::endl;
             dirty(true);
         }
+    }
+
+    bool includeInBinary() const override {
+        return _type != CppToPcm;
+    }
+
+private:
+    Token _filetype; // The ending of the filename
+    Type _type = RegularCpp;
+
+    Token fixObjectEnding(Token filename) {
+        return removeDoubleDots(target()->getBuildDirectory() + filename +
+                                ".o");
+    }
+
+    Token fixPcmEnding(Token filename) {
+        return removeDoubleDots(target()->getBuildDirectory() +
+                                stripFileEnding(filename).first + ".pcm");
+    }
+
+    Token preprocessCommand(Token command) const {
+        return Token(trim(target()->preprocessCommand(command)),
+                     command.location);
+    }
+
+    Token getFlags() {
+        return target()->getBuildFlags(_filetype);
+    }
+
+    BuildType buildType() const override {
+        return Object;
     }
 };

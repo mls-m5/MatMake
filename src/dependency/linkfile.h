@@ -11,20 +11,21 @@
 #include "dependency/dependency.h"
 
 class LinkFile : public Dependency {
-    bool _isBuildCalled = false;
-    ICompiler *_compilerType;
-    std::string _dependencyString;
 
 public:
     LinkFile(const LinkFile &) = delete;
     LinkFile(LinkFile &&) = delete;
     LinkFile(Token filename, IBuildTarget *target, ICompiler *compilerType)
-        : Dependency(target), _compilerType(compilerType) {
+        : Dependency(target)
+        , _compilerType(compilerType) {
         output(removeDoubleDots(target->getOutputDir() + filename));
 
         depFile(removeDoubleDots(
             fixDepEnding(target->getBuildDirectory() + filename)));
     }
+
+    void prescan(IFiles &,
+                 const std::vector<std::unique_ptr<IDependency>> &) override {}
 
     void prepare(const IFiles &files) override {
         if (_isBuildCalled) {
@@ -82,6 +83,7 @@ public:
         }
     }
 
+private:
     void prepareCommand() {
         Token fileList;
 
@@ -166,4 +168,8 @@ public:
         }
         return false;
     }
+
+    bool _isBuildCalled = false;
+    ICompiler *_compilerType;
+    std::string _dependencyString;
 };

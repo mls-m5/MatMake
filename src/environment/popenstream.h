@@ -12,8 +12,9 @@
 class POpenStream : public std::iostream {
 private:
     struct POpenStreamBuf : public std::streambuf {
-        POpenStreamBuf(std::string command)
-            : pfile(popen((command + " 2>&1").c_str(), "r")) {
+        POpenStreamBuf(std::string command, bool captureStdErr = false)
+            : pfile(popen((command + (captureStdErr ? " 2>&1" : "")).c_str(),
+                          "r")) {
             if (!pfile) {
                 throw std::runtime_error("could not run command " + command);
             }
@@ -48,7 +49,8 @@ private:
     };
 
 public:
-    POpenStream(std::string command) : buffer(command) {
+    POpenStream(std::string command)
+        : buffer(command) {
         rdbuf(&buffer);
     }
 

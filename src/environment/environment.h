@@ -154,6 +154,12 @@ public:
         return files;
     }
 
+    void prescan(const std::vector<std::unique_ptr<IDependency>> &files) const {
+        for (auto &file : files) {
+            file->prescan(*_fileHandler, files);
+        }
+    }
+
     void createDirectories(
         const std::vector<std::unique_ptr<IDependency>> &files) const {
         std::set<std::string> directories;
@@ -186,11 +192,13 @@ public:
         auto files =
             calculateDependencies(parseTargetArguments(targetArguments));
 
+        createDirectories(files);
+
+        prescan(files);
+
         for (auto &file : files) {
             file->prepare(*_fileHandler);
         }
-
-        createDirectories(files);
 
         for (auto &file : files) {
             file->prune();
