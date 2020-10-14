@@ -12,6 +12,8 @@ public:
     virtual std::pair<int, std::string> popenWithResult(
         std::string command) const = 0;
 
+    //! Return timecode when time is changed, lower is older, higher is newer
+    //! return 0 if file is not found
     virtual time_t getTimeChanged(const std::string &path) const = 0;
 
     virtual std::string getCurrentWorkingDirectory() const = 0;

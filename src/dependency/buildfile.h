@@ -15,7 +15,7 @@
 class BuildFile : public Dependency {
 public:
     enum Type {
-        RegularCpp,
+        CppToO,
         CppToPcm,
         PcmToO,
     };
@@ -68,6 +68,11 @@ public:
     void prescan(
         IFiles &files,
         const std::vector<std::unique_ptr<IDependency>> &buildFiles) override {
+
+        if (files.getTimeChanged(depFile()) > inputChangedTime(files)) {
+            return;
+        }
+
         if (_type == CppToPcm) {
             //        auto inputChangedTime =
             //        Dependency::inputChangedTime(files); if (inputChangedTime
@@ -129,6 +134,8 @@ public:
             file << "\n";
 
             dout << std::endl;
+
+            shouldAddCommandToDepFile(true);
         }
         else if (_type == PcmToO) {
             std::ofstream file(depFile());
@@ -143,16 +150,16 @@ public:
                     break;
                 }
             }
+
+            shouldAddCommandToDepFile(true);
         }
     }
 
     Token createCommand() {
         Token depCommand;
 
-        if (target()->hasModules()) {
-            // Generate .d-file
-        }
-        else {
+        //! If not using prescan
+        if (_type == CppToO) {
             depCommand = " -MMD -MF " + depFile() + " ";
             depCommand.location = input().location;
         }
@@ -163,7 +170,7 @@ public:
                         depCommand;
 
         if (target()->hasModules()) {
-            if (_type == CppToPcm || _type == RegularCpp) {
+            if (_type == CppToPcm || _type == CppToO) {
                 command += " -fprebuilt-module-path=. ";
             }
         }
@@ -200,19 +207,14 @@ public:
             }
         }
 
-        //        Token command = target()->getCompiler(_filetype) + " -c -o " +
-        //                        output() + " " + input() + " " + getFlags() +
-        //                        depCommand;
-
-        //        command = preprocessCommand(command);
-        //        command.location = input().location;
-
         auto command = createCommand();
 
         this->command(command);
 
         if (!dirty() && command != oldCommand) {
             dout << "command is changed for " << output() << std::endl;
+            dout << " old: " << oldCommand << "\n";
+            dout << " new: " << command << "\n";
             dirty(true);
         }
     }
@@ -223,7 +225,7 @@ public:
 
 private:
     Token _filetype; // The ending of the filename
-    Type _type = RegularCpp;
+    Type _type = CppToO;
 
     Token fixObjectEnding(Token filename) {
         return removeDoubleDots(target()->getBuildDirectory() + filename +

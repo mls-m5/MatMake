@@ -20,6 +20,7 @@ class Dependency : public virtual IDependency {
     std::set<IDependency *> _subscribers;
     std::mutex _accessMutex;
     bool _dirty = false;
+    bool _shouldAddCommandToDepFile = false;
 
     std::vector<Token> _outputs;
     std::vector<Token> _inputs;
@@ -132,12 +133,23 @@ public:
         _accessMutex.unlock();
     }
 
+    //! If the work command does not provide command to the dep file
+    //! if true the dep-file-command is added at the "work" stage
+    bool shouldAddCommandToDepFile() const {
+        return _shouldAddCommandToDepFile;
+    }
+
+    void shouldAddCommandToDepFile(bool value) {
+        _shouldAddCommandToDepFile = value;
+    }
+
     static Token fixDepEnding(Token filename) {
         return removeDoubleDots(filename + ".d");
     }
 
     //! Calculate dependencies from makefile styled .d files generated
     //! by the compiler
+    //! first = dependencies, second = old command
     std::pair<std::vector<std::string>, std::string> parseDepFile() const {
         using namespace std;
         ifstream file(target()->preprocessCommand(depFile()));
@@ -253,6 +265,12 @@ public:
         return _target;
     }
 
+    //! If the depfile has a command, otherwise it probably has only
+    //! dependencies printed
+    bool doesDepFileHasCommand() const {
+        return parseDepFile().second.empty();
+    }
+
     void work(const IFiles &files, ThreadPool &pool) override {
         using namespace std;
 
@@ -265,8 +283,12 @@ public:
                                        "\n" + res.second);
             }
             else {
+                bool overrideDepFileTime =
+                    shouldAddCommandToDepFile() && doesDepFileHasCommand();
+
                 auto depFile = this->depFile();
-                if (!depFile.empty() && files.getTimeChanged(depFile)) {
+                if (!depFile.empty() &&
+                    (files.getTimeChanged(depFile) || overrideDepFileTime)) {
                     ofstream file(depFile, fstream::app);
                     file << "\t" << command();
                 }

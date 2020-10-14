@@ -174,7 +174,7 @@ struct BuildTarget : public IBuildTarget {
             }
             else {
                 dependencies.push_back(std::make_unique<BuildFile>(
-                    filename, this, BuildFile::RegularCpp));
+                    filename, this, BuildFile::CppToO));
             }
         }
         for (auto &filename : getGroups("copy", files)) {
