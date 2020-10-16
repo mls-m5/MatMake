@@ -1,0 +1,44 @@
+
+# Matmake file
+# https://github.com/mls-m5/matmake
+
+main.copy = data/*.txt
+
+cppflags += -std=c++14      # c++ only flags
+cflags +=                   # c only flags 
+
+# global flags:
+flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
+
+## Main target
+main.includes +=
+    include
+main.sysincludes +=
+    lib/matmath/include
+
+main.flags += -g
+main.src = 
+	src/*.cpp
+
+main.dir = build/release         # set build path
+main.objdir = build/obj/release  # separates obj-files from build files
+
+#main-dup.inherit = main
+
+lib.src = src/lib1.cpp src/lib2.cpp
+lib.dir = build/libtest
+lib.out = shared liblib
+
+slib.src = src/lib1.cpp src/lib2.cpp
+slib.dir = build/libtest-static
+slib.out = static %
+
+linked-main.dir = build/libtest
+linked-main.src = src/main.cpp
+
+linked-main.link = lib
+
+stat-main.dir = build/libtest-static
+stat-main.src = src/main.cpp
+stat-main.link = slib
+
