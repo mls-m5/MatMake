@@ -219,6 +219,10 @@ public:
         return *_dep;
     }
 
+    std::string work(const IFiles &files, class ThreadPool &pool) override {
+        return _dep->work(files, pool, *this);
+    }
+
 private:
     std::unique_ptr<IDependency> _dep;
     Token _filetype; // The ending of the filename

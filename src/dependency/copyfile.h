@@ -60,7 +60,7 @@ public:
 
             _dep->dirty(false);
 
-            _dep->sendSubscribersNotice(pool);
+            _dep->sendSubscribersNotice(pool, *this);
         }
         catch (std::runtime_error &e) {
             std::cerr << ("could not copy file for target " +

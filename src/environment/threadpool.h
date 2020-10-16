@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "dependency/ibuildrule.h"
 #include "dependency/idependency.h"
 #include "environment/ifiles.h"
 #include "main/mdebug.h"
@@ -16,7 +17,7 @@
 #include <queue>
 #include <vector>
 
-class ThreadPool : std::queue<IDependency *> {
+class ThreadPool : std::queue<IBuildRule *> {
     std::mutex workMutex;
     std::mutex workAssignMutex;
     std::atomic<size_t> numberOfActiveThreads;
@@ -25,7 +26,7 @@ class ThreadPool : std::queue<IDependency *> {
     int lastProgress = 0;
 
 public:
-    void addTask(IDependency *t) {
+    void addTask(IBuildRule *t) {
         workAssignMutex.lock();
         push(t);
         workAssignMutex.unlock();

@@ -234,14 +234,14 @@ public:
             buildExternal(true, "clean");
 
             for (auto &file : files) {
-                file->clean(*_fileHandler);
+                file->dependency().clean(*_fileHandler);
             }
 
             buildExternal(false, "clean");
         }
         else {
             for (auto &file : files) {
-                file->clean(*_fileHandler);
+                file->dependency().clean(*_fileHandler);
             }
         }
     }

@@ -22,8 +22,8 @@ public:
     [[nodiscard]] virtual std::string work(const IFiles &files,
                                            class ThreadPool &pool) = 0;
 
-    //! Remove all output files
-    virtual void clean(const IFiles &files) = 0;
+    //    //! Remove all output files
+    //    virtual void clean(const IFiles &files) = 0;
 
     virtual IDependency &dependency() = 0;
 };

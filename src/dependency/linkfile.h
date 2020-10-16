@@ -96,8 +96,7 @@ public:
             {
                 files.replaceFile(_dep->depFile(), _dependencyString);
             }
-#warning "check this"
-            return _dep->work(files, pool);
+            return _dep->work(files, pool, *this);
         }
 
         return {};

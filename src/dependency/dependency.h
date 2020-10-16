@@ -7,6 +7,7 @@
 #include "environment/threadpool.h"
 #include "idependency.h"
 #include "main/matmake-common.h"
+#include "target/ibuildtarget.h"
 #include <chrono>
 #include <mutex>
 #include <set>
@@ -102,10 +103,10 @@ public:
     }
 
     //! Send a notice to all subscribers
-    void sendSubscribersNotice(ThreadPool &pool) override {
+    void sendSubscribersNotice(ThreadPool &pool, IBuildRule &rule) override {
         std::lock_guard<std::mutex> guard(_accessMutex);
         for (auto s : _subscribers) {
-            s->notice(this, pool);
+            s->notice(this, pool, rule);
         }
         _subscribers.clear();
     }
@@ -113,7 +114,7 @@ public:
     //! A message from a object being subscribed to
     //! This is used by targets to know when all dependencies
     //! is built
-    void notice(IDependency *d, ThreadPool &pool) override {
+    void notice(IDependency *d, ThreadPool &pool, IBuildRule &rule) override {
         _dependencies.erase(d);
         if (globals.debugOutput) {
             dout << "removing dependency " << d->output() << " from "
@@ -124,7 +125,7 @@ public:
             }
         }
         if (_dependencies.empty()) {
-            pool.addTask(this);
+            pool.addTask(&rule);
             dout << "Adding " << output() << " to task list " << std::endl;
         }
     }
@@ -285,7 +286,9 @@ public:
         return files.parseDepFile(depFile()).second.empty();
     }
 
-    std::string work(const IFiles &files, ThreadPool &pool) override {
+    std::string work(const IFiles &files,
+                     ThreadPool &pool,
+                     IBuildRule &rule) override {
         std::stringstream outputStream;
 
         if (!command().empty()) {
@@ -311,7 +314,7 @@ public:
                 }
             }
             dirty(false);
-            sendSubscribersNotice(pool);
+            sendSubscribersNotice(pool, rule);
         }
         return outputStream.str();
     }
