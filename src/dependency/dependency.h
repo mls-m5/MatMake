@@ -271,12 +271,12 @@ public:
         return parseDepFile().second.empty();
     }
 
-    void work(const IFiles &files, ThreadPool &pool) override {
-        using namespace std;
+    std::string work(const IFiles &files, ThreadPool &pool) override {
+        std::stringstream outputStream;
 
         if (!command().empty()) {
-            vout << command() << endl;
-            pair<int, string> res = files.popenWithResult(command());
+            outputStream << command() << "\n";
+            std::pair<int, std::string> res = files.popenWithResult(command());
             if (res.first) {
                 throw MatmakeError(command(),
                                    "could not build object:\n" + command() +
@@ -289,18 +289,19 @@ public:
                 auto depFile = this->depFile();
                 if (!depFile.empty() &&
                     (files.getTimeChanged(depFile) || overrideDepFileTime)) {
-                    ofstream file(depFile, fstream::app);
-                    file << "\t" << command();
+                    //                    ofstream file(depFile, fstream::app);
+                    //                    file << "\t" << command();
+                    files.appendToFile(depFile, "\t" + command());
                 }
 
                 if (!res.second.empty()) {
-                    cout << (command() + "\n" + res.second + "\n")
-                         << std::flush;
+                    outputStream << command() + "\n" + res.second + "\n";
                 }
             }
             dirty(false);
             sendSubscribersNotice(pool);
         }
+        return outputStream.str();
     }
 
     void prune() override {

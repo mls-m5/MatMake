@@ -32,6 +32,9 @@ public:
         std::string directory) const = 0;
 
     virtual int remove(std::string filename) const = 0;
+
+    virtual void replaceFile(std::string name, std::string value) const = 0;
+    virtual void appendToFile(std::string name, std::string value) const = 0;
 };
 
 std::string removeDoubleDots(std::string string);

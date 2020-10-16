@@ -50,9 +50,13 @@ public:
             pop();
             workAssignMutex.unlock();
             try {
-                t->work(files, *this);
+                auto output = t->work(files, *this);
                 stringstream ss;
                 ss << "[" << getBuildProgress() << "%] ";
+                if (globals.verbose && !output.empty()) {
+                    ss << output;
+                }
+
                 vout << ss.str();
                 ++this->taskFinished;
             }
@@ -133,7 +137,11 @@ public:
                 auto t = front();
                 pop();
                 try {
-                    t->work(fileHandler, *this);
+                    auto output = t->work(fileHandler, *this);
+                    if (globals.verbose && !output.empty()) {
+                        std::cout << output;
+                        std::cout.flush();
+                    }
                 }
                 catch (MatmakeError &e) {
                     dout << e.what() << endl;
@@ -152,6 +160,9 @@ public:
             }
         }
 
+        if (globals.verbose) {
+            vout << "[100%] ";
+        }
         vout << "finished" << endl;
     }
 

@@ -41,8 +41,9 @@ public:
         }
     }
 
-    void work(const IFiles & /*files*/, ThreadPool &pool) override {
+    std::string work(const IFiles & /*files*/, ThreadPool &pool) override {
         using namespace std;
+        std::ostringstream ss;
         ifstream src(input());
         if (!src.is_open()) {
             cout << "could not open file " << input() << " for copy for target "
@@ -55,12 +56,14 @@ public:
                  << " for copy for target " << target()->name() << endl;
         }
 
-        vout << "copy " << input() << " --> " << output() << endl;
+        ss << "copy " << input() << " --> " << output() << endl;
         dst << src.rdbuf();
 
         dirty(false);
 
         sendSubscribersNotice(pool);
+
+        return ss.str();
     }
 
     bool includeInBinary() const override {

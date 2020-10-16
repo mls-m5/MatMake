@@ -73,14 +73,17 @@ public:
         }
     }
 
-    void work(const IFiles &files, ThreadPool &pool) override {
+    std::string work(const IFiles &files, ThreadPool &pool) override {
         if (!command().empty()) {
             {
+                files.replaceFile(depFile(), _dependencyString);
                 std::ofstream file(depFile());
                 file << _dependencyString;
             }
-            Dependency::work(files, pool);
+            return Dependency::work(files, pool);
         }
+
+        return {};
     }
 
 private:

@@ -24,7 +24,8 @@ public:
 
     //! Transform the source file to the output file
     //! Example do the compiling, copying or linking
-    virtual void work(const IFiles &files, class ThreadPool &pool) = 0;
+    [[nodiscard]] virtual std::string work(const IFiles &files,
+                                           class ThreadPool &pool) = 0;
 
     //! Remove all output files
     virtual void clean(const IFiles &files) = 0;

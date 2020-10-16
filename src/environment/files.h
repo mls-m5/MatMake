@@ -5,6 +5,7 @@
 #include "main/merror.h"
 #include "main/token.h"
 #include <array>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -290,6 +291,14 @@ public:
 
     int remove(std::string filename) const override {
         return ::remove(filename.c_str());
+    }
+
+    void appendToFile(std::string name, std::string value) const override {
+        std::ofstream(name, std::ofstream::app) << value;
+    }
+
+    void replaceFile(std::string name, std::string value) const override {
+        std::ofstream(name) << value;
     }
 };
 
