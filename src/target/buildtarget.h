@@ -148,13 +148,13 @@ struct BuildTarget : public IBuildTarget {
         }
     }
 
-    std::vector<std::unique_ptr<IDependency>> calculateDependencies(
+    std::vector<std::unique_ptr<IBuildRule>> calculateDependencies(
         const IFiles &files, const Targets &targets) override {
         if (name() == "root") {
             return {};
         }
 
-        std::vector<std::unique_ptr<IDependency>> dependencies;
+        std::vector<std::unique_ptr<IBuildRule>> dependencies;
 
         auto oFile =
             std::make_unique<LinkFile>(filename(), this, _compilerType.get());
@@ -191,7 +191,8 @@ struct BuildTarget : public IBuildTarget {
             link = preprocessCommand(link);
             auto dependencyTarget = targets.find(link);
             if (dependencyTarget && dependencyTarget->outputFile()) {
-                _outputFile->addDependency(dependencyTarget->outputFile());
+                _outputFile->dependency()->addDependency(
+                    dependencyTarget->outputFile());
             }
             else {
                 throw MatmakeError(link, " Could not find target " + link);
@@ -199,8 +200,9 @@ struct BuildTarget : public IBuildTarget {
         }
 
         for (auto &dep : dependencies) {
-            if (dep->includeInBinary()) {
-                _outputFile->addDependency(dep.get());
+            if (dep->dependency()->includeInBinary()) {
+                _outputFile->dependency()->addDependency(
+                    dep.get()->dependency());
             }
         }
 
@@ -234,7 +236,7 @@ struct BuildTarget : public IBuildTarget {
     }
 
     //! Path minus directory
-    Token filename() override {
+    Token filename() const override {
         auto out = properties().get("out").groups();
         if (out.empty()) {
             return _name;

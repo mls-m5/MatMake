@@ -9,19 +9,37 @@
 
 #include "compilertype.h"
 #include "dependency/dependency.h"
+#include "dependency/ibuildrule.h"
 
-class LinkFile : public Dependency {
+class LinkFile : public IBuildRule {
 
 public:
     LinkFile(const LinkFile &) = delete;
     LinkFile(LinkFile &&) = delete;
-    LinkFile(Token filename, IBuildTarget *target, ICompiler *compilerType)
-        : Dependency(target)
+    LinkFile(Token filename,
+             IBuildTarget *target,
+             ICompiler *compilerType,
+             std::unique_ptr<IDependency> dependency = nullptr)
+        : _dep(dependency
+                   ? std::move(dependency)
+                   : std::make_unique<Dependency>(target, true, FromTarget))
         , _compilerType(compilerType) {
-        output(removeDoubleDots(target->getOutputDir() + filename));
+        _dep->output(removeDoubleDots(target->getOutputDir() + filename));
 
-        depFile(removeDoubleDots(
-            fixDepEnding(target->getBuildDirectory() + filename)));
+        _dep->depFile(removeDoubleDots(
+            Dependency::fixDepEnding(target->getBuildDirectory() + filename)));
+
+        auto dir = _dep->target()->getOutputDir();
+        if (_dep->buildType() == Shared) {
+            if (dir.empty()) {
+                dir = ".";
+            }
+            _dep->linkString(_compilerType->prepareLinkString(
+                dir, _dep->target()->filename()));
+        }
+        else {
+            _dep->linkString(_dep->output());
+        }
     }
 
     void prescan(IFiles &,
@@ -33,62 +51,67 @@ public:
         }
         _isBuildCalled = true;
 
-        auto exe = output();
-        if (exe.empty() || target()->name() == "root") {
+        auto exe = _dep->output();
+        if (exe.empty() || _dep->target()->name() == "root") {
             return;
         }
 
-        dirty(false);
+        _dep->dirty(false);
 
         time_t lastDependency = 0;
-        for (auto &d : dependencies()) {
+        for (auto &d : _dep->dependencies()) {
             auto t = d->changedTime(files);
             if (d->dirty()) {
-                d->addSubscriber(this);
-                dirty(true);
+                d->addSubscriber(_dep.get());
+                _dep->dirty(true);
             }
             lastDependency = std::max(t, lastDependency);
             if (t == 0) {
-                dirty(true);
+                _dep->dirty(true);
             }
         }
 
-        if (lastDependency > changedTime(files)) {
-            dirty(true);
+        if (lastDependency > _dep->changedTime(files)) {
+            _dep->dirty(true);
         }
-        else if (!dirty()) {
-            std::cout << output() << " is fresh " << std::endl;
+        else if (!_dep->dirty()) {
+            std::cout << _dep->output() << " is fresh " << std::endl;
         }
 
         prepareCommand();
 
         std::vector<std::string> oldDependencies;
         std::string oldCommand;
-        tie(oldDependencies, oldCommand) = parseDepFile(files);
-        if (command() != oldCommand) {
-            dout << output() << " command differs \n";
-            dout << command() << "\n";
+        tie(oldDependencies, oldCommand) = files.parseDepFile(_dep->depFile());
+        if (_dep->command() != oldCommand) {
+            dout << _dep->output() << " command differs \n";
+            dout << _dep->command() << "\n";
             dout << oldCommand << "\n\n";
-            dirty(true);
+            _dep->dirty(true);
         }
     }
 
     std::string work(const IFiles &files, ThreadPool &pool) override {
-        if (!command().empty()) {
+        if (!_dep->command().empty()) {
             {
-                files.replaceFile(depFile(), _dependencyString);
+                files.replaceFile(_dep->depFile(), _dependencyString);
             }
-            return Dependency::work(files, pool);
+#warning "check this"
+            return _dep->work(files, pool);
         }
 
         return {};
+    }
+
+    IDependency *dependency() override {
+        return _dep.get();
     }
 
 private:
     void prepareCommand() {
         Token fileList;
 
-        for (auto f : dependencies()) {
+        for (auto f : _dep->dependencies()) {
             if (f->includeInBinary()) {
                 fileList += (f->linkString() + " ");
             }
@@ -96,15 +119,15 @@ private:
 
         _dependencyString = prepareDependencyString();
 
-        auto cpp = target()->getCompiler("cpp");
+        auto cpp = _dep->target()->getCompiler("cpp");
 
-        auto exe = output();
-        auto buildType = target()->buildType();
+        auto exe = _dep->output();
+        auto buildType = _dep->target()->buildType();
         Token cmd;
         if (buildType == Shared) {
             cmd = cpp + " -shared -o " + exe + " -Wl,--start-group " +
-                  fileList + " " + target()->getLibs() + "  -Wl,--end-group  " +
-                  target()->getFlags();
+                  fileList + " " + _dep->target()->getLibs() +
+                  "  -Wl,--end-group  " + _dep->target()->getFlags();
         }
         else if (buildType == Static) {
             cmd = "ar -rs " + exe + " " + fileList;
@@ -114,10 +137,10 @@ private:
         }
         else {
             cmd = cpp + " -o " + exe + " -Wl,--start-group " + fileList + " " +
-                  target()->getLibs() + "  -Wl,--end-group  " +
-                  target()->getFlags();
+                  _dep->target()->getLibs() + "  -Wl,--end-group  " +
+                  _dep->target()->getFlags();
         }
-        cmd = target()->preprocessCommand(cmd);
+        cmd = _dep->target()->preprocessCommand(cmd);
 
         if (buildType == Executable || buildType == Shared) {
             if (hasReferencesToSharedLibrary()) {
@@ -130,39 +153,40 @@ private:
             cmd.pop_back();
         }
 
-        command(cmd);
+        _dep->command(cmd);
     }
 
     std::string prepareDependencyString() const {
         std::ostringstream ss;
-        ss << output() << ":";
-        for (auto &d : dependencies()) {
+        ss << _dep->output() << ":";
+        for (auto &d : _dep->dependencies()) {
             ss << " " << d->output();
         }
         ss << "\n";
         return ss.str();
     }
 
-    Token linkString() const override {
-        auto dir = target()->getOutputDir();
-        if (buildType() == Shared) {
-            if (dir.empty()) {
-                dir = ".";
-            }
-            return _compilerType->prepareLinkString(dir, target()->filename());
-        }
-        else {
-            return output();
-        }
-    }
+    //    Token linkString() const override {
+    //        auto dir = _dep->target()->getOutputDir();
+    //        if (_dep->buildType() == Shared) {
+    //            if (dir.empty()) {
+    //                dir = ".";
+    //            }
+    //            return _compilerType->prepareLinkString(dir,
+    //                                                    _dep->target()->filename());
+    //        }
+    //        else {
+    //            return _dep->output();
+    //        }
+    //    }
 
-    BuildType buildType() const override {
-        return target()->buildType();
-    }
+    //    BuildType buildType() const override {
+    //        return _dep->target()->buildType();
+    //    }
 
     //! This is to check if should include linker -rpath or similar
     bool hasReferencesToSharedLibrary() const {
-        for (auto &d : dependencies()) {
+        for (auto &d : _dep->dependencies()) {
             if (d->buildType() == Shared) {
                 return true;
             }
@@ -170,6 +194,7 @@ private:
         return false;
     }
 
+    std::unique_ptr<IDependency> _dep;
     bool _isBuildCalled = false;
     ICompiler *_compilerType;
     std::string _dependencyString;

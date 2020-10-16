@@ -7,4 +7,12 @@
 
 #pragma once
 
-enum BuildType { Executable, Shared, Static, Copy, Object };
+enum BuildType {
+    Executable,
+    Shared,
+    Static,
+    Copy,
+    Object,
+    FromTarget,
+    NotSpecified
+};

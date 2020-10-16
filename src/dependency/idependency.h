@@ -30,10 +30,10 @@ public:
     //! Remove all output files
     virtual void clean(const IFiles &files) = 0;
 
+    // -------------------------- Other functions -----------------------------
+
     //! Remove fresh dependencies from dependency tree
     virtual void prune() = 0;
-
-    // -------------------------- Other functions -----------------------------
 
     // Sets and gets the state of the output file
     virtual void dirty(bool) = 0;
@@ -42,6 +42,7 @@ public:
     //! Get the time when the file was latest changed
     //! 0 means that the file is not built at all
     virtual time_t changedTime(const IFiles &files) const = 0;
+    virtual time_t inputChangedTime(const IFiles &files) const = 0;
 
     //! Tell a dependency that the built of this file is finished
     //! Set pruned to true if
@@ -49,12 +50,14 @@ public:
 
     //! The path to where the target will be built
     virtual Token output() const = 0;
+    virtual void output(Token value) = 0;
 
     //! The main target and implicit targets (often dependency files)
     virtual const std::vector<Token> &outputs() const = 0;
 
     //! A subscriber is a dependency that want a notice when the file is built
     virtual void addSubscriber(IDependency *s) = 0;
+    virtual void sendSubscribersNotice(ThreadPool &pool) = 0;
 
     //! Add a file that this file will wait for
     virtual void addDependency(IDependency *file) = 0;
@@ -65,9 +68,23 @@ public:
 
     virtual BuildType buildType() const = 0;
 
+    virtual void linkString(Token token) = 0;
     virtual Token linkString() const = 0;
 
     virtual const std::set<class IDependency *> dependencies() const = 0;
 
     virtual const IBuildTarget *target() const = 0;
+
+    virtual void input(Token in) = 0;
+    virtual std::vector<Token> inputs() const = 0;
+    virtual Token input() const = 0;
+    virtual void depFile(Token file) = 0;
+    virtual Token depFile() const = 0;
+    virtual Token command() const = 0;
+    virtual void command(Token command) = 0;
+
+    //! If the work command does not provide command to the dep file
+    //! if true the dep-file-command is added at the "work" stage
+    virtual bool shouldAddCommandToDepFile() const = 0;
+    virtual void shouldAddCommandToDepFile(bool value) = 0;
 };

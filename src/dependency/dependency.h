@@ -16,25 +16,30 @@ class IBuildTarget;
 class Dependency : public virtual IDependency {
     std::set<class IDependency *>
         _dependencies; // Dependencies from matmakefile
+    IBuildTarget *_target;
     std::set<IDependency *> _subscribers;
     std::mutex _accessMutex;
     bool _dirty = false;
     bool _shouldAddCommandToDepFile = false;
+    bool _includeInBinary = true;
+    BuildType _buildType = NotSpecified;
 
     std::vector<Token> _outputs;
     std::vector<Token> _inputs;
     Token _command;
     Token _depFile;
-    IBuildTarget *_target;
+    Token _linkString;
 
 public:
-    Dependency(IBuildTarget *target)
-        : _target(target) {}
+    Dependency(IBuildTarget *target, bool includeInBinary, BuildType type)
+        : _target(target)
+        , _includeInBinary(includeInBinary)
+        , _buildType(type) {}
 
     virtual ~Dependency() override = default;
 
     // Get the latest time of times changed for input files
-    virtual time_t inputChangedTime(const IFiles &files) const {
+    time_t inputChangedTime(const IFiles &files) const override {
         time_t time = 0;
 
         for (auto &input : inputs()) {
@@ -85,7 +90,7 @@ public:
     }
 
     bool includeInBinary() const override {
-        return true;
+        return _includeInBinary;
     }
 
     void addSubscriber(IDependency *s) override {
@@ -97,7 +102,7 @@ public:
     }
 
     //! Send a notice to all subscribers
-    virtual void sendSubscribersNotice(ThreadPool &pool) {
+    void sendSubscribersNotice(ThreadPool &pool) override {
         std::lock_guard<std::mutex> guard(_accessMutex);
         for (auto s : _subscribers) {
             s->notice(this, pool);
@@ -134,11 +139,11 @@ public:
 
     //! If the work command does not provide command to the dep file
     //! if true the dep-file-command is added at the "work" stage
-    bool shouldAddCommandToDepFile() const {
+    bool shouldAddCommandToDepFile() const override {
         return _shouldAddCommandToDepFile;
     }
 
-    void shouldAddCommandToDepFile(bool value) {
+    void shouldAddCommandToDepFile(bool value) override {
         _shouldAddCommandToDepFile = value;
     }
 
@@ -146,48 +151,48 @@ public:
         return removeDoubleDots(filename + ".d");
     }
 
-    //! Calculate dependencies from makefile styled .d files generated
-    //! by the compiler
-    //! first = dependencies, second = old command
-    std::pair<std::vector<std::string>, std::string> parseDepFile(
-        const IFiles &files) const {
-        using namespace std;
-        try {
-            auto lines =
-                files.readLines(target()->preprocessCommand(depFile()));
-            vector<string> ret;
-            string command;
+    //    //! Calculate dependencies from makefile styled .d files generated
+    //    //! by the compiler
+    //    //! first = dependencies, second = old command
+    //    static std::pair<std::vector<std::string>, std::string> parseDepFile(
+    //        Token depFile, const IFiles &files) {
+    //        using namespace std;
+    //        try {
+    //            //            auto lines =
+    //            // files.readLines(target()->preprocessCommand(depFile()));
+    //            auto lines = files.readLines(depFile);
+    //            vector<string> ret;
+    //            string command;
 
-            bool firstLine = true;
-            for (auto line : lines) {
-                istringstream ss(line);
+    //            bool firstLine = true;
+    //            for (auto line : lines) {
+    //                istringstream ss(line);
 
-                if (!line.empty() && line.front() == '\t') {
-                    command = trim(line);
-                    break;
-                }
-                else {
-                    string d;
-                    if (firstLine) {
-                        ss >> d; // The first is the target path --> ignore
-                        firstLine = false;
-                    }
-                    while (ss >> d) {
-                        if (d !=
-                            "\\") { // Skip backslash (is used before newlines)
-                            ret.push_back(d);
-                        }
-                    }
-                }
-            }
-            return {ret, command};
-        }
-        catch (std::runtime_error &e) {
-            dout << "could not find .d file for " << output() << " --> "
-                 << depFile() << endl;
-            return {};
-        }
-    }
+    //                if (!line.empty() && line.front() == '\t') {
+    //                    command = trim(line);
+    //                    break;
+    //                }
+    //                else {
+    //                    string d;
+    //                    if (firstLine) {
+    //                        ss >> d; // The first is the target path -->
+    //                        ignore firstLine = false;
+    //                    }
+    //                    while (ss >> d) {
+    //                        if (d !=
+    //                            "\\") { // Skip backslash (is used before
+    //                            newlines) ret.push_back(d);
+    //                        }
+    //                    }
+    //                }
+    //            }
+    //            return {ret, command};
+    //        }
+    //        catch (std::runtime_error &e) {
+    //            dout << "could not find .d file " << depFile << endl;
+    //            return {};
+    //        }
+    //    }
 
     bool dirty() const final {
         return _dirty;
@@ -204,27 +209,27 @@ public:
         return _subscribers;
     }
 
-    const Token &command() const {
+    Token command() const override {
         return _command;
     }
 
-    void command(Token command) {
+    void command(Token command) override {
         _command = move(command);
     }
 
     //! Set the primary output file for the dependency
-    void output(Token output) {
+    void output(Token output) override {
         _outputs.insert(_outputs.begin(), output);
     }
 
     // Set which file to search for dependencies in
     // this file is also a implicit output file
-    void depFile(Token file) {
+    void depFile(Token file) override {
         _depFile = file;
         _outputs.push_back(file);
     }
 
-    Token depFile() const {
+    Token depFile() const override {
         return _depFile;
     }
 
@@ -236,7 +241,7 @@ public:
         _inputs = move(in);
     }
 
-    void input(Token in) {
+    void input(Token in) override {
         _inputs = {move(in)};
     }
 
@@ -244,11 +249,11 @@ public:
         _inputs.push_back(in);
     }
 
-    std::vector<Token> inputs() const {
+    std::vector<Token> inputs() const override {
         return _inputs;
     }
 
-    Token input() const {
+    Token input() const override {
         if (_inputs.empty()) {
             return "";
         }
@@ -257,8 +262,17 @@ public:
         }
     }
 
+    void linkString(Token token) override {
+        _linkString = std::move(token);
+    }
+
     Token linkString() const override {
-        return output();
+        if (_linkString.empty()) {
+            return output();
+        }
+        else {
+            return _linkString;
+        };
     }
 
     IBuildTarget *target() const override {
@@ -268,7 +282,7 @@ public:
     //! If the depfile has a command, otherwise it probably has only
     //! dependencies printed
     bool doesDepFileHasCommand(const IFiles &files) const {
-        return parseDepFile(files).second.empty();
+        return files.parseDepFile(depFile()).second.empty();
     }
 
     std::string work(const IFiles &files, ThreadPool &pool) override {
@@ -313,6 +327,15 @@ public:
         for (auto d : toRemove) {
             dout << "removing dependency " << d->output() << std::endl;
             _dependencies.erase(d);
+        }
+    }
+
+    BuildType buildType() const override {
+        if (_buildType == FromTarget) {
+            return _target->buildType();
+        }
+        else {
+            return _buildType;
         }
     }
 };

@@ -41,6 +41,9 @@ public:
                           std::string destination) const = 0;
 
     virtual std::vector<std::string> readLines(std::string source) const = 0;
+
+    virtual std::pair<std::vector<std::string>, std::string> parseDepFile(
+        Token depFile) const = 0;
 };
 
 std::string removeDoubleDots(std::string string);

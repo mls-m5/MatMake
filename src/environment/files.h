@@ -330,6 +330,44 @@ public:
 
         return lines;
     };
+
+    std::pair<std::vector<std::string>, std::string> parseDepFile(
+        Token depFile) const override {
+        using namespace std;
+        try {
+            auto lines = readLines(depFile);
+            vector<string> ret;
+            string command;
+
+            bool firstLine = true;
+            for (auto line : lines) {
+                istringstream ss(line);
+
+                if (!line.empty() && line.front() == '\t') {
+                    command = trim(line);
+                    break;
+                }
+                else {
+                    string d;
+                    if (firstLine) {
+                        ss >> d; // The first is the target path --> ignore
+                        firstLine = false;
+                    }
+                    while (ss >> d) {
+                        if (d !=
+                            "\\") { // Skip backslash (is used before newlines)
+                            ret.push_back(d);
+                        }
+                    }
+                }
+            }
+            return {ret, command};
+        }
+        catch (std::runtime_error &e) {
+            dout << "could not find .d file " << depFile << endl;
+            return {};
+        }
+    }
 };
 
 std::string removeDoubleDots(std::string str) {

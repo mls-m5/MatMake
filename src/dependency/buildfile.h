@@ -3,6 +3,7 @@
 #pragma once
 
 #include "dependency.h"
+#include "dependency/ibuildrule.h"
 #include "environment/globals.h"
 #include "environment/popenstream.h"
 #include "environment/prescan.h"
@@ -10,7 +11,7 @@
 #include "target/ibuildtarget.h"
 
 //! Represent a single source file to be built
-class BuildFile : public Dependency {
+class BuildFile : public IBuildRule {
 public:
     enum Type {
         CppToO,
@@ -20,8 +21,13 @@ public:
 
     BuildFile(const BuildFile &) = delete;
     BuildFile(BuildFile &&) = delete;
-    BuildFile(Token filename, IBuildTarget *target, Type type)
-        : Dependency(target)
+    BuildFile(Token filename,
+              IBuildTarget *target,
+              Type type,
+              std::unique_ptr<IDependency> dependency = nullptr)
+        : _dep(dependency ? std::move(dependency)
+                          : std::make_unique<Dependency>(
+                                target, type != CppToPcm, Object))
         , _filetype(stripFileEnding(filename).second)
         , _type(type) {
         auto withoutEnding =
@@ -34,32 +40,32 @@ public:
         }
 
         if (type == CppToPcm) {
-            output(fixPcmEnding(filename));
+            _dep->output(fixPcmEnding(filename));
         }
         else {
-            output(fixObjectEnding(filename));
+            _dep->output(fixObjectEnding(filename));
         }
 
-        depFile(fixDepEnding(output()));
+        _dep->depFile(Dependency::fixDepEnding(_dep->output()));
 
         if (type == PcmToO) {
-            input(fixPcmEnding(filename));
+            _dep->input(fixPcmEnding(filename));
         }
         else {
-            input(filename);
+            _dep->input(filename);
         }
 
         if (filename.empty()) {
             throw MatmakeError(filename, "empty buildfile added");
         }
 
-        if (output().empty()) {
+        if (_dep->output().empty()) {
             throw MatmakeError(filename, "could not find target name");
         }
 
-        if (depFile().empty()) {
-            throw MatmakeError(filename,
-                               "could not find dep filename for " + output());
+        if (_dep->depFile().empty()) {
+            throw MatmakeError(
+                filename, "could not find dep filename for " + _dep->output());
         }
     }
 
@@ -67,13 +73,14 @@ public:
         IFiles &files,
         const std::vector<std::unique_ptr<IDependency>> &buildFiles) override {
 
-        if (files.getTimeChanged(depFile()) > inputChangedTime(files)) {
+        if (files.getTimeChanged(_dep->depFile()) >
+            _dep->inputChangedTime(files)) {
             return;
         }
 
         if (_type == CppToPcm) {
-            auto command = target()->getCompiler(_filetype) + " " + input() +
-                           " -E " + getFlags() + " 2>/dev/null";
+            auto command = _dep->target()->getCompiler(_filetype) + " " +
+                           _dep->input() + " -E " + getFlags() + " 2>/dev/null";
 
             POpenStream stream(command);
 
@@ -90,7 +97,7 @@ public:
 
             std::ostringstream depFileStream;
 
-            depFileStream << output() << ":";
+            depFileStream << _dep->output() << ":";
 
             for (auto &imp : deps.imports) {
                 dout << imp << " ";
@@ -101,14 +108,14 @@ public:
 
                 for (auto &bf : buildFiles) {
                     if (bf->output() == importFilename) {
-                        addDependency(bf.get());
-                        bf->addSubscriber(this);
+                        _dep->addDependency(bf.get());
+                        bf->addSubscriber(_dep.get());
                         break;
                     }
                 }
             }
 
-            depFileStream << " " << input();
+            depFileStream << " " << _dep->input();
 
             for (auto &include : deps.includes) {
                 depFileStream << " " << include;
@@ -116,28 +123,30 @@ public:
 
             depFileStream << "\n";
 
-            if (files.getTimeChanged(depFile()) < inputChangedTime(files)) {
-                files.replaceFile(depFile(), depFileStream.str());
+            if (files.getTimeChanged(_dep->depFile()) <
+                _dep->inputChangedTime(files)) {
+                files.replaceFile(_dep->depFile(), depFileStream.str());
             }
 
             dout << std::endl;
 
-            shouldAddCommandToDepFile(true);
+            _dep->shouldAddCommandToDepFile(true);
         }
         else if (_type == PcmToO) {
-            files.replaceFile(depFile(), output() + ": " + input() + "\n");
+            files.replaceFile(_dep->depFile(),
+                              _dep->output() + ": " + _dep->input() + "\n");
 
             for (auto &bf : buildFiles) {
-                if (bf->output() == input()) {
+                if (bf->output() == _dep->input()) {
                     dout << "adding own pcm dependency " << bf->output()
-                         << " to " << output() << "\n";
-                    addDependency(bf.get());
-                    bf->addSubscriber(this);
+                         << " to " << _dep->output() << "\n";
+                    _dep->addDependency(bf.get());
+                    bf->addSubscriber(_dep.get());
                     break;
                 }
             }
 
-            shouldAddCommandToDepFile(true);
+            _dep->shouldAddCommandToDepFile(true);
         }
     }
 
@@ -146,40 +155,40 @@ public:
 
         //! If not using prescan
         if (_type == CppToO) {
-            depCommand = " -MMD -MF " + depFile() + " ";
-            depCommand.location = input().location;
+            depCommand = " -MMD -MF " + _dep->depFile() + " ";
+            depCommand.location = _dep->input().location;
         }
 
-        Token command = target()->getCompiler(_filetype) +
+        Token command = _dep->target()->getCompiler(_filetype) +
                         ((_type == CppToPcm) ? " --precompile " : " -c ") +
-                        " -o " + output() + " " + input() + " " + getFlags() +
-                        depCommand;
+                        " -o " + _dep->output() + " " + _dep->input() + " " +
+                        getFlags() + depCommand;
 
-        if (target()->hasModules()) {
+        if (_dep->target()->hasModules()) {
             if (_type == CppToPcm || _type == CppToO) {
                 command += " -fprebuilt-module-path=. ";
             }
         }
 
-        command.location = input().location;
+        command.location = _dep->input().location;
 
         return preprocessCommand(command);
     }
 
     void prepare(const IFiles &files) override {
-        time_t outputChangedTime = changedTime(files);
-        if (outputChangedTime < inputChangedTime(files)) {
-            dirty(true);
+        time_t outputChangedTime = _dep->changedTime(files);
+        if (outputChangedTime < _dep->inputChangedTime(files)) {
+            _dep->dirty(true);
             dout << "file is dirty" << std::endl;
         }
 
         std::vector<std::string> dependencyFiles;
         std::string oldCommand;
-        tie(dependencyFiles, oldCommand) = parseDepFile(files);
+        tie(dependencyFiles, oldCommand) = files.parseDepFile(_dep->depFile());
 
         if (dependencyFiles.empty()) {
             dout << "file is dirty" << std::endl;
-            dirty(true);
+            _dep->dirty(true);
         }
         else {
             for (auto &d : dependencyFiles) {
@@ -187,7 +196,7 @@ public:
                 if (dependencyTimeChanged == 0 ||
                     dependencyTimeChanged > outputChangedTime) {
                     dout << "rebuilding because older than " << d << std::endl;
-                    dirty(true);
+                    _dep->dirty(true);
                     break;
                 }
             }
@@ -195,44 +204,49 @@ public:
 
         auto command = createCommand();
 
-        this->command(command);
+        _dep->command(command);
 
-        if (!dirty() && command != oldCommand) {
-            dout << "command is changed for " << output() << std::endl;
+        if (!_dep->dirty() && command != oldCommand) {
+            dout << "command is changed for " << _dep->output() << std::endl;
             dout << " old: " << oldCommand << "\n";
             dout << " new: " << command << "\n";
-            dirty(true);
+            _dep->dirty(true);
         }
     }
 
-    bool includeInBinary() const override {
-        return _type != CppToPcm;
+    //    bool includeInBinary() const override {
+    //        return _type != CppToPcm;
+    //    }
+
+    IDependency *dependency() override {
+        return _dep.get();
     }
 
 private:
+    std::unique_ptr<IDependency> _dep;
     Token _filetype; // The ending of the filename
     Type _type = CppToO;
 
     Token fixObjectEnding(Token filename) {
-        return removeDoubleDots(target()->getBuildDirectory() + filename +
+        return removeDoubleDots(_dep->target()->getBuildDirectory() + filename +
                                 ".o");
     }
 
     Token fixPcmEnding(Token filename) {
-        return removeDoubleDots(target()->getBuildDirectory() +
+        return removeDoubleDots(_dep->target()->getBuildDirectory() +
                                 stripFileEnding(filename).first + ".pcm");
     }
 
     Token preprocessCommand(Token command) const {
-        return Token(trim(target()->preprocessCommand(command)),
+        return Token(trim(_dep->target()->preprocessCommand(command)),
                      command.location);
     }
 
     Token getFlags() {
-        return target()->getBuildFlags(_filetype);
+        return _dep->target()->getBuildFlags(_filetype);
     }
 
-    BuildType buildType() const override {
-        return Object;
-    }
+    //    BuildType buildType() const override {
+    //        return Object;
+    //    }
 };

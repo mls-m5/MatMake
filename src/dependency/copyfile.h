@@ -3,40 +3,49 @@
 #pragma once
 
 #include "dependency/dependency.h"
+#include "dependency/ibuildrule.h"
 #include "environment/globals.h"
 #include "environment/ienvironment.h"
 #include "target/ibuildtarget.h"
 
-class CopyFile : public Dependency {
+class CopyFile : public IBuildRule {
+    std::unique_ptr<IDependency> _dep;
+
 public:
     CopyFile(const CopyFile &) = delete;
     CopyFile(CopyFile &&) = delete;
-    CopyFile(Token source, IBuildTarget *target)
-        : Dependency(target) {
+
+    //! @param dependency: whine null a new dependency is created
+    //!                    otherwise it can be specifiede for mocking
+    CopyFile(Token source,
+             IBuildTarget *target,
+             std::unique_ptr<IDependency> dependency = nullptr)
+        : _dep(dependency ? std::move(dependency)
+                          : std::make_unique<Dependency>(target, false, Copy)) {
         auto o = joinPaths(target->getOutputDir(), source);
         if (o != source) {
-            output(o);
+            _dep->output(o);
         }
         else {
             dout << o << " does not need copying, same source and output\n";
         }
-        input(source);
+        _dep->input(source);
     }
 
     void prescan(IFiles &,
                  const std::vector<std::unique_ptr<IDependency>> &) override {}
 
     void prepare(const IFiles &files) override {
-        if (output().empty()) {
+        if (_dep->output().empty()) {
             return;
         }
-        if (output() == input()) {
-            vout << "file " << output()
+        if (_dep->output() == _dep->input()) {
+            vout << "file " << _dep->output()
                  << " source and target is on same place. skipping\n";
         }
 
-        if (inputChangedTime(files) > changedTime(files)) {
-            dirty(true);
+        if (_dep->inputChangedTime(files) > _dep->changedTime(files)) {
+            _dep->dirty(true);
         }
     }
 
@@ -45,29 +54,32 @@ public:
         std::ostringstream ss;
 
         try {
-            files.copyFile(input(), output());
+            files.copyFile(_dep->input(), _dep->output());
 
-            ss << "copy " << input() << " --> " << output() << endl;
-            //        dst << src.rdbuf();
+            ss << "copy " << _dep->input() << " --> " << _dep->output() << endl;
 
-            dirty(false);
+            _dep->dirty(false);
 
-            sendSubscribersNotice(pool);
+            _dep->sendSubscribersNotice(pool);
         }
         catch (std::runtime_error &e) {
-            std::cerr << ("could not copy file for target " + target()->name() +
-                          "\n" + e.what())
+            std::cerr << ("could not copy file for target " +
+                          _dep->target()->name() + "\n" + e.what())
                       << std::endl;
         }
 
         return ss.str();
     }
 
-    bool includeInBinary() const override {
-        return false;
+    IDependency *dependency() override {
+        return _dep.get();
     }
 
-    BuildType buildType() const override {
-        return Copy;
-    }
+    //    bool includeInBinary() const override {
+    //        return false;
+    //    }
+
+    //    BuildType buildType() const override {
+    //        return Copy;
+    //    }
 };
