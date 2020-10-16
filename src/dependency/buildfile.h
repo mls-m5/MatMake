@@ -9,8 +9,6 @@
 #include "main/mdebug.h"
 #include "target/ibuildtarget.h"
 
-#include <fstream>
-
 //! Represent a single source file to be built
 class BuildFile : public Dependency {
 public:
@@ -74,12 +72,6 @@ public:
         }
 
         if (_type == CppToPcm) {
-            //        auto inputChangedTime =
-            //        Dependency::inputChangedTime(files); if (inputChangedTime
-            //        < files.getTimeChanged(depFile())) {
-            //            return;
-            //        }
-
             auto command = target()->getCompiler(_filetype) + " " + input() +
                            " -E " + getFlags() + " 2>/dev/null";
 
@@ -96,25 +88,16 @@ public:
 
             dout << "\n imports:\n";
 
-            std::ofstream file;
+            std::ostringstream depFileStream;
 
-            if (files.getTimeChanged(depFile()) < inputChangedTime(files)) {
-                //! A file that is not opened will just throw away everything
-                //! written to it
-                file.open(depFile());
-            }
-
-            file << output() << ":";
+            depFileStream << output() << ":";
 
             for (auto &imp : deps.imports) {
                 dout << imp << " ";
 
-                file << " " << imp << ".pcm";
+                depFileStream << " " << imp << ".pcm";
 
                 auto importFilename = imp + ".pcm"; // Fix mapping
-
-                //                addInput(importFilename); //
-                //                target->findInport(inp);
 
                 for (auto &bf : buildFiles) {
                     if (bf->output() == importFilename) {
@@ -125,21 +108,24 @@ public:
                 }
             }
 
-            file << " " << input();
+            depFileStream << " " << input();
 
             for (auto &include : deps.includes) {
-                file << " " << include;
+                depFileStream << " " << include;
             }
 
-            file << "\n";
+            depFileStream << "\n";
+
+            if (files.getTimeChanged(depFile()) < inputChangedTime(files)) {
+                files.replaceFile(depFile(), depFileStream.str());
+            }
 
             dout << std::endl;
 
             shouldAddCommandToDepFile(true);
         }
         else if (_type == PcmToO) {
-            std::ofstream file(depFile());
-            file << output() << ": " << input() << "\n";
+            files.replaceFile(depFile(), output() + ": " + input() + "\n");
 
             for (auto &bf : buildFiles) {
                 if (bf->output() == input()) {
@@ -189,7 +175,7 @@ public:
 
         std::vector<std::string> dependencyFiles;
         std::string oldCommand;
-        tie(dependencyFiles, oldCommand) = parseDepFile();
+        tie(dependencyFiles, oldCommand) = parseDepFile(files);
 
         if (dependencyFiles.empty()) {
             dout << "file is dirty" << std::endl;

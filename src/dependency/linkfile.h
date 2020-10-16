@@ -64,7 +64,7 @@ public:
 
         std::vector<std::string> oldDependencies;
         std::string oldCommand;
-        tie(oldDependencies, oldCommand) = parseDepFile();
+        tie(oldDependencies, oldCommand) = parseDepFile(files);
         if (command() != oldCommand) {
             dout << output() << " command differs \n";
             dout << command() << "\n";
@@ -77,8 +77,6 @@ public:
         if (!command().empty()) {
             {
                 files.replaceFile(depFile(), _dependencyString);
-                std::ofstream file(depFile());
-                file << _dependencyString;
             }
             return Dependency::work(files, pool);
         }

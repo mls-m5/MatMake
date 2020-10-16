@@ -35,6 +35,12 @@ public:
 
     virtual void replaceFile(std::string name, std::string value) const = 0;
     virtual void appendToFile(std::string name, std::string value) const = 0;
+
+    //! @throws std::runtime_exception on fail
+    virtual void copyFile(std::string source,
+                          std::string destination) const = 0;
+
+    virtual std::vector<std::string> readLines(std::string source) const = 0;
 };
 
 std::string removeDoubleDots(std::string string);

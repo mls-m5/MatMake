@@ -8,7 +8,6 @@
 #include "idependency.h"
 #include "main/matmake-common.h"
 #include <chrono>
-#include <fstream>
 #include <mutex>
 #include <set>
 
@@ -150,16 +149,17 @@ public:
     //! Calculate dependencies from makefile styled .d files generated
     //! by the compiler
     //! first = dependencies, second = old command
-    std::pair<std::vector<std::string>, std::string> parseDepFile() const {
+    std::pair<std::vector<std::string>, std::string> parseDepFile(
+        const IFiles &files) const {
         using namespace std;
-        ifstream file(target()->preprocessCommand(depFile()));
-        if (file.is_open()) {
+        try {
+            auto lines =
+                files.readLines(target()->preprocessCommand(depFile()));
             vector<string> ret;
             string command;
 
-            string line;
             bool firstLine = true;
-            while (getline(file, line)) {
+            for (auto line : lines) {
                 istringstream ss(line);
 
                 if (!line.empty() && line.front() == '\t') {
@@ -182,7 +182,7 @@ public:
             }
             return {ret, command};
         }
-        else {
+        catch (std::runtime_error &e) {
             dout << "could not find .d file for " << output() << " --> "
                  << depFile() << endl;
             return {};
@@ -267,8 +267,8 @@ public:
 
     //! If the depfile has a command, otherwise it probably has only
     //! dependencies printed
-    bool doesDepFileHasCommand() const {
-        return parseDepFile().second.empty();
+    bool doesDepFileHasCommand(const IFiles &files) const {
+        return parseDepFile(files).second.empty();
     }
 
     std::string work(const IFiles &files, ThreadPool &pool) override {
@@ -284,13 +284,11 @@ public:
             }
             else {
                 bool overrideDepFileTime =
-                    shouldAddCommandToDepFile() && doesDepFileHasCommand();
+                    shouldAddCommandToDepFile() && doesDepFileHasCommand(files);
 
                 auto depFile = this->depFile();
                 if (!depFile.empty() &&
                     (files.getTimeChanged(depFile) || overrideDepFileTime)) {
-                    //                    ofstream file(depFile, fstream::app);
-                    //                    file << "\t" << command();
                     files.appendToFile(depFile, "\t" + command());
                 }
 

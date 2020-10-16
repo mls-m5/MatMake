@@ -6,7 +6,6 @@
 #include "environment/globals.h"
 #include "environment/ienvironment.h"
 #include "target/ibuildtarget.h"
-#include <fstream>
 
 class CopyFile : public Dependency {
 public:
@@ -41,27 +40,25 @@ public:
         }
     }
 
-    std::string work(const IFiles & /*files*/, ThreadPool &pool) override {
+    std::string work(const IFiles &files, ThreadPool &pool) override {
         using namespace std;
         std::ostringstream ss;
-        ifstream src(input());
-        if (!src.is_open()) {
-            cout << "could not open file " << input() << " for copy for target "
-                 << target()->name() << endl;
+
+        try {
+            files.copyFile(input(), output());
+
+            ss << "copy " << input() << " --> " << output() << endl;
+            //        dst << src.rdbuf();
+
+            dirty(false);
+
+            sendSubscribersNotice(pool);
         }
-
-        ofstream dst(output());
-        if (!dst) {
-            cout << "could not open file " << output()
-                 << " for copy for target " << target()->name() << endl;
+        catch (std::runtime_error &e) {
+            std::cerr << ("could not copy file for target " + target()->name() +
+                          "\n" + e.what())
+                      << std::endl;
         }
-
-        ss << "copy " << input() << " --> " << output() << endl;
-        dst << src.rdbuf();
-
-        dirty(false);
-
-        sendSubscribersNotice(pool);
 
         return ss.str();
     }

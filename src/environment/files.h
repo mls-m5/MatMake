@@ -300,6 +300,36 @@ public:
     void replaceFile(std::string name, std::string value) const override {
         std::ofstream(name) << value;
     }
+
+    void copyFile(std::string source, std::string destination) const override {
+        std::ifstream src(source);
+        if (!src.is_open()) {
+            throw std::runtime_error("could not open input file " + source +
+                                     " for copy for target ");
+        }
+
+        std::ofstream dst(destination);
+        if (!dst) {
+            throw std::runtime_error("could not open file " + destination +
+                                     +" for output");
+        }
+
+        dst << src.rdbuf();
+    }
+
+    std::vector<std::string> readLines(std::string source) const override {
+        std::ifstream file(source);
+        if (!file.is_open()) {
+            throw std::runtime_error("could not open file " + source);
+        }
+        std::vector<std::string> lines;
+
+        for (std::string line; getline(file, line);) {
+            lines.emplace_back(move(line));
+        }
+
+        return lines;
+    };
 };
 
 std::string removeDoubleDots(std::string str) {
