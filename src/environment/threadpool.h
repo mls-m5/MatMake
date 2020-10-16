@@ -124,7 +124,7 @@ public:
         }
     }
 
-    void work(std::vector<std::unique_ptr<IDependency>> files,
+    void work(std::vector<std::unique_ptr<IBuildRule>> files,
               const IFiles &fileHandler) {
         using namespace std;
         if (globals.numberOfThreads > 1) {
@@ -151,10 +151,11 @@ public:
         }
 
         for (auto &file : files) {
-            if (file->dirty()) {
-                dout << "file " << file->output() << " was never built" << endl;
+            if (file->dependency().dirty()) {
+                dout << "file " << file->dependency().output()
+                     << " was never built" << endl;
                 dout << "depending on: " << endl;
-                for (auto dependency : file->dependencies()) {
+                for (auto dependency : file->dependency().dependencies()) {
                     dependency->output();
                 }
             }

@@ -71,7 +71,7 @@ public:
 
     void prescan(
         IFiles &files,
-        const std::vector<std::unique_ptr<IDependency>> &buildFiles) override {
+        const std::vector<std::unique_ptr<IBuildRule>> &buildFiles) override {
 
         if (files.getTimeChanged(_dep->depFile()) >
             _dep->inputChangedTime(files)) {
@@ -107,9 +107,9 @@ public:
                 auto importFilename = imp + ".pcm"; // Fix mapping
 
                 for (auto &bf : buildFiles) {
-                    if (bf->output() == importFilename) {
-                        _dep->addDependency(bf.get());
-                        bf->addSubscriber(_dep.get());
+                    if (bf->dependency().output() == importFilename) {
+                        _dep->addDependency(&bf->dependency());
+                        bf->dependency().addSubscriber(_dep.get());
                         break;
                     }
                 }
@@ -137,11 +137,12 @@ public:
                               _dep->output() + ": " + _dep->input() + "\n");
 
             for (auto &bf : buildFiles) {
-                if (bf->output() == _dep->input()) {
-                    dout << "adding own pcm dependency " << bf->output()
-                         << " to " << _dep->output() << "\n";
-                    _dep->addDependency(bf.get());
-                    bf->addSubscriber(_dep.get());
+                if (bf->dependency().output() == _dep->input()) {
+                    dout << "adding own pcm dependency "
+                         << bf->dependency().output() << " to "
+                         << _dep->output() << "\n";
+                    _dep->addDependency(&bf->dependency());
+                    bf->dependency().addSubscriber(_dep.get());
                     break;
                 }
             }
@@ -214,12 +215,8 @@ public:
         }
     }
 
-    //    bool includeInBinary() const override {
-    //        return _type != CppToPcm;
-    //    }
-
-    IDependency *dependency() override {
-        return _dep.get();
+    IDependency &dependency() override {
+        return *_dep;
     }
 
 private:

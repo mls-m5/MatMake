@@ -33,7 +33,7 @@ public:
     }
 
     void prescan(IFiles &,
-                 const std::vector<std::unique_ptr<IDependency>> &) override {}
+                 const std::vector<std::unique_ptr<IBuildRule>> &) override {}
 
     void prepare(const IFiles &files) override {
         if (_dep->output().empty()) {
@@ -71,15 +71,7 @@ public:
         return ss.str();
     }
 
-    IDependency *dependency() override {
-        return _dep.get();
+    IDependency &dependency() override {
+        return *_dep;
     }
-
-    //    bool includeInBinary() const override {
-    //        return false;
-    //    }
-
-    //    BuildType buildType() const override {
-    //        return Copy;
-    //    }
 };

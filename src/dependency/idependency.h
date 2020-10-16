@@ -17,7 +17,7 @@ public:
     //! "prepare"-step
     virtual void prescan(
         IFiles &files,
-        const std::vector<std::unique_ptr<IDependency>> &buildFiles) = 0;
+        const std::vector<std::unique_ptr<IBuildRule>> &buildFiles) = 0;
 
     //! Check if the file is dirty and setup build command
     virtual void prepare(const IFiles &files) = 0;

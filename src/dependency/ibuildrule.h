@@ -1,8 +1,9 @@
 #pragma once
 
-#include "dependency/idependency.h"
 #include "environment/ifiles.h"
 #include <memory>
+
+class IDependency;
 
 class IBuildRule {
 public:
@@ -11,7 +12,7 @@ public:
     //! "prepare"-step
     virtual void prescan(
         IFiles &files,
-        const std::vector<std::unique_ptr<IDependency>> &buildFiles) = 0;
+        const std::vector<std::unique_ptr<IBuildRule>> &buildFiles) = 0;
 
     //! Check if the file is dirty and setup build command
     virtual void prepare(const IFiles &files) = 0;
@@ -24,5 +25,5 @@ public:
     //! Remove all output files
     virtual void clean(const IFiles &files) = 0;
 
-    virtual IDependency *dependency() = 0;
+    virtual IDependency &dependency() = 0;
 };

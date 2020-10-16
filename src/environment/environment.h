@@ -134,9 +134,9 @@ public:
         return selectedTargets;
     }
 
-    std::vector<std::unique_ptr<IDependency>> calculateDependencies(
+    std::vector<std::unique_ptr<IBuildRule>> calculateDependencies(
         std::vector<IBuildTarget *> selectedTargets) const {
-        std::vector<std::unique_ptr<IDependency>> files;
+        std::vector<std::unique_ptr<IBuildRule>> files;
         for (auto target : selectedTargets) {
             dout << "target " << target->name() << " src "
                  << target->properties().get("src").concat() << std::endl;
@@ -154,20 +154,20 @@ public:
         return files;
     }
 
-    void prescan(const std::vector<std::unique_ptr<IDependency>> &files) const {
+    void prescan(const std::vector<std::unique_ptr<IBuildRule>> &files) const {
         for (auto &file : files) {
             file->prescan(*_fileHandler, files);
         }
     }
 
     void createDirectories(
-        const std::vector<std::unique_ptr<IDependency>> &files) const {
+        const std::vector<std::unique_ptr<IBuildRule>> &files) const {
         std::set<std::string> directories;
         for (auto &file : files) {
-            if (!file->dirty()) {
+            if (!file->dependency().dirty()) {
                 continue;
             }
-            auto dir = _fileHandler->getDirectory(file->output());
+            auto dir = _fileHandler->getDirectory(file->dependency().output());
             if (!dir.empty()) {
                 directories.emplace(dir);
             }
@@ -201,16 +201,18 @@ public:
         }
 
         for (auto &file : files) {
-            file->prune();
-            if (file->dirty()) {
-                dout << "file " << file->output() << " is dirty" << std::endl;
+            file->dependency().prune();
+            if (file->dependency().dirty()) {
+                dout << "file " << file->dependency().output() << " is dirty"
+                     << std::endl;
                 tasks.addTaskCount();
-                if (file->dependencies().empty()) {
+                if (file->dependency().dependencies().empty()) {
                     tasks.addTask(file.get());
                 }
             }
             else {
-                dout << "file " << file->output() << " is fresh" << std::endl;
+                dout << "file " << file->dependency().output() << " is fresh"
+                     << std::endl;
             }
         }
 
@@ -219,7 +221,7 @@ public:
         buildExternal(false, "");
     }
 
-    void work(std::vector<std::unique_ptr<IDependency>> files) {
+    void work(std::vector<std::unique_ptr<IBuildRule>> files) {
         tasks.work(std::move(files), *_fileHandler);
     }
 

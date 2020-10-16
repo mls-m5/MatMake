@@ -43,7 +43,7 @@ public:
     }
 
     void prescan(IFiles &,
-                 const std::vector<std::unique_ptr<IDependency>> &) override {}
+                 const std::vector<std::unique_ptr<IBuildRule>> &) override {}
 
     void prepare(const IFiles &files) override {
         if (_isBuildCalled) {
@@ -103,8 +103,8 @@ public:
         return {};
     }
 
-    IDependency *dependency() override {
-        return _dep.get();
+    IDependency &dependency() override {
+        return *_dep;
     }
 
 private:

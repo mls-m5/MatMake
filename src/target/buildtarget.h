@@ -191,7 +191,7 @@ struct BuildTarget : public IBuildTarget {
             link = preprocessCommand(link);
             auto dependencyTarget = targets.find(link);
             if (dependencyTarget && dependencyTarget->outputFile()) {
-                _outputFile->dependency()->addDependency(
+                _outputFile->dependency().addDependency(
                     dependencyTarget->outputFile());
             }
             else {
@@ -200,9 +200,8 @@ struct BuildTarget : public IBuildTarget {
         }
 
         for (auto &dep : dependencies) {
-            if (dep->dependency()->includeInBinary()) {
-                _outputFile->dependency()->addDependency(
-                    dep.get()->dependency());
+            if (dep->dependency().includeInBinary()) {
+                _outputFile->dependency().addDependency(&dep->dependency());
             }
         }
 
@@ -331,6 +330,6 @@ struct BuildTarget : public IBuildTarget {
     }
 
     IDependency *outputFile() const override {
-        return _outputFile;
+        return &_outputFile->dependency();
     }
 };
