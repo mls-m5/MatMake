@@ -49,7 +49,7 @@ public:
         }
     }
 
-    std::string work(const IFiles &files, ThreadPool &pool) override {
+    std::string work(const IFiles &files, IThreadPool &pool) override {
         using namespace std;
         std::ostringstream ss;
 

@@ -103,7 +103,7 @@ public:
     }
 
     //! Send a notice to all subscribers
-    void sendSubscribersNotice(ThreadPool &pool, IBuildRule &rule) override {
+    void sendSubscribersNotice(IThreadPool &pool, IBuildRule &rule) override {
         std::lock_guard<std::mutex> guard(_accessMutex);
         for (auto s : _subscribers) {
             s->notice(this, pool, rule);
@@ -114,7 +114,7 @@ public:
     //! A message from a object being subscribed to
     //! This is used by targets to know when all dependencies
     //! is built
-    void notice(IDependency *d, ThreadPool &pool, IBuildRule &rule) override {
+    void notice(IDependency *d, IThreadPool &pool, IBuildRule &rule) override {
         _dependencies.erase(d);
         if (globals.debugOutput) {
             dout << "removing dependency " << d->output() << " from "
@@ -287,7 +287,7 @@ public:
     }
 
     std::string work(const IFiles &files,
-                     ThreadPool &pool,
+                     IThreadPool &pool,
                      IBuildRule &rule) override {
         std::stringstream outputStream;
 

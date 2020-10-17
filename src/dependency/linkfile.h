@@ -26,8 +26,8 @@ public:
         , _compilerType(compilerType) {
         _dep->output(removeDoubleDots(target->getOutputDir() + filename));
 
-        _dep->depFile(removeDoubleDots(
-            Dependency::fixDepEnding(target->getBuildDirectory() + filename)));
+        _dep->depFile(removeDoubleDots(Dependency::fixDepEnding(
+            removeDoubleDots(target->getBuildDirectory()) + filename)));
 
         auto dir = _dep->target()->getOutputDir();
         if (_dep->buildType() == Shared) {
@@ -91,7 +91,7 @@ public:
         }
     }
 
-    std::string work(const IFiles &files, ThreadPool &pool) override {
+    std::string work(const IFiles &files, IThreadPool &pool) override {
         if (!_dep->command().empty()) {
             {
                 files.replaceFile(_dep->depFile(), _dependencyString);

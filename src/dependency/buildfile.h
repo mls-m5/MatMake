@@ -219,7 +219,7 @@ public:
         return *_dep;
     }
 
-    std::string work(const IFiles &files, class ThreadPool &pool) override {
+    std::string work(const IFiles &files, class IThreadPool &pool) override {
         return _dep->work(files, pool, *this);
     }
 

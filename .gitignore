@@ -2,10 +2,24 @@
 *.o
 *.swp
 *~
+*.so
+*.d
+*.pcm
+*_test
 
+#eclipse files
 .cproject
 .project
 .settings/
+
+#qtcreator files
+*.cflags
+*.config
+*.creator
+*.cxxflags
+*.files
+*.includes
+*.creator.user
 
 
 matdep

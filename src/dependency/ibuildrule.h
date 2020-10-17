@@ -20,7 +20,7 @@ public:
     //! Transform the source file to the output file
     //! Example do the compiling, copying or linking
     [[nodiscard]] virtual std::string work(const IFiles &files,
-                                           class ThreadPool &pool) = 0;
+                                           class IThreadPool &pool) = 0;
 
     //    //! Remove all output files
     //    virtual void clean(const IFiles &files) = 0;

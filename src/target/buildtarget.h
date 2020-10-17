@@ -128,7 +128,7 @@ struct BuildTarget : public IBuildTarget {
         return ret;
     }
 
-    void print() override {
+    void print() const override {
         vout << "target " << _name << ": \n";
         for (auto &m : properties().properties()) {
             vout << "\t" << m.first << " = " << m.second << " \n";
@@ -330,6 +330,11 @@ struct BuildTarget : public IBuildTarget {
     }
 
     IDependency *outputFile() const override {
-        return &_outputFile->dependency();
+        if (_outputFile) {
+            return &_outputFile->dependency();
+        }
+        else {
+            return nullptr;
+        }
     }
 };

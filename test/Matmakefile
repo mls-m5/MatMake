@@ -5,12 +5,14 @@ config +=
    filesystem
 
 includes +=
-   matmake/src
+   ../src
+   .
 
-src = test/%.cpp
+src = %.cpp
 
 dir = bin
 
 file_test.out = %
 popenstream_test.out = %
 prescan_test.out = %
+copyfile_test.out = %

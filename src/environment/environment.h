@@ -160,13 +160,42 @@ public:
         }
     }
 
+    static void printTree(IDependency &dependency, int depth = 1) {
+        for (auto &dep : dependency.dependencies()) {
+            std::cout << std::string(depth * 2, ' ');
+            std::cout << dep->output();
+            std::cout << (dep->dirty() ? " (dirty)" : " (clean)") << "\n";
+            if (dep->dependencies().empty()) {
+                std::cout << std::string(depth * 2 + 2, ' ') << dep->input()
+                          << "\n";
+            }
+            printTree(*dep, depth + 1);
+        }
+    }
+
+    void printTree() const {
+        if (globals.debugOutput) {
+            for (auto &target : targets) {
+                std::cout << "tree root target: " << target->name()
+                          << " -----------\n";
+                if (auto output = target->outputFile()) {
+                    std::cout << output->output()
+                              << (output->dirty() ? " (dirty)" : " (clean)")
+                              << "\n";
+                    printTree(*output);
+                }
+            }
+            std::cout << "-----------------------------------" << std::endl;
+        }
+    }
+
     void createDirectories(
         const std::vector<std::unique_ptr<IBuildRule>> &files) const {
         std::set<std::string> directories;
         for (auto &file : files) {
-            if (!file->dependency().dirty()) {
-                continue;
-            }
+            //            if (!file->dependency().dirty()) {
+            //                continue;
+            //            }
             auto dir = _fileHandler->getDirectory(file->dependency().output());
             if (!dir.empty()) {
                 directories.emplace(dir);
@@ -199,6 +228,8 @@ public:
         for (auto &file : files) {
             file->prepare(*_fileHandler);
         }
+
+        printTree();
 
         for (auto &file : files) {
             file->dependency().prune();

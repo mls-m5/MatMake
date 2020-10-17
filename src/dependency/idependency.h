@@ -13,23 +13,12 @@ class IDependency {
 public:
     virtual ~IDependency() = default;
 
-    // ----------- Higher level functions used as build steps -----------------
-
-    //    //! For c++20 modules create a .d-file containing all dependencies
-    //    //! For dependencies without modules enabled .d-file is created in
-    //    //! "prepare"-step
-    //    virtual void prescan(
-    //        IFiles &files,
-    //        const std::vector<std::unique_ptr<IBuildRule>> &buildFiles) = 0;
-
-    //    //! Check if the file is dirty and setup build command
-    //    virtual void prepare(const IFiles &files) = 0;
-
     //! Transform the source file to the output file
     //! Example do the compiling, copying or linking
     //! Called from build-rules work() function
+    //! @return string to be written in verbose mode
     [[nodiscard]] virtual std::string work(const IFiles &files,
-                                           class ThreadPool &pool,
+                                           class IThreadPool &pool,
                                            IBuildRule &rule) = 0;
 
     //    //! Remove all output files
@@ -52,7 +41,7 @@ public:
     //! Tell a dependency that the built of this file is finished
     //! Set pruned to true if
     virtual void notice(IDependency *d,
-                        class ThreadPool &pool,
+                        class IThreadPool &pool,
                         IBuildRule &) = 0;
 
     //! The path to where the target will be built
@@ -64,7 +53,8 @@ public:
 
     //! A subscriber is a dependency that want a notice when the file is built
     virtual void addSubscriber(IDependency *s) = 0;
-    virtual void sendSubscribersNotice(ThreadPool &pool, IBuildRule &) = 0;
+    virtual void sendSubscribersNotice(class IThreadPool &pool,
+                                       IBuildRule &) = 0;
 
     //! Add a file that this file will wait for
     virtual void addDependency(IDependency *file) = 0;

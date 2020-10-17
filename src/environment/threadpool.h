@@ -10,6 +10,7 @@
 #include "dependency/ibuildrule.h"
 #include "dependency/idependency.h"
 #include "environment/ifiles.h"
+#include "environment/ithreadpool.h"
 #include "main/mdebug.h"
 #include "main/merror.h"
 #include <atomic>
@@ -17,7 +18,7 @@
 #include <queue>
 #include <vector>
 
-class ThreadPool : std::queue<IBuildRule *> {
+class ThreadPool : std::queue<IBuildRule *>, public IThreadPool {
     std::mutex workMutex;
     std::mutex workAssignMutex;
     std::atomic<size_t> numberOfActiveThreads;
@@ -26,7 +27,7 @@ class ThreadPool : std::queue<IBuildRule *> {
     int lastProgress = 0;
 
 public:
-    void addTask(IBuildRule *t) {
+    void addTask(IBuildRule *t) override {
         workAssignMutex.lock();
         push(t);
         workAssignMutex.unlock();

@@ -16,4 +16,4 @@ struct Globals {
     bool bailout = false; // when true: exit the program in a controlled way
 };
 
-extern Globals globals;
+inline Globals globals;

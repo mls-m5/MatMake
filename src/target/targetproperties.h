@@ -9,9 +9,12 @@
 //! Contains values aquired from parsing the Matmakefile
 class TargetProperties {
 public:
+    TargetProperties() = default;
+
     //! Create a property instance, parent can be sett to null for when not
     //! inheriting from another object
-    TargetProperties(Token name, const TargetProperties *parent) : _name(name) {
+    TargetProperties(Token name, const TargetProperties *parent)
+        : _name(name) {
         inherit(parent);
     }
 

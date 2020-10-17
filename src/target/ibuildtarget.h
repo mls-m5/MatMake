@@ -54,7 +54,7 @@ public:
     virtual std::vector<std::unique_ptr<IBuildRule>> calculateDependencies(
         const IFiles &files, const class Targets &targets) = 0;
 
-    virtual void print() = 0;
+    virtual void print() const = 0;
 
     virtual Token filename() const = 0;
 };
