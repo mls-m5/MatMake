@@ -134,9 +134,9 @@ public:
         return selectedTargets;
     }
 
-    std::vector<std::unique_ptr<IBuildRule>> calculateDependencies(
+    BuildRuleList calculateDependencies(
         std::vector<IBuildTarget *> selectedTargets) const {
-        std::vector<std::unique_ptr<IBuildRule>> files;
+        BuildRuleList files;
         for (auto target : selectedTargets) {
             dout << "target " << target->name() << " src "
                  << target->properties().get("src").concat() << std::endl;
@@ -154,7 +154,7 @@ public:
         return files;
     }
 
-    void prescan(const std::vector<std::unique_ptr<IBuildRule>> &files) const {
+    void prescan(const BuildRuleList &files) const {
         for (auto &file : files) {
             file->prescan(*_fileHandler, files);
         }
@@ -189,8 +189,7 @@ public:
         }
     }
 
-    void createDirectories(
-        const std::vector<std::unique_ptr<IBuildRule>> &files) const {
+    void createDirectories(const BuildRuleList &files) const {
         std::set<std::string> directories;
         for (auto &file : files) {
             //            if (!file->dependency().dirty()) {
@@ -226,7 +225,7 @@ public:
         prescan(files);
 
         for (auto &file : files) {
-            file->prepare(*_fileHandler);
+            file->prepare(*_fileHandler, files);
         }
 
         printTree();
@@ -252,7 +251,7 @@ public:
         buildExternal(false, "");
     }
 
-    void work(std::vector<std::unique_ptr<IBuildRule>> files) {
+    void work(BuildRuleList files) {
         tasks.work(std::move(files), *_fileHandler);
     }
 

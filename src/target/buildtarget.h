@@ -148,13 +148,13 @@ struct BuildTarget : public IBuildTarget {
         }
     }
 
-    std::vector<std::unique_ptr<IBuildRule>> calculateDependencies(
-        const IFiles &files, const Targets &targets) override {
+    BuildRuleList calculateDependencies(const IFiles &files,
+                                        const Targets &targets) override {
         if (name() == "root") {
             return {};
         }
 
-        std::vector<std::unique_ptr<IBuildRule>> dependencies;
+        BuildRuleList dependencies;
 
         auto oFile =
             std::make_unique<LinkFile>(filename(), this, _compilerType.get());

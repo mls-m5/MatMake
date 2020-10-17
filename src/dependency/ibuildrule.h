@@ -6,6 +6,8 @@
 
 class IDependency;
 
+using BuildRuleList = std::vector<std::unique_ptr<class IBuildRule>>;
+
 class IBuildRule {
 public:
     //! For c++20 modules create a .d-file containing all dependencies
@@ -16,7 +18,7 @@ public:
         const std::vector<std::unique_ptr<IBuildRule>> &buildFiles) = 0;
 
     //! Check if the file is dirty and setup build command
-    virtual void prepare(const IFiles &files) = 0;
+    virtual void prepare(const IFiles &files, BuildRuleList &) = 0;
 
     //! Transform the source file to the output file
     //! Example do the compiling, copying or linking

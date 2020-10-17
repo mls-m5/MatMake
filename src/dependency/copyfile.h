@@ -33,10 +33,9 @@ public:
         _dep->input(source);
     }
 
-    void prescan(IFiles &,
-                 const std::vector<std::unique_ptr<IBuildRule>> &) override {}
+    void prescan(IFiles &, const BuildRuleList &) override {}
 
-    void prepare(const IFiles &files) override {
+    void prepare(const IFiles &files, BuildRuleList &) override {
         if (_dep->output().empty()) {
             return;
         }

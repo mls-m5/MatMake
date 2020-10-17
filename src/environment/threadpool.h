@@ -126,8 +126,7 @@ public:
         }
     }
 
-    void work(std::vector<std::unique_ptr<IBuildRule>> files,
-              const IFiles &fileHandler) {
+    void work(BuildRuleList files, const IFiles &fileHandler) {
         using namespace std;
         if (globals.numberOfThreads > 1) {
             workMultiThreaded(fileHandler);

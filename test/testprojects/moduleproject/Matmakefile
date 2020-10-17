@@ -6,3 +6,5 @@ config +=
    c++17
 
 main.src += *.cpp *.cppm
+
+#main.dir = build

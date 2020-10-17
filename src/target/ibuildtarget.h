@@ -51,7 +51,7 @@ public:
     // ------- Commands that is executed on the build target -------------------
 
     //! Calculate and return all files used by this target
-    virtual std::vector<std::unique_ptr<IBuildRule>> calculateDependencies(
+    virtual BuildRuleList calculateDependencies(
         const IFiles &files, const class Targets &targets) = 0;
 
     virtual void print() const = 0;

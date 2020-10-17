@@ -55,20 +55,31 @@ inline std::pair<Token, Token> stripFileEnding(Token filename,
                filename.find(ending) == filename.length() - ending.length();
     };
 
+    // Ze best way to strip file endings right? ^^
     if (matchEnding(".cpp")) {
         filename =
             Token(filename.begin(), filename.end() - 4, filename.location);
         return {filename, "cpp"};
     }
-    if (matchEnding(".cppm")) {
+    else if (matchEnding(".cppm")) {
         filename =
             Token(filename.begin(), filename.end() - 5, filename.location);
         return {filename, "cppm"};
+    }
+    else if (matchEnding(".pcm")) {
+        filename =
+            Token(filename.begin(), filename.end() - 4, filename.location);
+        return {filename, "pcm"};
     }
     else if (matchEnding(".c")) {
         filename =
             Token(filename.begin(), filename.end() - 2, filename.location);
         return {filename, "c"};
+    }
+    else if (matchEnding(".o")) {
+        filename =
+            Token(filename.begin(), filename.end() - 2, filename.location);
+        return {filename, "o"};
     }
     else if (matchEnding(".so")) {
         filename =

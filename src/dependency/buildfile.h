@@ -69,9 +69,7 @@ public:
         }
     }
 
-    void prescan(
-        IFiles &files,
-        const std::vector<std::unique_ptr<IBuildRule>> &buildFiles) override {
+    void prescan(IFiles &files, const BuildRuleList &buildFiles) override {
 
         if (files.getTimeChanged(_dep->depFile()) >
             _dep->inputChangedTime(files)) {
@@ -109,7 +107,6 @@ public:
                 for (auto &bf : buildFiles) {
                     if (bf->dependency().output() == importFilename) {
                         _dep->addDependency(&bf->dependency());
-                        //                        bf->dependency().addSubscriber(_dep.get());
                         break;
                     }
                 }
@@ -176,7 +173,7 @@ public:
         return preprocessCommand(command);
     }
 
-    void prepare(const IFiles &files) override {
+    void prepare(const IFiles &files, BuildRuleList &rules) override {
         time_t outputChangedTime = _dep->changedTime(files);
         if (outputChangedTime < _dep->inputChangedTime(files)) {
             _dep->dirty(true);
@@ -193,6 +190,16 @@ public:
         }
         else {
             for (auto &d : dependencyFiles) {
+                auto ending = stripFileEnding(d, true).second;
+                if (ending == "pcm") {
+                    for (auto &r : rules) {
+                        if (r->dependency().output() == d) {
+                            if (r.get() != this) {
+                                _dep->addDependency(&r->dependency());
+                            }
+                        }
+                    }
+                }
                 auto dependencyTimeChanged = files.getTimeChanged(d);
                 if (dependencyTimeChanged == 0 ||
                     dependencyTimeChanged > outputChangedTime) {
@@ -246,8 +253,4 @@ private:
     Token getFlags() {
         return _dep->target()->getBuildFlags(_filetype);
     }
-
-    //    BuildType buildType() const override {
-    //        return Object;
-    //    }
 };

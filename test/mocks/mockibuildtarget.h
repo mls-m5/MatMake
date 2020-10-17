@@ -29,7 +29,7 @@ public:
 
     MOCK_METHOD(bool, hasModules, (), const override);
 
-    MOCK_METHOD2(std::vector<std::unique_ptr<IBuildRule>>,
+    MOCK_METHOD2(BuildRuleList,
                  calculateDependencies,
                  (const IFiles &files, const class Targets &targets),
                  override);
