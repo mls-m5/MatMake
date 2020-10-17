@@ -5,36 +5,36 @@
 
 class MockIBuildTarget : public IBuildTarget {
 public:
-    MOCK_METHOD(const TargetProperties &, properties, (), const override);
+    MOCK_METHOD0(const TargetProperties &, properties, (), const override);
 
-    MOCK_METHOD(Token, getOutputDir, (), const override);
+    MOCK_METHOD0(Token, getOutputDir, (), const override);
 
-    MOCK_METHOD(Token, getBuildDirectory, (), const override);
+    MOCK_METHOD0(Token, getBuildDirectory, (), const override);
 
     MOCK_METHOD1(Token, getCompiler, (const Token &filetype), const override);
 
     MOCK_METHOD1(Token, getBuildFlags, (const Token &filetype), const override);
 
-    MOCK_METHOD(IDependency *, outputFile, (), const override);
+    MOCK_METHOD0(IDependency *, outputFile, (), const override);
 
     MOCK_METHOD1(Token, preprocessCommand, (Token command), const override);
 
-    MOCK_METHOD(Token, name, (), const override);
+    MOCK_METHOD0(Token, name, (), const override);
 
-    MOCK_METHOD(Token, getLibs, (), const override);
+    MOCK_METHOD0(Token, getLibs, (), const override);
 
-    MOCK_METHOD(Token, getFlags, (), const override);
+    MOCK_METHOD0(Token, getFlags, (), const override);
 
-    MOCK_METHOD(BuildType, buildType, (), const override);
+    MOCK_METHOD0(BuildType, buildType, (), const override);
 
-    MOCK_METHOD(bool, hasModules, (), const override);
+    MOCK_METHOD0(bool, hasModules, (), const override);
 
     MOCK_METHOD2(BuildRuleList,
                  calculateDependencies,
                  (const IFiles &files, const class Targets &targets),
                  override);
 
-    MOCK_METHOD(void, print, (), const override);
+    MOCK_METHOD0(void, print, (), const override);
 
-    MOCK_METHOD(Token, filename, (), const override);
+    MOCK_METHOD0(Token, filename, (), const override);
 };

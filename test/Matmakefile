@@ -16,3 +16,4 @@ file_test.out = %
 popenstream_test.out = %
 prescan_test.out = %
 copyfile_test.out = %
+threadpool_test.out = %

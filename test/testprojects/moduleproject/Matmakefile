@@ -7,4 +7,4 @@ config +=
 
 main.src += *.cpp *.cppm
 
-#main.dir = build
+main.dir = build

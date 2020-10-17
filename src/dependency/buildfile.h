@@ -70,7 +70,6 @@ public:
     }
 
     void prescan(IFiles &files, const BuildRuleList &buildFiles) override {
-
         if (files.getTimeChanged(_dep->depFile()) >
             _dep->inputChangedTime(files)) {
             return;
@@ -97,12 +96,19 @@ public:
 
             depFileStream << _dep->output() << ":";
 
+            auto buildDirectory = _dep->target()->getBuildDirectory();
+
+            for (auto &exp : deps.exportModules) {
+                _moduleName = exp;
+            }
+
             for (auto &imp : deps.imports) {
                 dout << imp << " ";
 
-                depFileStream << " " << imp << ".pcm";
+                auto importFilename =
+                    buildDirectory + imp + ".pcm"; // Fix mapping
 
-                auto importFilename = imp + ".pcm"; // Fix mapping
+                depFileStream << " " << importFilename; // << imp << ".pcm";
 
                 for (auto &bf : buildFiles) {
                     if (bf->dependency().output() == importFilename) {
@@ -164,7 +170,11 @@ public:
 
         if (_dep->target()->hasModules()) {
             if (_type == CppToPcm || _type == CppToO) {
-                command += " -fprebuilt-module-path=. ";
+                auto buildDir = _dep->target()->getBuildDirectory();
+                if (buildDir.empty()) {
+                    buildDir = ".";
+                }
+                command += " -fprebuilt-module-path=" + buildDir + " ";
             }
         }
 
@@ -193,6 +203,8 @@ public:
                 auto ending = stripFileEnding(d, true).second;
                 if (ending == "pcm") {
                     for (auto &r : rules) {
+                        auto filename = r->dependency().output();
+
                         if (r->dependency().output() == d) {
                             if (r.get() != this) {
                                 _dep->addDependency(&r->dependency());
@@ -230,10 +242,15 @@ public:
         return _dep->work(files, pool);
     }
 
+    std::string moduleName() const override {
+        return _moduleName;
+    }
+
 private:
     std::unique_ptr<IDependency> _dep;
     Token _filetype; // The ending of the filename
     Type _type = CppToO;
+    std::string _moduleName; // If a c++20 module
 
     Token fixObjectEnding(Token filename) {
         return removeDoubleDots(_dep->target()->getBuildDirectory() + filename +

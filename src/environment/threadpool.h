@@ -52,7 +52,8 @@ public:
             pop();
             workAssignMutex.unlock();
             try {
-                auto output = t->work(files, *this);
+                auto buildRule = t->parentRule();
+                auto output = buildRule->work(files, *this);
                 stringstream ss;
                 ss << "[" << getBuildProgress() << "%] ";
                 if (globals.verbose && !output.empty()) {
@@ -138,7 +139,7 @@ public:
                 auto t = front();
                 pop();
                 try {
-                    auto output = t->work(fileHandler, *this);
+                    auto output = t->parentRule()->work(fileHandler, *this);
                     if (globals.verbose && !output.empty()) {
                         std::cout << output;
                         std::cout.flush();
@@ -169,7 +170,12 @@ public:
     }
 
     int getBuildProgress() const {
-        return (taskFinished * 100 / maxTasks);
+        if (maxTasks) {
+            return (taskFinished * 100 / maxTasks);
+        }
+        else {
+            return 100;
+        }
     }
 
     void printProgress() {

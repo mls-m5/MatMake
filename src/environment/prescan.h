@@ -46,13 +46,9 @@ PrescanResult prescan(std::istream &input) {
                 continue;
             }
             else if (name.front() == '/') {
-                // todo: Do some better check for this in future
-                //                res.systemHeaders.emplace_back(move(name));
-
                 addUnique(res.systemHeaders, move(name));
             }
             else {
-                //                res.includes.emplace_back(move(name));
                 addUnique(res.includes, move(name));
             }
         }
@@ -61,7 +57,6 @@ PrescanResult prescan(std::istream &input) {
             auto f = moduleName.rfind(";");
             if (f != std::string::npos) {
                 moduleName.erase(f, moduleName.size());
-                //                res.imports.push_back(move(moduleName));
                 addUnique(res.imports, move(moduleName));
             }
         }
@@ -70,7 +65,6 @@ PrescanResult prescan(std::istream &input) {
             auto f = moduleName.rfind(";");
             if (f != std::string::npos) {
                 moduleName.erase(f, moduleName.size());
-                //                res.exportModules.push_back(move(moduleName));
                 addUnique(res.exportModules, move(moduleName));
             }
         }

@@ -2,7 +2,7 @@
 
 #include "environment/ifiles.h"
 #include <memory>
-#include <optional>
+#include <string>
 
 class IDependency;
 
@@ -13,9 +13,7 @@ public:
     //! For c++20 modules create a .d-file containing all dependencies
     //! For dependencies without modules enabled .d-file is created in
     //! "prepare"-step
-    virtual void prescan(
-        IFiles &files,
-        const std::vector<std::unique_ptr<IBuildRule>> &buildFiles) = 0;
+    virtual void prescan(IFiles &, const BuildRuleList &) = 0;
 
     //! Check if the file is dirty and setup build command
     virtual void prepare(const IFiles &files, BuildRuleList &) = 0;
@@ -25,8 +23,11 @@ public:
     [[nodiscard]] virtual std::string work(const IFiles &files,
                                            class IThreadPool &pool) = 0;
 
-    //    //! Remove all output files
-    //    virtual void clean(const IFiles &files) = 0;
-
     virtual IDependency &dependency() = 0;
+
+    //! Specific for c++ modules
+    //! Return empty string if not a module
+    virtual std::string moduleName() const {
+        return {};
+    }
 };

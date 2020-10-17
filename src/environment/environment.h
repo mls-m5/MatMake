@@ -192,9 +192,6 @@ public:
     void createDirectories(const BuildRuleList &files) const {
         std::set<std::string> directories;
         for (auto &file : files) {
-            //            if (!file->dependency().dirty()) {
-            //                continue;
-            //            }
             auto dir = _fileHandler->getDirectory(file->dependency().output());
             if (!dir.empty()) {
                 directories.emplace(dir);

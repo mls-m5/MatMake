@@ -16,6 +16,7 @@ struct TestFixture {
     MockIBuildTarget target;
     MockIFiles files;
     MockIThreadPool pool;
+    BuildRuleList otherFiles;
 };
 
 } // namespace
@@ -52,7 +53,7 @@ TEST_CASE("prepare") {
 
     CopyFile copyFile("a.txt", &f.target, std::move(dep));
 
-    copyFile.prepare(f.files);
+    copyFile.prepare(f.files, f.otherFiles);
 }
 
 TEST_CASE("prepare (fresh)") {
@@ -73,7 +74,7 @@ TEST_CASE("prepare (fresh)") {
 
     CopyFile copyFile("a.txt", &f.target, std::move(dep));
 
-    copyFile.prepare(f.files);
+    copyFile.prepare(f.files, f.otherFiles);
 }
 
 TEST_CASE("copy") {
@@ -96,7 +97,7 @@ TEST_CASE("copy") {
 
     CopyFile copyFile("a.txt", &f.target, std::move(dep));
 
-    copyFile.prepare(f.files);
+    copyFile.prepare(f.files, f.otherFiles);
 
     rawDep->mock_dirty_1.expectArgs(false);
 
