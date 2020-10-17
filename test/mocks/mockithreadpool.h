@@ -5,5 +5,5 @@
 
 class MockIThreadPool : public IThreadPool {
 public:
-    MOCK_METHOD1(void, addTask, (IBuildRule *), override);
+    MOCK_METHOD1(void, addTask, (IDependency *), override);
 };

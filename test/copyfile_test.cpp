@@ -101,7 +101,7 @@ TEST_CASE("copy") {
     rawDep->mock_dirty_1.expectArgs(false);
 
     f.files.mock_copyFile_2.expectArgs("a.txt", "bin/a.txt");
-    rawDep->mock_sendSubscribersNotice_2.expectMinNum(1);
+    rawDep->mock_sendSubscribersNotice_1.expectMinNum(1);
 
     copyFile.work(f.files, f.pool);
 }

@@ -2,6 +2,7 @@
 
 #include "environment/ifiles.h"
 #include <memory>
+#include <optional>
 
 class IDependency;
 

@@ -27,7 +27,7 @@ public:
               std::unique_ptr<IDependency> dependency = nullptr)
         : _dep(dependency ? std::move(dependency)
                           : std::make_unique<Dependency>(
-                                target, type != CppToPcm, Object))
+                                target, type != CppToPcm, Object, this))
         , _filetype(stripFileEnding(filename).second)
         , _type(type) {
         auto withoutEnding =
@@ -109,7 +109,7 @@ public:
                 for (auto &bf : buildFiles) {
                     if (bf->dependency().output() == importFilename) {
                         _dep->addDependency(&bf->dependency());
-                        bf->dependency().addSubscriber(_dep.get());
+                        //                        bf->dependency().addSubscriber(_dep.get());
                         break;
                     }
                 }
@@ -220,7 +220,7 @@ public:
     }
 
     std::string work(const IFiles &files, class IThreadPool &pool) override {
-        return _dep->work(files, pool, *this);
+        return _dep->work(files, pool);
     }
 
 private:

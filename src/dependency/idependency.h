@@ -18,16 +18,37 @@ public:
     //! Called from build-rules work() function
     //! @return string to be written in verbose mode
     [[nodiscard]] virtual std::string work(const IFiles &files,
-                                           class IThreadPool &pool,
-                                           IBuildRule &rule) = 0;
+                                           class IThreadPool &pool) = 0;
 
-    //    //! Remove all output files
+    //! Remove all output files
     virtual void clean(const IFiles &files) = 0;
 
     // -------------------------- Other functions -----------------------------
 
+    //! Tell a dependency that the built of this file is finished
+    //! Set pruned to true if
+    virtual void notice(IDependency *d, class IThreadPool &pool) = 0;
+
+    //! A subscriber is a dependency that want a notice when the file is built
+    virtual void sendSubscribersNotice(class IThreadPool &pool) = 0;
+
+    virtual IBuildRule *parentRule() = 0;
+    virtual void parentRule(IBuildRule *) = 0;
+
+    // ------------------------------------------------------------------------
+
+    virtual void addSubscriber(IDependency *s) = 0;
+
+    //! Add a file that this file will wait for
+    virtual void addDependency(IDependency *file) = 0;
+    virtual const std::set<class IDependency *> dependencies() const = 0;
+
     //! Remove fresh dependencies from dependency tree
     virtual void prune() = 0;
+
+    virtual const IBuildTarget *target() const = 0;
+
+    // ------------------------------------------------------------------------
 
     // Sets and gets the state of the output file
     virtual void dirty(bool) = 0;
@@ -38,26 +59,12 @@ public:
     virtual time_t changedTime(const IFiles &files) const = 0;
     virtual time_t inputChangedTime(const IFiles &files) const = 0;
 
-    //! Tell a dependency that the built of this file is finished
-    //! Set pruned to true if
-    virtual void notice(IDependency *d,
-                        class IThreadPool &pool,
-                        IBuildRule &) = 0;
-
     //! The path to where the target will be built
     virtual Token output() const = 0;
     virtual void output(Token value) = 0;
 
     //! The main target and implicit targets (often dependency files)
     virtual const std::vector<Token> &outputs() const = 0;
-
-    //! A subscriber is a dependency that want a notice when the file is built
-    virtual void addSubscriber(IDependency *s) = 0;
-    virtual void sendSubscribersNotice(class IThreadPool &pool,
-                                       IBuildRule &) = 0;
-
-    //! Add a file that this file will wait for
-    virtual void addDependency(IDependency *file) = 0;
 
     //! If the file should be used in the link step
     //! This should be false for pcm files or copied resource files
@@ -67,10 +74,6 @@ public:
 
     virtual void linkString(Token token) = 0;
     virtual Token linkString() const = 0;
-
-    virtual const std::set<class IDependency *> dependencies() const = 0;
-
-    virtual const IBuildTarget *target() const = 0;
 
     virtual void input(Token in) = 0;
     virtual std::vector<Token> inputs() const = 0;

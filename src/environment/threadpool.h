@@ -18,7 +18,7 @@
 #include <queue>
 #include <vector>
 
-class ThreadPool : std::queue<IBuildRule *>, public IThreadPool {
+class ThreadPool : std::queue<IDependency *>, public IThreadPool {
     std::mutex workMutex;
     std::mutex workAssignMutex;
     std::atomic<size_t> numberOfActiveThreads;
@@ -27,7 +27,7 @@ class ThreadPool : std::queue<IBuildRule *>, public IThreadPool {
     int lastProgress = 0;
 
 public:
-    void addTask(IBuildRule *t) override {
+    void addTask(IDependency *t) override {
         workAssignMutex.lock();
         push(t);
         workAssignMutex.unlock();

@@ -2,7 +2,7 @@
 CXX = c++
 TESTSRC = $(wildcard src/*.cpp)
 TESTOBJ = $(TESTSRC:.cpp=.o)
-CXXFLAGS = -std=c++14 -W -Wall
+CXXFLAGS = -std=c++17 -W -Wall
 
 matmake = matmake
 

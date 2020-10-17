@@ -2,5 +2,5 @@
 
 class IThreadPool {
 public:
-    virtual void addTask(class IBuildRule *t) = 0;
+    virtual void addTask(class IDependency *t) = 0;
 };

@@ -20,8 +20,9 @@ public:
     CopyFile(Token source,
              IBuildTarget *target,
              std::unique_ptr<IDependency> dependency = nullptr)
-        : _dep(dependency ? std::move(dependency)
-                          : std::make_unique<Dependency>(target, false, Copy)) {
+        : _dep(dependency
+                   ? std::move(dependency)
+                   : std::make_unique<Dependency>(target, false, Copy, this)) {
         auto o = joinPaths(target->getOutputDir(), source);
         if (o != source) {
             _dep->output(o);
@@ -60,7 +61,7 @@ public:
 
             _dep->dirty(false);
 
-            _dep->sendSubscribersNotice(pool, *this);
+            _dep->sendSubscribersNotice(pool);
         }
         catch (std::runtime_error &e) {
             std::cerr << ("could not copy file for target " +

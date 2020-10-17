@@ -30,12 +30,18 @@ class Dependency : public virtual IDependency {
     Token _command;
     Token _depFile;
     Token _linkString;
+    IBuildRule *_parentRule = nullptr;
 
 public:
-    Dependency(IBuildTarget *target, bool includeInBinary, BuildType type)
+    //! @param parentRule can be set after, for testing for example
+    Dependency(IBuildTarget *target,
+               bool includeInBinary,
+               BuildType type,
+               IBuildRule *parentRule)
         : _target(target)
         , _includeInBinary(includeInBinary)
-        , _buildType(type) {}
+        , _buildType(type)
+        , _parentRule(parentRule) {}
 
     virtual ~Dependency() override = default;
 
@@ -67,6 +73,7 @@ public:
         if (file) {
             dout << "adding " << file->output() << " to " << output() << "\n";
             _dependencies.insert(file);
+            file->addSubscriber(this);
         }
     }
 
@@ -103,10 +110,10 @@ public:
     }
 
     //! Send a notice to all subscribers
-    void sendSubscribersNotice(IThreadPool &pool, IBuildRule &rule) override {
+    void sendSubscribersNotice(IThreadPool &pool) {
         std::lock_guard<std::mutex> guard(_accessMutex);
         for (auto s : _subscribers) {
-            s->notice(this, pool, rule);
+            s->notice(this, pool);
         }
         _subscribers.clear();
     }
@@ -114,7 +121,7 @@ public:
     //! A message from a object being subscribed to
     //! This is used by targets to know when all dependencies
     //! is built
-    void notice(IDependency *d, IThreadPool &pool, IBuildRule &rule) override {
+    void notice(IDependency *d, IThreadPool &pool) override {
         _dependencies.erase(d);
         if (globals.debugOutput) {
             dout << "removing dependency " << d->output() << " from "
@@ -125,8 +132,10 @@ public:
             }
         }
         if (_dependencies.empty()) {
-            pool.addTask(&rule);
-            dout << "Adding " << output() << " to task list " << std::endl;
+            if (_parentRule) {
+                pool.addTask(this);
+                dout << "Adding " << output() << " to task list " << std::endl;
+            }
         }
     }
 
@@ -151,49 +160,6 @@ public:
     static Token fixDepEnding(Token filename) {
         return removeDoubleDots(filename + ".d");
     }
-
-    //    //! Calculate dependencies from makefile styled .d files generated
-    //    //! by the compiler
-    //    //! first = dependencies, second = old command
-    //    static std::pair<std::vector<std::string>, std::string> parseDepFile(
-    //        Token depFile, const IFiles &files) {
-    //        using namespace std;
-    //        try {
-    //            //            auto lines =
-    //            // files.readLines(target()->preprocessCommand(depFile()));
-    //            auto lines = files.readLines(depFile);
-    //            vector<string> ret;
-    //            string command;
-
-    //            bool firstLine = true;
-    //            for (auto line : lines) {
-    //                istringstream ss(line);
-
-    //                if (!line.empty() && line.front() == '\t') {
-    //                    command = trim(line);
-    //                    break;
-    //                }
-    //                else {
-    //                    string d;
-    //                    if (firstLine) {
-    //                        ss >> d; // The first is the target path -->
-    //                        ignore firstLine = false;
-    //                    }
-    //                    while (ss >> d) {
-    //                        if (d !=
-    //                            "\\") { // Skip backslash (is used before
-    //                            newlines) ret.push_back(d);
-    //                        }
-    //                    }
-    //                }
-    //            }
-    //            return {ret, command};
-    //        }
-    //        catch (std::runtime_error &e) {
-    //            dout << "could not find .d file " << depFile << endl;
-    //            return {};
-    //        }
-    //    }
 
     bool dirty() const final {
         return _dirty;
@@ -286,9 +252,8 @@ public:
         return files.parseDepFile(depFile()).second.empty();
     }
 
-    std::string work(const IFiles &files,
-                     IThreadPool &pool,
-                     IBuildRule &rule) override {
+    std::string work(const IFiles &files, IThreadPool &pool) override {
+
         std::stringstream outputStream;
 
         if (!command().empty()) {
@@ -314,7 +279,7 @@ public:
                 }
             }
             dirty(false);
-            sendSubscribersNotice(pool, rule);
+            sendSubscribersNotice(pool);
         }
         return outputStream.str();
     }
@@ -340,5 +305,12 @@ public:
         else {
             return _buildType;
         }
+    }
+
+    IBuildRule *parentRule() override {
+        return _parentRule;
+    }
+    void parentRule(IBuildRule *rule) override {
+        _parentRule = rule;
     }
 };

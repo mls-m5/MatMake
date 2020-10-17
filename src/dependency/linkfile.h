@@ -20,9 +20,9 @@ public:
              IBuildTarget *target,
              ICompiler *compilerType,
              std::unique_ptr<IDependency> dependency = nullptr)
-        : _dep(dependency
-                   ? std::move(dependency)
-                   : std::make_unique<Dependency>(target, true, FromTarget))
+        : _dep(dependency ? std::move(dependency)
+                          : std::make_unique<Dependency>(
+                                target, true, FromTarget, this))
         , _compilerType(compilerType) {
         _dep->output(removeDoubleDots(target->getOutputDir() + filename));
 
@@ -62,7 +62,6 @@ public:
         for (auto &d : _dep->dependencies()) {
             auto t = d->changedTime(files);
             if (d->dirty()) {
-                d->addSubscriber(_dep.get());
                 _dep->dirty(true);
             }
             lastDependency = std::max(t, lastDependency);
@@ -96,7 +95,7 @@ public:
             {
                 files.replaceFile(_dep->depFile(), _dependencyString);
             }
-            return _dep->work(files, pool, *this);
+            return _dep->work(files, pool);
         }
 
         return {};
@@ -164,24 +163,6 @@ private:
         ss << "\n";
         return ss.str();
     }
-
-    //    Token linkString() const override {
-    //        auto dir = _dep->target()->getOutputDir();
-    //        if (_dep->buildType() == Shared) {
-    //            if (dir.empty()) {
-    //                dir = ".";
-    //            }
-    //            return _compilerType->prepareLinkString(dir,
-    //                                                    _dep->target()->filename());
-    //        }
-    //        else {
-    //            return _dep->output();
-    //        }
-    //    }
-
-    //    BuildType buildType() const override {
-    //        return _dep->target()->buildType();
-    //    }
 
     //! This is to check if should include linker -rpath or similar
     bool hasReferencesToSharedLibrary() const {

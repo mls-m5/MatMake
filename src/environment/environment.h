@@ -238,7 +238,7 @@ public:
                      << std::endl;
                 tasks.addTaskCount();
                 if (file->dependency().dependencies().empty()) {
-                    tasks.addTask(file.get());
+                    tasks.addTask(&file->dependency());
                 }
             }
             else {
