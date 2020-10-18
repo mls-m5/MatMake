@@ -165,6 +165,12 @@ public:
         return _dirty;
     }
     void dirty(bool value) final {
+        if (value && !_dirty) {
+            _dirty = true;
+            for (auto &subscriber : _subscribers) {
+                subscriber->dirty(true);
+            }
+        }
         _dirty = value;
     }
 
