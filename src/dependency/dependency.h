@@ -21,7 +21,7 @@ class Dependency : public virtual IDependency {
     std::set<IDependency *> _subscribers;
     std::mutex _accessMutex;
     bool _dirty = false;
-    bool _shouldAddCommandToDepFile = false;
+    //    bool _shouldAddCommandToDepFile = false;
     bool _includeInBinary = true;
     BuildType _buildType = NotSpecified;
 
@@ -110,7 +110,7 @@ public:
     }
 
     //! Send a notice to all subscribers
-    void sendSubscribersNotice(IThreadPool &pool) {
+    void sendSubscribersNotice(IThreadPool &pool) override {
         std::lock_guard<std::mutex> guard(_accessMutex);
         for (auto s : _subscribers) {
             s->notice(this, pool);
@@ -149,13 +149,13 @@ public:
 
     //! If the work command does not provide command to the dep file
     //! if true the dep-file-command is added at the "work" stage
-    bool shouldAddCommandToDepFile() const override {
-        return _shouldAddCommandToDepFile;
-    }
+    //    bool shouldAddCommandToDepFile() const override {
+    //        return _shouldAddCommandToDepFile;
+    //    }
 
-    void shouldAddCommandToDepFile(bool value) override {
-        _shouldAddCommandToDepFile = value;
-    }
+    //    void shouldAddCommandToDepFile(bool value) override {
+    //        _shouldAddCommandToDepFile = value;
+    //    }
 
     static Token fixDepEnding(Token filename) {
         return removeDoubleDots(filename + ".d");
@@ -265,14 +265,18 @@ public:
                                        "\n" + res.second);
             }
             else {
-                bool overrideDepFileTime =
-                    shouldAddCommandToDepFile() && doesDepFileHasCommand(files);
+                //                bool overrideDepFileTime =
+                //                    shouldAddCommandToDepFile() &&
+                //                    doesDepFileHasCommand(files);
 
-                auto depFile = this->depFile();
-                if (!depFile.empty() &&
-                    (files.getTimeChanged(depFile) || overrideDepFileTime)) {
-                    files.appendToFile(depFile, "\t" + command());
-                }
+                //                auto depFile = this->depFile();
+                //                if (!depFile.empty() &&
+                //                    (files.getTimeChanged(
+                //                        depFile) /*|| overrideDepFileTime*/))
+                //                        {
+                //                    files.appendToFile(depFile, "\t" +
+                //                    command());
+                //                }
 
                 if (!res.second.empty()) {
                     outputStream << command() + "\n" + res.second + "\n";

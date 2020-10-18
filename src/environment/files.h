@@ -46,6 +46,26 @@ std::string joinPaths(std::string a, std::string b) {
     }
 }
 
+inline std::string getDirectory(std::string path) {
+    auto f = path.rfind('/');
+    if (f != std::string::npos) {
+        return path.substr(0, f);
+    }
+    else {
+        return path;
+    };
+}
+
+inline std::string getFilename(std::string path) {
+    auto f = path.rfind('/');
+    if (f != std::string::npos) {
+        return path.substr(f + 1);
+    }
+    else {
+        return path;
+    };
+}
+
 inline std::pair<Token, Token> stripFileEnding(Token filename,
                                                bool allowNoMatch = false) {
     filename = trim(filename);

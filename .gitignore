@@ -25,3 +25,5 @@
 matdep
 .matdep
 matmake
+test/testprojects/moduleproject/build/
+test/testprojects/testproject/build/

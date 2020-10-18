@@ -2,9 +2,11 @@
 cpp = clang++
 
 config +=
-   modules
-   c++17
+    modules
+    c++17
 
-main.src += *.cpp *.cppm
+main.src +=
+    src/*.cpp
+    src/*.cppm
 
 main.dir = build

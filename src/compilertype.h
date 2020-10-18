@@ -3,6 +3,7 @@
 
 #include "main/merror.h"
 #include <map>
+#include <set>
 #include <string>
 
 enum class CompilerString {
@@ -28,6 +29,9 @@ public:
     virtual std::string translateConfig(Token) = 0;
     virtual std::string prepareLinkString(std::string dir,
                                           std::string name) = 0;
+
+    virtual std::string getPrecompiledModuleFlags(
+        std::set<std::string> paths) = 0;
 };
 
 class GCCCompiler : public ICompiler {
@@ -84,6 +88,16 @@ class GCCCompiler : public ICompiler {
             return "";
         }
     }
+
+    std::string getPrecompiledModuleFlags(
+        std::set<std::string> paths) override {
+        std::string ret;
+        for (auto &path : paths) {
+            ret += (" -fprebuilt-module-path=" + path);
+        }
+
+        return ret + " ";
+    }
 };
 
 typedef GCCCompiler ClangCompiler;
@@ -120,5 +134,10 @@ class MSVCCompiler : public ICompiler {
     std::string prepareLinkString(std::string /*dir*/,
                                   std::string name) override {
         return "lib?" + name;
+    }
+
+    std::string getPrecompiledModuleFlags(
+        std::set<std::string> /*paths*/) override {
+        return {};
     }
 };

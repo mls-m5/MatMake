@@ -83,8 +83,8 @@ public:
     virtual Token command() const = 0;
     virtual void command(Token command) = 0;
 
-    //! If the work command does not provide command to the dep file
-    //! if true the dep-file-command is added at the "work" stage
-    virtual bool shouldAddCommandToDepFile() const = 0;
-    virtual void shouldAddCommandToDepFile(bool value) = 0;
+    //    //! If the work command does not provide command to the dep file
+    //    //! if true the dep-file-command is added at the "work" stage
+    //    virtual bool shouldAddCommandToDepFile() const = 0;
+    //    virtual void shouldAddCommandToDepFile(bool value) = 0;
 };

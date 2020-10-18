@@ -75,7 +75,7 @@ public:
             return;
         }
 
-        if (_type == CppToPcm) {
+        if (_type == CppToPcm || _type == CppToO) {
             auto command = _dep->target()->getCompiler(_filetype) + " " +
                            _dep->input() + " -E " + getFlags() + " 2>/dev/null";
 
@@ -105,14 +105,15 @@ public:
             for (auto &imp : deps.imports) {
                 dout << imp << " ";
 
-                auto importFilename =
-                    buildDirectory + imp + ".pcm"; // Fix mapping
-
-                depFileStream << " " << importFilename; // << imp << ".pcm";
+                auto importFilename = imp + ".pcm"; // Fix mapping
 
                 for (auto &bf : buildFiles) {
-                    if (bf->dependency().output() == importFilename) {
+                    if (getFilename(bf->dependency().output()) ==
+                        importFilename) {
                         _dep->addDependency(&bf->dependency());
+                        depFileStream
+                            << " "
+                            << bf->dependency().output(); // << imp << ".pcm";
                         break;
                     }
                 }
@@ -125,19 +126,26 @@ public:
             }
 
             depFileStream << "\n";
+            depFileStream << "\t" << createCommand();
 
             if (files.getTimeChanged(_dep->depFile()) <
                 _dep->inputChangedTime(files)) {
                 files.replaceFile(_dep->depFile(), depFileStream.str());
+                //                _dep->shouldAddCommandToDepFile(true);
             }
 
             dout << std::endl;
-
-            _dep->shouldAddCommandToDepFile(true);
         }
         else if (_type == PcmToO) {
-            files.replaceFile(_dep->depFile(),
-                              _dep->output() + ": " + _dep->input() + "\n");
+            auto inputChangedTime = _dep->inputChangedTime(files);
+            // Note that the object files might not be created yet
+            if (inputChangedTime == 0 ||
+                files.getTimeChanged(_dep->depFile()) < inputChangedTime) {
+                files.replaceFile(_dep->depFile(),
+                                  _dep->output() + ": " + _dep->input() +
+                                      "\n\t" + createCommand());
+                //                _dep->shouldAddCommandToDepFile(true);
+            }
 
             for (auto &bf : buildFiles) {
                 if (bf->dependency().output() == _dep->input()) {
@@ -149,8 +157,6 @@ public:
                     break;
                 }
             }
-
-            _dep->shouldAddCommandToDepFile(true);
         }
     }
 
@@ -158,9 +164,10 @@ public:
         Token depCommand;
 
         //! If not using prescan
-        if (_type == CppToO) {
+        if (!_dep->target()->hasModules() && _type == CppToO) {
             depCommand = " -MMD -MF " + _dep->depFile() + " ";
             depCommand.location = _dep->input().location;
+            _shouldAddCommandToDepFile = true;
         }
 
         Token command = _dep->target()->getCompiler(_filetype) +
@@ -168,15 +175,14 @@ public:
                         " -o " + _dep->output() + " " + _dep->input() + " " +
                         getFlags() + depCommand;
 
-        if (_dep->target()->hasModules()) {
-            if (_type == CppToPcm || _type == CppToO) {
-                auto buildDir = _dep->target()->getBuildDirectory();
-                if (buildDir.empty()) {
-                    buildDir = ".";
-                }
-                command += " -fprebuilt-module-path=" + buildDir + " ";
-            }
-        }
+        //        if (_dep->target()->hasModules()) {
+        //            if (_type == CppToPcm || _type == CppToO) {
+        //            auto buildDir = _dep->target()->getBuildDirectory();
+        //            if (buildDir.empty()) {
+        //                buildDir = ".";
+        //            }
+        //            }
+        //        }
 
         command.location = _dep->input().location;
 
@@ -184,10 +190,14 @@ public:
     }
 
     void prepare(const IFiles &files, BuildRuleList &rules) override {
-        time_t outputChangedTime = _dep->changedTime(files);
+        auto outputChangedTime = files.getTimeChanged(_dep->output());
+        //        auto outputChangedTime = _dep->target()->hasModules()
+        //                                     ?
+        //                                     files.getTimeChanged(_dep.output())
+        //                                     : _dep->changedTime(files);
         if (outputChangedTime < _dep->inputChangedTime(files)) {
             _dep->dirty(true);
-            dout << "file is dirty" << std::endl;
+            dout << "file is dirty (outdated)" << std::endl;
         }
 
         std::vector<std::string> dependencyFiles;
@@ -195,7 +205,9 @@ public:
         tie(dependencyFiles, oldCommand) = files.parseDepFile(_dep->depFile());
 
         if (dependencyFiles.empty()) {
-            dout << "file is dirty" << std::endl;
+            dout << _dep->output()
+                 << " is dirty (missing dependency files in .d-file)"
+                 << std::endl;
             _dep->dirty(true);
         }
         else {
@@ -215,7 +227,8 @@ public:
                 auto dependencyTimeChanged = files.getTimeChanged(d);
                 if (dependencyTimeChanged == 0 ||
                     dependencyTimeChanged > outputChangedTime) {
-                    dout << "rebuilding because older than " << d << std::endl;
+                    dout << _dep->output() << " is dirty because older than "
+                         << d << std::endl;
                     _dep->dirty(true);
                     break;
                 }
@@ -230,6 +243,11 @@ public:
             dout << "command is changed for " << _dep->output() << std::endl;
             dout << " old: " << oldCommand << "\n";
             dout << " new: " << command << "\n";
+
+            if (oldCommand.empty() && _dep->target()->hasModules() &&
+                _type != CppToO) {
+                //                _dep->shouldAddCommandToDepFile(true);
+            }
             _dep->dirty(true);
         }
     }
@@ -238,9 +256,22 @@ public:
         return *_dep;
     }
 
-    std::string work(const IFiles &files, class IThreadPool &pool) override {
-        return _dep->work(files, pool);
+    std::string work(const IFiles &files, IThreadPool &pool) override {
+        std::string ret;
+        if (!_dep->command().empty()) {
+            ret = _dep->work(files, pool);
+            if (_shouldAddCommandToDepFile) {
+                files.appendToFile(_dep->depFile(), "\t" + _dep->command());
+            }
+        }
+
+        return ret;
     }
+
+    //    std::string work(const IFiles &files, class IThreadPool &pool)
+    //    override {
+    //        return _dep->work(files, pool);
+    //    }
 
     std::string moduleName() const override {
         return _moduleName;
@@ -251,6 +282,7 @@ private:
     Token _filetype; // The ending of the filename
     Type _type = CppToO;
     std::string _moduleName; // If a c++20 module
+    bool _shouldAddCommandToDepFile = false;
 
     Token fixObjectEnding(Token filename) {
         return removeDoubleDots(_dep->target()->getBuildDirectory() + filename +

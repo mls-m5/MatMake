@@ -92,7 +92,8 @@ public:
     std::string work(const IFiles &files, IThreadPool &pool) override {
         if (!_dep->command().empty()) {
             {
-                files.replaceFile(_dep->depFile(), _dependencyString);
+                files.replaceFile(_dep->depFile(),
+                                  _dependencyString + "\t" + _dep->command());
             }
             return _dep->work(files, pool);
         }

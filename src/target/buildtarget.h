@@ -13,8 +13,8 @@
 #include "target/ibuildtarget.h"
 #include "target/targetproperties.h"
 #include "targets.h"
-
 #include <map>
+#include <set>
 
 //! A build target is a executable, dll or similar that depends
 //! on one or more build targets, build files or copy files
@@ -27,6 +27,7 @@ struct BuildTarget : public IBuildTarget {
     bool _isBuildCalled = false;
     bool _hasModules = false;
     std::unique_ptr<TargetProperties> _properties;
+    std::set<std::string> _precompilePaths;
 
     BuildTarget(std::unique_ptr<TargetProperties> properties) {
         _properties = move(properties);
@@ -169,6 +170,9 @@ struct BuildTarget : public IBuildTarget {
             if (_hasModules && ending == "cppm") {
                 dependencies.push_back(std::make_unique<BuildFile>(
                     filename, this, BuildFile::CppToPcm));
+                _precompilePaths.insert(
+                    getDirectory(dependencies.back()->dependency().output()));
+
                 dependencies.push_back(std::make_unique<BuildFile>(
                     filename, this, BuildFile::PcmToO));
             }
@@ -323,6 +327,8 @@ struct BuildTarget : public IBuildTarget {
                     (" " + _compilerType->getString(CompilerString::PICFlag));
             }
         }
+
+        flags += _compilerType->getPrecompiledModuleFlags(_precompilePaths);
 
         // Todo: optimize performance
         //		return (_buildFlags = flags);
