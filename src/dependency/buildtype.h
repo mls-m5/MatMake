@@ -9,6 +9,7 @@
 
 enum BuildType {
     Executable,
+    Test,
     Shared,
     Static,
     Copy,

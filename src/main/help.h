@@ -10,6 +10,7 @@ arguments:
 clean             remove all target files
 clean [target]    remove specified target files
 rebuild           first run clean and then build
+test              run all tests
 --local           do not build external dependencies (other folders)
 -v or --verbose   print more information on what is happening
 -d or --debug     print debug messages
@@ -57,8 +58,13 @@ main.src =
     # multi line values starts with whitespace
 # main.libs += # -lGL -lSDL2 # libraries to add at link time
 
+## Unit test
+# some_test.src = test/some_test.cpp
+# some_test.out = test some_test
+
 # main.out = main          # name of executable (not required)
 # main.out = shared main   # create a shared library (dll/so)
+# main.out = %             # set the output file name to the same as the target name
 # main.link = [libname]    # link to shared or static library with targetname libname
 # main.dir = build/bin     # set build path
 # main.objdir = build/obj  # separates obj-files from build files

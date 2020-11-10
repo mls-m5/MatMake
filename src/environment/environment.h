@@ -23,8 +23,8 @@ public:
         Tokens arguments;
     };
 
-    Targets targets;
-    ThreadPool tasks;
+    Targets _targets;
+    ThreadPool _tasks;
     std::shared_ptr<IFiles> _fileHandler;
     std::vector<ExternalMatmakeType> externalDependencies;
 
@@ -41,9 +41,9 @@ public:
                 continue;
             }
 
-            auto currentDirectory = _fileHandler->getCurrentWorkingDirectory();
+            auto currentDirectory = _fileHandler->currentDirectory();
 
-            if (!_fileHandler->setCurrentDirectory(dependency.name)) {
+            if (!_fileHandler->currentDirectory(dependency.name)) {
                 vector<string> newArgs(dependency.arguments.begin(),
                                        dependency.arguments.end());
 
@@ -67,7 +67,7 @@ public:
                                     dependency.name);
             }
 
-            if (_fileHandler->setCurrentDirectory(currentDirectory)) {
+            if (_fileHandler->currentDirectory(currentDirectory)) {
                 throw runtime_error(
                     "could not go back to original working directory " +
                     currentDirectory);
@@ -88,14 +88,14 @@ public:
             bool isRoot = property->name() == "root";
             auto target = std::make_unique<BuildTarget>(move(property));
             if (isRoot) {
-                targets.root = target.get();
+                _targets.root = target.get();
             }
-            targets.push_back(move(target));
+            _targets.push_back(move(target));
         }
     }
 
     void print() {
-        for (auto &v : targets) {
+        for (auto &v : _targets) {
             v->print();
         }
     }
@@ -105,16 +105,15 @@ public:
         std::vector<IBuildTarget *> selectedTargets;
 
         if (targetArguments.empty()) {
-            for (auto &target : targets) {
+            for (auto &target : _targets) {
                 selectedTargets.push_back(target.get());
             }
         }
         else {
             for (auto t : targetArguments) {
                 bool matchFailed = true;
-                auto target = targets.find(t);
+                auto target = _targets.find(t);
                 if (target) {
-
                     selectedTargets.push_back(target);
                     matchFailed = false;
                 }
@@ -142,7 +141,7 @@ public:
                  << target->properties().get("src").concat() << std::endl;
 
             auto targetDependencies =
-                target->calculateDependencies(*_fileHandler, targets);
+                target->calculateDependencies(*_fileHandler, _targets);
 
             typedef decltype(files)::iterator iter_t;
 
@@ -175,7 +174,7 @@ public:
 
     void printTree() const {
         if (globals.debugOutput) {
-            for (auto &target : targets) {
+            for (auto &target : _targets) {
                 std::cout << "tree root target: " << target->name()
                           << " -----------\n";
                 if (auto output = target->outputFile()) {
@@ -232,9 +231,9 @@ public:
             if (file->dependency().dirty()) {
                 dout << "file " << file->dependency().output() << " is dirty"
                      << std::endl;
-                tasks.addTaskCount();
+                _tasks.addTaskCount();
                 if (file->dependency().dependencies().empty()) {
-                    tasks.addTask(&file->dependency());
+                    _tasks.addTask(&file->dependency());
                 }
             }
             else {
@@ -242,14 +241,87 @@ public:
                      << std::endl;
             }
         }
-
         buildExternal(true, "");
         work(std::move(files));
         buildExternal(false, "");
     }
 
+    void runTests(std::vector<std::string> targetArguments) override {
+        struct TestInfo {
+            std::string name;
+            std::string dir;
+            bool failed = false;
+        };
+
+        std::vector<TestInfo> tests;
+
+        for (auto target : parseTargetArguments(targetArguments)) {
+            if (target->buildType() == Test) {
+                if (target->name() != "root") {
+                    tests.push_back(
+                        {target->filename(), target->getOutputDir()});
+                }
+            }
+        }
+
+        auto oldDir = _fileHandler->currentDirectory();
+
+        size_t numFailed = 0;
+
+        std::cout << "\nRunning tests:\n";
+
+        for (auto &test : tests) {
+            _fileHandler->currentDirectory(oldDir);
+            _fileHandler->currentDirectory(test.dir);
+            auto res = _fileHandler->popenWithResult("./" + test.name);
+            if (res.first) {
+                std::cerr << "\nTest " << test.name << " failed:\n";
+                std::cerr << res.second << std::endl;
+                ++numFailed;
+                test.failed = true;
+            }
+            else {
+                std::cout << "Test " << test.name << ": succeded" << std::endl;
+            }
+        }
+
+        _fileHandler->currentDirectory(oldDir);
+
+        std::cout << "\nTest summary:\n";
+
+        auto fillStr = [](size_t size, size_t max) {
+            using namespace std::literals;
+            if (size > max) {
+                return ""s;
+            }
+            else {
+                return std::string(max - size, '.');
+            }
+        };
+
+        for (auto &test : tests) {
+            auto fill = fillStr(test.name.size(), 50);
+            if (test.failed) {
+                std::cout << test.name << " " << fill << " "
+                          << "Failed" << std::endl;
+            }
+            else {
+                std::cout << test.name << " " << fill << " "
+                          << "Succeded" << std::endl;
+            }
+        }
+
+        std::cout << "\n"
+                  << numFailed << " of " << tests.size() << " tests failed "
+                  << std::endl;
+
+        if (numFailed) {
+            globals.bailout = true;
+        }
+    }
+
     void work(BuildRuleList files) {
-        tasks.work(std::move(files), *_fileHandler);
+        _tasks.work(std::move(files), *_fileHandler);
     }
 
     void clean(std::vector<std::string> targetArguments) override {
@@ -275,7 +347,7 @@ public:
 
     //! Show info of alternative build targets
     void listAlternatives() const override {
-        for (auto &t : targets) {
+        for (auto &t : _targets) {
             if (t->name() != "root") {
                 std::cout << t->name() << " ";
             }

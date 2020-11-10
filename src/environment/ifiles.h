@@ -16,9 +16,9 @@ public:
     //! return 0 if file is not found
     virtual time_t getTimeChanged(const std::string &path) const = 0;
 
-    virtual std::string getCurrentWorkingDirectory() const = 0;
+    virtual std::string currentDirectory() const = 0;
 
-    virtual bool setCurrentDirectory(std::string directory) const = 0;
+    virtual bool currentDirectory(std::string directory) const = 0;
 
     virtual std::vector<std::string> listFiles(std::string directory) const = 0;
 

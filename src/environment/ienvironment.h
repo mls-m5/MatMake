@@ -17,6 +17,7 @@ public:
                                        const Tokens &args) = 0;
 
     virtual void compile(std::vector<std::string> targetArguments) = 0;
+    virtual void runTests(std::vector<std::string> targetArguments) = 0;
     virtual void clean(std::vector<std::string> targetArguments) = 0;
     virtual void listAlternatives() const = 0;
 };

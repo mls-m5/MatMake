@@ -28,8 +28,7 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
     if (!matmakefile.is_open()) {
         if (files.getTimeChanged("Makefile") ||
             files.getTimeChanged("makefile")) {
-            std::cout << "makefile in " << files.getCurrentWorkingDirectory()
-                      << "\n";
+            std::cout << "makefile in " << files.currentDirectory() << "\n";
             std::string arguments = "make";
             for (auto arg : locals.args) {
                 arguments += (" " + arg);
@@ -40,7 +39,7 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
         }
         else {
             std::cout << "matmake: could not find Matmakefile in "
-                      << files.getCurrentWorkingDirectory() << "\n";
+                      << files.currentDirectory() << "\n";
         }
         shouldQuit = true;
         return {shouldQuit, isError, TargetPropertyCollection{locals.vars}};

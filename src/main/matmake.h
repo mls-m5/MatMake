@@ -20,6 +20,9 @@ ShouldQuitT work(const Locals &locals, IEnvironment &environment) {
         if (locals.operation == "build") {
             environment.compile(locals.targets);
         }
+        else if (locals.operation == "test") {
+            environment.compile(locals.targets);
+        }
         else if (locals.operation == "list") {
             environment.listAlternatives();
             return true;
@@ -90,6 +93,9 @@ int start(std::vector<std::string> args) {
         if (work(locals, environment)) {
             return 0;
         }
+    }
+    if (!globals.bailout) {
+        environment.runTests(locals.targets);
     }
 
     auto endTime = time(nullptr);

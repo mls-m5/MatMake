@@ -234,6 +234,9 @@ struct BuildTarget : public IBuildTarget {
             else if (out.front() == "static") {
                 return Static;
             }
+            else if (out.front() == "test") {
+                return Test;
+            }
         }
         return Executable;
     }
@@ -262,6 +265,9 @@ struct BuildTarget : public IBuildTarget {
                                      CompilerString::StaticFileEnding);
             }
             else if (type == "exe") {
+                return outName;
+            }
+            else if (type == "test") {
                 return outName;
             }
             else {

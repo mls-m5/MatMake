@@ -56,13 +56,13 @@ inline std::string getDirectory(std::string path) {
     };
 }
 
-inline std::string getFilename(std::string path) {
+inline std::string getFilename(std::string path, std::string whenNoDir = ".") {
     auto f = path.rfind('/');
     if (f != std::string::npos) {
         return path.substr(f + 1);
     }
     else {
-        return path;
+        return whenNoDir;
     };
 }
 
@@ -217,7 +217,7 @@ public:
 
     // adapted from
     // https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
-    std::string getCurrentWorkingDirectory() const override {
+    std::string currentDirectory() const override {
         std::array<char, FILENAME_MAX> currentPath;
         if (!GetCurrentDir(currentPath.data(), sizeof(currentPath))) {
             throw std::runtime_error("could not get current working directory");
@@ -225,7 +225,7 @@ public:
         return currentPath.data();
     }
 
-    bool setCurrentDirectory(std::string directory) const override {
+    bool currentDirectory(std::string directory) const override {
         return chdir(directory.c_str());
     }
 

@@ -57,6 +57,9 @@ std::tuple<ShouldQuitT, IsErrorT> parseArguments(std::vector<std::string> args,
         else if (arg == "--list" || arg == "-l") {
             locals.operation = "list";
         }
+        else if (arg == "test") {
+            locals.operation = "test";
+        }
         else if (arg == "--help" || arg == "-h") {
             cout << helpText << endl;
             shouldQuit = true;

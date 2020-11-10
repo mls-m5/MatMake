@@ -73,7 +73,7 @@ public:
             _dep->dirty(true);
         }
         else if (!_dep->dirty()) {
-            std::cout << _dep->output() << " is fresh " << std::endl;
+            vout << _dep->output() << " is fresh " << std::endl;
         }
 
         prepareCommand();
@@ -140,7 +140,8 @@ private:
         }
         cmd = _dep->target()->preprocessCommand(cmd);
 
-        if (buildType == Executable || buildType == Shared) {
+        if (buildType == Executable || buildType == Shared ||
+            buildType == Test) {
             if (hasReferencesToSharedLibrary()) {
                 cmd += (" " + _compilerType->getString(
                                   CompilerString::RPathOriginFlag));
