@@ -24,7 +24,7 @@ matdep: matdep.cpp
 
 ${matmake}: CXXFLAGS += -pthread
 ${matmake}: src/*.cpp src/*.h src/dependency/*.h src/environment/*.h \
-            src/target/*.h
+            src/target/*.h src/main/*.h
 	${CXX} -o ${matmake} src/matmake.cpp -Isrc/ ${CXXFLAGS}
 
 .depend: Makefile $(TESTSRC)

@@ -95,7 +95,9 @@ int start(std::vector<std::string> args) {
         }
     }
     if (!globals.bailout) {
-        environment.runTests(locals.targets);
+        if (locals.operation == "test") {
+            environment.runTests(locals.targets);
+        }
     }
 
     auto endTime = time(nullptr);

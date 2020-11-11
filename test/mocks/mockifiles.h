@@ -21,10 +21,10 @@ public:
                  (const std::string &path),
                  const override);
 
-    MOCK_METHOD0(std::string, getCurrentWorkingDirectory, (), const override);
+    MOCK_METHOD0(std::string, currentDirectory, (), const override);
 
     MOCK_METHOD1(bool,
-                 setCurrentDirectory,
+                 currentDirectory,
                  (std::string directory),
                  const override);
 

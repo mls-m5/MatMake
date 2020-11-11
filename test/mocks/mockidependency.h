@@ -41,8 +41,8 @@ public:
     MOCK_METHOD0(Token, depFile, (), const override);
     MOCK_METHOD0(Token, command, (), const override);
     MOCK_METHOD1(void, command, (Token command), override);
-    MOCK_METHOD0(bool, shouldAddCommandToDepFile, (), const override);
-    MOCK_METHOD1(void, shouldAddCommandToDepFile, (bool value), override);
+    //    MOCK_METHOD0(bool, shouldAddCommandToDepFile, (), const override);
+    //    MOCK_METHOD1(void, shouldAddCommandToDepFile, (bool value), override);
 
     MOCK_METHOD0(IBuildRule *, parentRule, (), override);
     MOCK_METHOD1(void, parentRule, (IBuildRule *), override);
