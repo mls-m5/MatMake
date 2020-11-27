@@ -9,13 +9,17 @@
 #include <fstream>
 #include <iostream>
 
-bool isOperator(std::string &op) {
+inline bool isOperator(const std::string &op) {
     std::vector<std::string> opList = {
         "=",
         "+=",
         "-=",
     };
     return find(opList.begin(), opList.end(), op) != opList.end();
+}
+
+inline bool isColon(const std::string& str) {
+    return str == ":";
 }
 
 //! Parse the Matmakefile (obviously). Put result in environment.
@@ -71,6 +75,23 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
 
         if (!words.empty()) {
             auto it = words.begin() + 1;
+            auto begin = words.begin();
+
+            std::string config;
+
+            // Check if there is any ':'
+            for (auto jt = it; jt != words.end(); ++jt) {
+                if (isColon(*it)) {
+                    config = words.front();
+                    ++jt;
+                    begin = jt;
+                    it = begin;
+                    ++it;
+                    break;
+                }
+            }
+
+            // Find '=' or similar
             for (; it != words.end(); ++it) {
                 if (isOperator(*it)) {
                     break;
@@ -78,12 +99,16 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
             }
             if (it != words.end()) {
                 auto argumentStart = it + 1;
-                std::vector<Token> variableName(words.begin(), it);
+                Tokens variableName(begin, it);
                 Tokens value(argumentStart, words.end());
-                auto variableNameString = concatTokens(words.begin(), it);
+                auto variableNameString = variableName.concat();
 
                 if (value.empty()) {
                     value = getMultilineArgument();
+                }
+
+                if (!config.empty() && config != locals.config) {
+                    continue;
                 }
 
                 if (*it == "=") {

@@ -15,6 +15,7 @@ struct Locals {
     std::vector<std::string>
         external; // External dependencies to build after main build
     std::string operation = "build";
+    std::string config = "release";
     bool localOnly = false;
 };
 

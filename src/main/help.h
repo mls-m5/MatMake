@@ -11,6 +11,7 @@ clean             remove all target files
 clean [target]    remove specified target files
 rebuild           first run clean and then build
 test              run all tests
+-c or --config    specify build type: eg release or debug
 --local           do not build external dependencies (other folders)
 -v or --verbose   print more information on what is happening
 -d or --debug     print debug messages
@@ -47,7 +48,7 @@ cflags +=                   # c only flags
 
 # global flags:
 config += c++14 Wall
-# config += debug
+debug: config += debug      # Flags only used in "debug" confinguration
 
 ## Main target
 main.includes +=

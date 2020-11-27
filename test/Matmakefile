@@ -12,8 +12,9 @@ src = %.cpp
 
 dir = bin
 
-file_test.out = %
-popenstream_test.out = %
-prescan_test.out = %
-copyfile_test.out = %
-threadpool_test.out = %
+file_test.out = test %
+popenstream_test.out = test %
+prescan_test.out = test %
+copyfile_test.out = test %
+threadpool_test.out = test %
+parsematmakefile_test.out = test %

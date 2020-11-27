@@ -90,6 +90,17 @@ std::tuple<ShouldQuitT, IsErrorT> parseArguments(std::vector<std::string> args,
                 break;
             }
         }
+        else if (arg == "-c" || arg ==  "--config") {
+            ++i;
+            if (i < args.size()) {
+                locals.config = args[i];
+            }
+            else {
+                cerr << "expected coniguration name -c argument\nlike release or debug" << endl;
+                isError = true;
+                break;
+            }
+        }
         else if (arg.size() > 2 && arg.substr(0, 2) == "-j" &&
                  (arg[2] >= '0' && arg[3] < '9')) {
             globals.numberOfThreads = std::stoi(arg.substr(2));
