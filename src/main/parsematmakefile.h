@@ -24,8 +24,8 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
     ShouldQuitT shouldQuit = false;
     IsErrorT isError = false;
 
-    std::ifstream matmakefile("Matmakefile");
-    if (!matmakefile.is_open()) {
+    auto matmakefile = files.openRead("Matmakefile");
+    if (!matmakefile) {
         if (files.getTimeChanged("Makefile") ||
             files.getTimeChanged("makefile")) {
             std::cout << "makefile in " << files.currentDirectory() << "\n";
@@ -34,7 +34,7 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
                 arguments += (" " + arg);
             }
             arguments += " -j";
-            system(arguments.c_str());
+            files.system(arguments.c_str());
             std::cout << "\n";
         }
         else {

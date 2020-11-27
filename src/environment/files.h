@@ -205,6 +205,10 @@ public:
         return ret;
     }
 
+    int system(const std::string& command) const override {
+        return std::system(command.c_str());
+    }
+
     time_t getTimeChanged(const std::string &path) const override {
         struct stat file_stat;
         int err = stat(path.c_str(), &file_stat);
@@ -213,6 +217,15 @@ public:
             return 0;
         }
         return file_stat.st_mtime;
+    }
+
+    std::ifstream openRead(const std::string &path) const override {
+        std::ifstream file(path);
+        if (!file.is_open()) {
+            file.get(); // Trigger error if not open
+            file.unget();
+        }
+        return file;
     }
 
     // adapted from

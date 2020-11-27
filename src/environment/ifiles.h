@@ -2,6 +2,7 @@
 
 #include "main/token.h"
 #include <vector>
+#include <iosfwd>
 
 class IFiles {
 public:
@@ -12,9 +13,13 @@ public:
     virtual std::pair<int, std::string> popenWithResult(
         std::string command) const = 0;
 
+    virtual int system(const std::string &command) const = 0;
+
     //! Return timecode when time is changed, lower is older, higher is newer
     //! return 0 if file is not found
     virtual time_t getTimeChanged(const std::string &path) const = 0;
+
+    virtual std::ifstream openRead(const std::string &path) const = 0;
 
     virtual std::string currentDirectory() const = 0;
 
