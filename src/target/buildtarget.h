@@ -141,6 +141,9 @@ struct BuildTarget : public IBuildTarget {
         if (filetype == "cpp" || filetype == "cppm") {
             return properties().get("cpp").concat();
         }
+        else if (filetype == "a") {
+            return properties().get("ar").concat();
+        }
         else if (filetype == "c") {
             return properties().get("cc").concat();
         }

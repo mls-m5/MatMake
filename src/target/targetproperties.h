@@ -89,16 +89,27 @@ private:
     void inherit(const class TargetProperties *parent);
 
     void initRoot() {
-        //! Set default compileres
-        auto &cpp = property("cpp");
-        if (cpp.empty()) {
-            cpp = Token("c++");
+        {
+            //! Set default compileres
+            auto &cpp = property("cpp");
+            if (cpp.empty()) {
+                cpp = Token("c++");
+            }
         }
 
-        //! Set default c compiler
-        auto &cc = property("cc");
-        if (cc.empty()) {
-            cc = Token("cc");
+        {
+            //! Set default c compiler
+            auto &cc = property("cc");
+            if (cc.empty()) {
+                cc = Token("cc");
+            }
+        }
+        {
+            //! Set default archive command
+            auto &cc = property("ar");
+            if (cc.empty()) {
+                cc = Token("ar");
+            }
         }
 
         auto &includes = property("includes");

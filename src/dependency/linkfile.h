@@ -128,7 +128,8 @@ private:
                   "  -Wl,--end-group  " + _dep->target()->getFlags();
         }
         else if (buildType == Static) {
-            cmd = "ar -rs " + exe + " " + fileList;
+            cmd = _dep->target()->getCompiler("a") + " -rs " + exe + " " +
+                  fileList;
             if (globals.verbose) {
                 cmd += " -v ";
             }
