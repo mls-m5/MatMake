@@ -9,7 +9,7 @@
 #include <cstring>
 #include <iostream>
 
-class POpenStream : public std::iostream {
+class POpenStream : public std::istream {
 private:
     struct POpenStreamBuf : public std::streambuf {
         POpenStreamBuf(std::string command, bool captureStdErr = false)

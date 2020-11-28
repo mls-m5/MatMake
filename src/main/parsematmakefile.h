@@ -18,7 +18,7 @@ inline bool isOperator(const std::string &op) {
     return find(opList.begin(), opList.end(), op) != opList.end();
 }
 
-inline bool isColon(const std::string& str) {
+inline bool isColon(const std::string &str) {
     return str == ":";
 }
 
@@ -78,11 +78,16 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
             auto begin = words.begin();
 
             std::string config;
+            bool invertConfigLogic = false;
 
             // Check if there is any ':'
             for (auto jt = it; jt != words.end(); ++jt) {
                 if (isColon(*it)) {
                     config = words.front();
+                    if (!config.empty() && config.front() == '!') {
+                        invertConfigLogic = true;
+                        config = config.substr(1); // Strip of '!'
+                    }
                     ++jt;
                     begin = jt;
                     it = begin;
@@ -107,7 +112,12 @@ std::tuple<ShouldQuitT, IsErrorT, TargetPropertyCollection> parseMatmakeFile(
                     value = getMultilineArgument();
                 }
 
-                if (!config.empty() && config != locals.config) {
+                if (invertConfigLogic) {
+                    if (!config.empty() && config == locals.config) {
+                        continue;
+                    }
+                }
+                else if (!config.empty() && config != locals.config) {
                     continue;
                 }
 

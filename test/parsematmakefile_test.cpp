@@ -1,13 +1,14 @@
-#include "mls-unit-test/unittest.h"
 #include "main/parsematmakefile.h"
+#include "mls-unit-test/unittest.h"
 #include "mocks/mockifiles.h"
-#include <sstream>
 #include <fstream>
+#include <sstream>
 
 const auto test1 = R"_(
 src = *.cpp
 out = main
-debug: dir=bin
+debug: dir = bin
+!debug: x = inverted
 
 )_";
 
@@ -18,7 +19,7 @@ TEST_CASE("parse basic") {
 
     MockIFiles files;
 
-    files.mock_openRead_1.onCall([&ss](auto &&){return fileFromSs(ss);});
+    files.mock_openRead_1.onCall([&ss](auto &&) { return fileFromSs(ss); });
 
     Locals locals;
 
@@ -30,8 +31,8 @@ TEST_CASE("parse basic") {
 
     ASSERT_EQ((*root)["src"].concat(), "*.cpp");
     ASSERT_EQ((*root)["out"].concat(), "main");
-    ASSERT_NE((*root)["dir"].concat(), "bin"); // Conditioned out
-
+    ASSERT_NE((*root)["dir"].concat(), "bin");    // Conditioned out
+    ASSERT_EQ((*root)["x"].concat(), "inverted"); // inverted condition
 }
 
 TEST_CASE("parse basic with condition") {
@@ -39,7 +40,7 @@ TEST_CASE("parse basic with condition") {
 
     MockIFiles files;
 
-    files.mock_openRead_1.onCall([&ss](auto &&){return fileFromSs(ss);});
+    files.mock_openRead_1.onCall([&ss](auto &&) { return fileFromSs(ss); });
 
     Locals locals;
 
@@ -54,6 +55,7 @@ TEST_CASE("parse basic with condition") {
     ASSERT_EQ((*root)["src"].concat(), "*.cpp");
     ASSERT_EQ((*root)["out"].concat(), "main");
     ASSERT_EQ((*root)["dir"].concat(), "bin");
+    ASSERT_NE((*root)["x"].concat(), "inverted"); // inverted condition
 }
 
 TEST_SUIT_END

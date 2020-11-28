@@ -49,6 +49,7 @@ cflags +=                   # c only flags
 # global flags:
 config += c++14 Wall
 debug: config += debug      # Flags only used in "debug" confinguration
+# !debug: config += -03     # '!': Used in everything _but_ "debug" confinguration
 
 ## Main target
 main.includes +=
