@@ -31,7 +31,7 @@ public:
         workAssignMutex.lock();
         push(t);
         workAssignMutex.unlock();
-        workMutex.try_lock();
+        (void)workMutex.try_lock();
         workMutex.unlock();
     }
 
@@ -73,7 +73,7 @@ public:
         }
         workAssignMutex.unlock();
 
-        workMutex.try_lock();
+        (void)workMutex.try_lock();
         workMutex.unlock();
 
         dout << "thread " << i << " is finished quit" << endl;

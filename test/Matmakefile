@@ -1,4 +1,6 @@
 
+msvc: cpp = cl
+
 config +=
    c++17
    threads

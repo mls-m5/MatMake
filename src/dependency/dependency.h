@@ -245,7 +245,7 @@ public:
         }
         else {
             return _linkString;
-        };
+        }
     }
 
     IBuildTarget *target() const override {

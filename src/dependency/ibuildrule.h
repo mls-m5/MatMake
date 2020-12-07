@@ -10,6 +10,8 @@ using BuildRuleList = std::vector<std::unique_ptr<class IBuildRule>>;
 
 class IBuildRule {
 public:
+    virtual ~IBuildRule() = default;
+
     //! For c++20 modules create a .d-file containing all dependencies
     //! For dependencies without modules enabled .d-file is created in
     //! "prepare"-step

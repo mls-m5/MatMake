@@ -9,6 +9,7 @@
 #include "environment/prescan.h"
 #include "main/mdebug.h"
 #include "target/ibuildtarget.h"
+#include "compilertype.h"
 
 //! Represent a single source file to be built
 class BuildFile : public IBuildRule {
@@ -24,12 +25,14 @@ public:
     BuildFile(Token filename,
               IBuildTarget *target,
               Type type,
+              ICompiler *compilerType,
               std::unique_ptr<IDependency> dependency = nullptr)
         : _dep(dependency ? std::move(dependency)
                           : std::make_unique<Dependency>(
                                 target, type != CppToPcm, Object, this))
         , _filetype(stripFileEnding(filename).second)
-        , _type(type) {
+        , _type(type)
+        , _compilerType(compilerType) {
         auto withoutEnding =
             stripFileEnding(target->getBuildDirectory() + filename);
         if (withoutEnding.first.empty()) {
@@ -163,6 +166,8 @@ public:
     Token createCommand() {
         Token depCommand;
 
+        using namespace std::literals;
+
         //! If not using prescan
         if (!_dep->target()->hasModules() && _type == CppToO) {
             depCommand = " -MMD -MF " + _dep->depFile() + " ";
@@ -170,9 +175,12 @@ public:
             _shouldAddCommandToDepFile = true;
         }
 
+        auto o = _compilerType->getString(CompilerString::BuildOutputPath);
+        auto c = _compilerType->getString(CompilerString::CompileFile);
+
         Token command = _dep->target()->getCompiler(_filetype) +
-                        ((_type == CppToPcm) ? " --precompile " : " -c ") +
-                        " -o " + _dep->output() + " " + _dep->input() + " " +
+                        ((_type == CppToPcm) ? " --precompile "s : (" " + c + " ")) +
+                        " " + o + " " + _dep->output() + " " + _dep->input() + " " +
                         getFlags() + depCommand;
 
         //        if (_dep->target()->hasModules()) {
@@ -283,6 +291,7 @@ private:
     Type _type = CppToO;
     std::string _moduleName; // If a c++20 module
     bool _shouldAddCommandToDepFile = false;
+    ICompiler *_compilerType;
 
     Token fixObjectEnding(Token filename) {
         return removeDoubleDots(_dep->target()->getBuildDirectory() + filename +

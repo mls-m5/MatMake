@@ -172,16 +172,16 @@ struct BuildTarget : public IBuildTarget {
             auto ending = stripFileEnding(filename).second;
             if (_hasModules && ending == "cppm") {
                 dependencies.push_back(std::make_unique<BuildFile>(
-                    filename, this, BuildFile::CppToPcm));
+                    filename, this, BuildFile::CppToPcm, _compilerType.get()));
                 _precompilePaths.insert(
                     getDirectory(dependencies.back()->dependency().output()));
 
                 dependencies.push_back(std::make_unique<BuildFile>(
-                    filename, this, BuildFile::PcmToO));
+                    filename, this, BuildFile::PcmToO, _compilerType.get()));
             }
             else {
                 dependencies.push_back(std::make_unique<BuildFile>(
-                    filename, this, BuildFile::CppToO));
+                    filename, this, BuildFile::CppToO, _compilerType.get()));
             }
         }
         for (auto &filename : getGroups("copy", files)) {

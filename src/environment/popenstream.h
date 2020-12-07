@@ -36,7 +36,7 @@ private:
             }
         }
 
-        ~POpenStreamBuf() {
+        ~POpenStreamBuf() override {
             if (pfile) {
                 pclose(pfile);
             }
@@ -50,8 +50,8 @@ private:
 
 public:
     POpenStream(std::string command)
-        : buffer(command) {
-        rdbuf(&buffer);
+        : std::istream(&buffer), buffer(command) {
+//        rdbuf(&buffer);
     }
 
     POpenStreamBuf buffer;

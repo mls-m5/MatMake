@@ -14,6 +14,8 @@ enum class CompilerString {
     SharedFileEnding,
     StaticFileEnding,
     RPathOriginFlag,
+    BuildOutputPath,
+    CompileFile,
 };
 
 enum class CompilerFlagType { RequiresPICForLibrary };
@@ -51,6 +53,10 @@ class GCCCompiler : public ICompiler {
             return ".a";
         case CS::RPathOriginFlag:
             return "-Wl,-rpath='${ORIGIN}'";
+        case CS::BuildOutputPath:
+            return "-o";
+        case CS::CompileFile:
+            return "-c";
         }
         return {};
     }
@@ -119,6 +125,10 @@ class MSVCCompiler : public ICompiler {
             return ".lib";
         case CS::RPathOriginFlag:
             return "";
+        case CS::BuildOutputPath:
+            return "/out:";
+        case CS::CompileFile:
+            return "/c";
         }
         return {};
     }
