@@ -81,6 +81,11 @@ inline std::pair<Token, Token> stripFileEnding(Token filename,
             Token(filename.begin(), filename.end() - 4, filename.location);
         return {filename, "cpp"};
     }
+    else if (matchEnding(".cc")) {
+        filename =
+            Token(filename.begin(), filename.end() - 3, filename.location);
+        return {filename, "cpp"};
+    }
     else if (matchEnding(".cppm")) {
         filename =
             Token(filename.begin(), filename.end() - 5, filename.location);
