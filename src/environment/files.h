@@ -210,7 +210,7 @@ public:
                     if (endingPos != string::npos) {
                         if (endingPos == file.size() - ending.size() &&
                             file.find(fileNameBeginning) == 0) {
-                            addIfFile(joinPaths(directory, file));
+                            addIfFile(file);
                         }
                     }
                 }
@@ -325,17 +325,11 @@ public:
     std::vector<std::string> listRecursive(
         std::string directory) const override {
 
-        auto list = listFiles(directory);
-        auto ret = list;
+        auto ret = std::vector<std::string>{};
+        ret.reserve(100);
 
-        for (auto &f : list) {
-            if (isDirectory(directory + "/" + f)) {
-                auto subList = listRecursive(directory + "/" + f);
-                for (auto &s : subList) {
-                    s = f + "/" + s;
-                }
-                ret.insert(ret.end(), subList.begin(), subList.end());
-            }
+        for (auto it : filesystem::recursive_directory_iterator{directory}) {
+            ret.push_back(it.path().string());
         }
 
         return ret;
