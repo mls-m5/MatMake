@@ -7,7 +7,7 @@
 //! Used to mock std::fstream
 inline std::ifstream fileFromSs(std::istringstream &ss) {
     std::ifstream file;
-    static_cast<std::ios&>(file).rdbuf(ss.rdbuf());
+    static_cast<std::ios &>(file).rdbuf(ss.rdbuf());
     return file;
 }
 
@@ -24,15 +24,17 @@ public:
                  (std::string command),
                  const override);
 
-    MOCK_METHOD1( int, system, (const std::string &command), const  override);
+    MOCK_METHOD1(int, system, (const std::string &command), const override);
 
     MOCK_METHOD1(time_t,
                  getTimeChanged,
                  (const std::string &path),
                  const override);
 
-
-    MOCK_METHOD1(std::ifstream, openRead,(const std::string &path), const override);
+    MOCK_METHOD1(std::ifstream,
+                 openRead,
+                 (const std::string &path),
+                 const override);
 
     MOCK_METHOD0(std::string, currentDirectory, (), const override);
 

@@ -2,12 +2,18 @@
 
 #pragma once
 
-#include "environment/files.h" // for popen macros
+//#include "environment/files.h" // for popen macros
 #include "main/merror.h"
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+
+#if defined(_WIN32) or defined(__MINGW32__)
+#define popen _popen
+#define pclose _pclose
+#include <windows.h>
+#endif
 
 class POpenStream : public std::istream {
 private:
@@ -50,9 +56,8 @@ private:
 
 public:
     POpenStream(std::string command)
-        : std::istream(&buffer), buffer(command) {
-//        rdbuf(&buffer);
-    }
+        : std::istream(&buffer)
+        , buffer(command) {}
 
     POpenStreamBuf buffer;
 };

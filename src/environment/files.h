@@ -1,39 +1,66 @@
 #pragma once
 
+#include "environment/ifiles.h"
+#include "environment/popenstream.h"
 #include "main/matmake-common.h"
 #include "main/mdebug.h"
 #include "main/merror.h"
 #include "main/token.h"
 #include <array>
+#include <chrono>
 #include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-#include <cstdio> //For FILENAME_MAX
+//#if defined(_WIN32) or defined(__MINGW32__)
+//#define popen _popen
+//#define pclose _pclose
+//#include <windows.h>
+//#endif
 
-#ifdef _WIN32
-#include <direct.h>
-#define GetCurrentDir _getcwd
-#define popen _popen
-#define pclose _pclose
-#include <windows.h>
+//#include <cstdio> //For FILENAME_MAX
+
+//#ifdef _WIN32
+//#include <direct.h>
+//#define GetCurrentDir _getcwd
+//#define popen _popen
+//#define pclose _pclose
+//#include <windows.h>
 
 #ifdef CopyFile
 #undef CopyFile
 #endif
 
-#else
-#include <unistd.h>
-#define GetCurrentDir getcwd
-#include <sys/stat.h>
-#include <sys/types.h>
-
-#include <dirent.h>
-#include <unistd.h>
+#ifdef max
+#undef max
 #endif
 
-#include "environment/ifiles.h"
+#ifdef min
+#undef min
+#endif
+
+//#else
+//#include <unistd.h>
+//#define GetCurrentDir getcwd
+//#include <sys/stat.h>
+//#include <sys/types.h>
+
+//#include <dirent.h>
+//#include <unistd.h>
+//#endif
+
+#if __has_include(<filesystem>)
+
+#include <filesystem>
+namespace filesystem = std::filesystem;
+
+#else
+
+#include <experimental/filesystem>
+namespace filesystem = std::experimental::filesystem;
+
+#endif
 
 // Joins two paths and makes sure that the path separator does not
 // end up in the beginning of the new path
@@ -57,13 +84,26 @@ inline std::string getDirectory(std::string path) {
 }
 
 inline std::string getFilename(std::string path, std::string whenNoDir = ".") {
-    auto f = path.rfind('/');
-    if (f != std::string::npos) {
-        return path.substr(f + 1);
+    if (whenNoDir.empty()) {
+
+        return filesystem::path{path}.filename().string();
     }
     else {
-        return whenNoDir;
-    };
+        auto f = filesystem::path{path}.filename().string();
+        if (f.empty()) {
+            return whenNoDir;
+        }
+        else {
+            return f;
+        }
+    }
+    //    auto f = path.rfind('/');
+    //    if (f != std::string::npos) {
+    //        return path.substr(f + 1);
+    //    }
+    //    else {
+    //        return whenNoDir;
+    //    };
 }
 
 inline std::pair<Token, Token> stripFileEnding(Token filename,
@@ -210,18 +250,19 @@ public:
         return ret;
     }
 
-    int system(const std::string& command) const override {
+    int system(const std::string &command) const override {
         return std::system(command.c_str());
     }
 
+    //! It might not return real time t, but it is a usable value so whatever
     time_t getTimeChanged(const std::string &path) const override {
-        struct stat file_stat;
-        int err = stat(path.c_str(), &file_stat);
-        if (err != 0) {
-            // dout << "notice: file does not exist: " << path << endl;
+        if (!filesystem::exists(path)) {
             return 0;
         }
-        return file_stat.st_mtime;
+        else {
+            auto t = filesystem::last_write_time(path);
+            return t.time_since_epoch().count();
+        }
     }
 
     std::ifstream openRead(const std::string &path) const override {
@@ -233,18 +274,14 @@ public:
         return file;
     }
 
-    // adapted from
-    // https://stackoverflow.com/questions/143174/how-do-i-get-the-directory-that-a-program-is-running-from
     std::string currentDirectory() const override {
-        std::array<char, FILENAME_MAX> currentPath;
-        if (!GetCurrentDir(currentPath.data(), sizeof(currentPath))) {
-            throw std::runtime_error("could not get current working directory");
-        }
-        return currentPath.data();
+        return filesystem::current_path().string();
     }
 
     bool currentDirectory(std::string directory) const override {
-        return chdir(directory.c_str());
+        std::error_code ec;
+        filesystem::current_path(directory, ec);
+        return ec.value();
     }
 
     std::vector<std::string> listFiles(std::string directory) const override {
@@ -256,49 +293,15 @@ public:
             directory = ".";
         }
 
-#ifdef _WIN32
-        WIN32_FIND_DATA findData;
-        HANDLE fileHandle = FindFirstFileA(directory.c_str(), &findData);
-        if (fileHandle != INVALID_HANDLE_VALUE) {
-            while (FindNextFile(fileHandle, &findData)) {
-                string name = findData.cFileName;
+        for (auto it : filesystem::directory_iterator{directory}) {
+            ret.push_back(it.path().string());
+        }
 
-                if (name != "." && name != "..") {
-                    ret.emplace_back(name);
-                }
-            }
-            FindClose(fileHandle);
-        }
         return ret;
-#else
-        DIR *dir = opendir(directory.c_str());
-        struct dirent *ent;
-
-        if (dir) {
-            while ((ent = readdir(dir))) {
-                string name = ent->d_name;
-                if (name != "." && name != "..") {
-                    ret.emplace_back(name);
-                }
-            }
-            closedir(dir);
-        }
-        else {
-            throw runtime_error("could not open directory " + directory);
-        }
-        return ret;
-#endif
     }
 
     bool isDirectory(const std::string &path) const override {
-        struct stat file_stat;
-        int err = stat(path.c_str(), &file_stat);
-        if (err != 0) {
-            // dout << "file or directory " << path << " does not exist" <<
-            // endl;
-            return false;
-        }
-        return file_stat.st_mode & S_IFDIR;
+        return filesystem::is_directory(path);
     }
 
     // Creates a directory if it does not exist

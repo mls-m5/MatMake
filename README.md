@@ -59,7 +59,7 @@ or in another folder
 matmake --init    path/for/project
 ```
 
-Install matmake on your system (globaly)
+Install matmake on your system (globaly) on Linux
 -------------------------------------------
 ```sh
 cd /tmp/
@@ -68,6 +68,14 @@ cd matmake
 make install
 ```
 
+On windows
+-------------
+With clang
+Make sure to be in a developer console
+
+```sh
+path/to/clang++.exe -Isrc -std=c++17 -fexceptions src/matmake.cpp -o matmake.exe
+```
 
 How does it look?
 ==========

@@ -32,3 +32,7 @@ test/testprojects/testproject/build/
 *.ilk
 *.pdb
 *.obj
+
+bin/
+.vs/
+.vscode/

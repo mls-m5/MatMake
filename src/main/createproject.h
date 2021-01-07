@@ -48,7 +48,9 @@ int createProject(std::string dir) {
     if (!dir.empty()) {
         files.createDirectory(dir);
 
-        if (chdir(dir.c_str())) {
+        std::error_code errorCode;
+        filesystem::create_directories(dir.c_str(), errorCode);
+        if (errorCode){
             std::cerr << "could not create directory " << dir << "\n";
             return -1;
         }

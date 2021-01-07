@@ -1,8 +1,8 @@
 #pragma once
 
 #include "main/token.h"
-#include <vector>
 #include <iosfwd>
+#include <vector>
 
 class IFiles {
 public:
@@ -23,6 +23,8 @@ public:
 
     virtual std::string currentDirectory() const = 0;
 
+    //! Sets current directory
+    //! @returns true on error
     virtual bool currentDirectory(std::string directory) const = 0;
 
     virtual std::vector<std::string> listFiles(std::string directory) const = 0;
