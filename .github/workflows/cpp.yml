@@ -21,4 +21,5 @@ jobs:
       working-directory: ./test
       run: ../matmake
     - name: run tests
+      working-directory: ./test
       run: ../matmake -C test
